@@ -14,10 +14,10 @@ class ETLItem(object):
         pass;
 
     def __str__(self):
-        return '%s:%s'(self.Name, self.ColumnName);
+        return '%s:%s'(self.Name, self.Column);
 
 
-#识别变量名字，然后改成Int/string
+# 识别变量名字，然后改成Int/string
 intattrs = re.compile('Max|Min|Count|Index|Interval|Position');
 boolre = re.compile('^(Can|Is)|Enable|Should|Have');
 rescript = re.compile('正则|提取数字')
@@ -64,16 +64,16 @@ def nullfilter(etl, data):
 
 # ('添加新列','转换')
 def AddNewcolumn(etl, data):
-    data[etl.NewColumnName] = etl.NewValue;
+    data[etl.NewColumn] = etl.NewValue;
 
 
 # ('自增键生成','转换')
 def Array2Multicolumn(etl, data):
-    v = data[etl.ColumnName];
+    v = data[etl.Column];
     if not isinstance(v, list):
         return False;
     for i in range(min(len(v), etl.Maxcolumn)):
-        data[etl.NewColumnName + str(i)] = v[i];
+        data[etl.NewColumn + str(i)] = v[i];
 
 
 # ('自增键生成','转换')
@@ -90,18 +90,18 @@ def BatchDelete(etl, data):
 
 # ('列名修改器','转换')
 def columnTransformer(etl, data):
-    if not etl.ColumnName in data:
+    if not etl.Column in data:
         return;
-    item = data[etl.ColumnName];
-    del data[etl.ColumnName];
-    if etl.NewColumnName != "":
-        data[etl.NewColumnName] = item;
+    item = data[etl.Column];
+    del data[etl.Column];
+    if etl.NewColumn != "":
+        data[etl.NewColumn] = item;
 
 
 # ('删除该列','转换')
 def Deletecolumn(etl, data):
-    if etl.ColumnName in data:
-        del data[etl.ColumnName];
+    if etl.Column in data:
+        del data[etl.Column];
 
 
 # ('类型转换器','转换')
@@ -137,7 +137,7 @@ def URLConvert(etl, data):
 def RegexSplit(etl, data):
     items = re.split(etl.Regex, data)
     if etl.TargetDataType == 'ARRAY':
-        data[etl.NewColumnName] = items;
+        data[etl.NewColumn] = items;
     else:
         if len(items) <= etl.Index:
             return "";
@@ -157,11 +157,11 @@ def Merge(etl, data):
         columns = [];
     else:
         columns = [str(data[r]) for r in etl.MergeWith.split(' ')]
-    columns.insert(0, data[etl.ColumnName] if etl.ColumnName in data else '');
+    columns.insert(0, data[etl.Column] if etl.Column in data else '');
     res = etl.Format;
     for i in range(len(columns)):
         res = res.replace('{' + str(i) + '}', str(columns[i]))
-    key = etl.NewColumnName if etl.NewColumnName != '' else etl.ColumnName;
+    key = etl.NewColumn if etl.NewColumn != '' else etl.Column;
     data[key] = res;
 
 
@@ -229,19 +229,19 @@ def StringRange(etl, data):
 
 # ('脚本引擎转换器','转换')
 def PythonScript(etl, data):
-    value = data[etl.ColumnName];
-    key = etl.NewColumnName if etl.NewColumnName != '' else etl.ColumnName;
+    value = data[etl.Column];
+    key = etl.NewColumn if etl.NewColumn != '' else etl.Column;
     data[key] = eval(etl.Script);
 
 
 # 网页爬虫抓取器
 def CrawlHTML(etl, data):
     crawler = etl.crawler;
-    url = data[etl.ColumnName];
+    url = data[etl.Column];
     datas = crawler.CrawData(url);
     if etl.crawler.IsMultiData == 'List':
         for d in datas:
-            res = extends.MergeQuery(d, data, etl.NewColumnName);
+            res = extends.MergeQuery(d, data, etl.NewColumn);
             yield res;
     else:
         data = extends.Merge(data, datas);
@@ -251,15 +251,15 @@ def CrawlHTML(etl, data):
 def XPathTransformer(etl, datas):
     if etl.IsManyData:
         for data in datas:
-            tree = spider.GetHtmlTree(data[etl.ColumnName]);
+            tree = spider.GetHtmlTree(data[etl.Column]);
             nodes = tree.xpath(etl.XPath);
             for node in nodes:
                 ext = {'Text': node.text, 'HTML': node.html, 'OHTML': node.parent.html};
                 yield extends.MergeQuery(data, ext, etl.NewColumn);
     else:
-        tree = spider.GetHtmlTree(datas[etl.ColumnName]);
+        tree = spider.GetHtmlTree(datas[etl.Column]);
         nodes = tree.xpath(etl.XPath);
-        datas[etl.NewColumnName] = nodes[0].text;
+        datas[etl.NewColumn] = nodes[0].text;
         yield datas;
 
 
@@ -269,7 +269,7 @@ def tolist(etl, data):
 
 # json转换器
 def JsonTrans(etl, data):
-    js = json.loads(data[etl.ColumnName]);
+    js = json.loads(data[etl.Column]);
     if isinstance(js, list):
         for j in js:
             yield j;
@@ -299,7 +299,7 @@ def RangeGene(etl, data):
     for i in range(minvalue, maxvalue, interval):
         j = repeat;
         while j > 0:
-            item = {etl.ColumnName: round(i, 5)};
+            item = {etl.Column: round(i, 5)};
             yield item;
             j -= 1;
 
@@ -307,7 +307,7 @@ def RangeGene(etl, data):
 # 从文本生成
 def TextGene(etl, data):
     for i in range(etl.Position, len(etl.arglists)):
-        yield {etl.ColumnName: etl.arglists[i]}
+        yield {etl.Column: etl.arglists[i]}
 
 
 # 从文件读写，CSV,XLSX,
@@ -344,11 +344,11 @@ def FileOper(etl, data, type):
         for etool in root:
             p = {r: etool.attrib[r] for r in etool.attrib};
             yield p;
-    elif filetype=='xml' and type=='w':
+    elif filetype == 'xml' and type == 'w':
         pass;
-    elif filetype=='json':
-        if type=='r':
-            items= json.load(open(path,encoding=encode));
+    elif filetype == 'json':
+        if type == 'r':
+            items = json.load(open(path, encoding=encode));
             for r in items:
                 yield r;
         else:
@@ -357,8 +357,9 @@ def FileOper(etl, data, type):
                 json.write(r)
                 yield r;
             json.close()
-            json.dump([r for r in data],open(path,type,encode));
-            #json.dumps()
+            json.dump([r for r in data], open(path, type, encode));
+            # json.dumps()
+
 
 # 从数据库读取,MONGODB,SQL...
 def ConnectorGene(etl, data, type):
@@ -368,7 +369,7 @@ def ConnectorGene(etl, data, type):
 # 保存超链接文件
 def SaveFileExe(etl, data):
     save_path = extends.Query(data, etl.SavePath);
-    urllib.request.urlretrieve(data[etl.ColumnName], save_path)
+    urllib.request.urlretrieve(data[etl.Column], save_path)
 
 
 filterdict = {'正则筛选器': regexfilter, '数量范围选择': RangeFilter, '数值范围过滤器': rangefilter, '重复项过滤': repeatfilter,
@@ -385,8 +386,8 @@ genedict = {'生成区间数': RangeGene, '从文本生成': TextGene, '从文�
 def filter(tool, data):
     for r in data:
         item = None;
-        if tool.ColumnName in r:
-            item = r[tool.ColumnName];
+        if tool.Column in r:
+            item = r[tool.Column];
         if item is None and tool.Type != '空对象过滤器':
             continue;
 
@@ -399,25 +400,25 @@ def filter(tool, data):
 
 def transform(tool, data):
     func = transformdict[tool.Type];
-    if tool.IsMultiData:  # one to many
+    if tool.IsMultiYield:  # one to many
         for r in data:
             for p in func(tool, r):
                 yield p;
         return;
     for d in data:  # one to one
-        if tool.ShouldContainName:
-            if tool.ColumnName not in d:
+        if tool.AllColumn:
+            if tool.Column not in d:
                 yield d;
                 continue;
-            item = d[tool.ColumnName];
+            item = d[tool.Column];
             if item is None:
                 yield d;
                 continue;
             res = func(tool, item);
-            if tool.NewColumnName != '':
-                d[tool.NewColumnName] = res;
+            if tool.NewColumn != '':
+                d[tool.NewColumn] = res;
             else:
-                d[tool.ColumnName] = res;
+                d[tool.Column] = res;
         else:
             func(tool, d);
         yield d;
@@ -510,7 +511,7 @@ class ETLTool(object):
 
     def ETLInit(self, etl, root):
         if rescript.match(etl.Type):
-            etl.Regex = re.compile(etl.ScriptCode);
+            etl.Regex = re.compile(etl.Script);
         if etl.Type == '删除重复项':
             etl.set = [];
         elif etl.Type == '自增键生成':
@@ -518,11 +519,11 @@ class ETLTool(object):
         elif etl.Type == '批量删除列':
             etl.columns = etl.Editcolumn.split(' ');
         elif etl.Type in ['正则转换器', '提取数字', '清除空白符', 'URL字符转义', '正则过滤器']:
-            etl.ShouldContainName = True;
+            etl.AllColumn = True;
         elif etl.Type in ['合并多列', '删除该列', '列名修改器', '脚本引擎转换器']:
-            etl.ShouldContainName = False;
+            etl.AllColumn = False;
         elif etl.Type in ['从爬虫转换', 'XPath筛选器', '列表实例化']:
-            etl.IsMultiData = True;
+            etl.IsMultiYield = True;
         elif etl.Type == '从文本生成':
             etl.arglists = [r.strip() for r in etl.Content.split('\n')];
         if etl.Type == '从爬虫转换':
@@ -558,6 +559,3 @@ class ETLTool(object):
                 pass;
             index += 1;
         return generator;
-
-
-
