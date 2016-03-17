@@ -1,0 +1,71 @@
+<root>
+  <Doc Name="" Description="" Version="0" SavePath="D:\我的工程.xml" IsAutoBuildMode="False">
+   <Children Collection="(空)" OutputCollection="" Name="数据清洗ETL-python" ExecuteCommand="清空所有工具" Type="数据清洗ETL" DelayTime="200" BatchMount="1" GenerateMode="串行模式" TypeName="普通任务" CreateTime="2016/3/15 14:48:56" Description="任务描述" Children="System.Collections.Generic.List`1[XFrmWork.Data.Interface.FreeDocument]">
+      <Children MinValue="1" MaxValue="20" Interval="1" RepeatCount="1" MaxGenerateCount="0" ColumnName="temp" Enabled="True" Priority="0" Position="0" MergeType="Append" Type="生成区间数" Group="生成" />
+      <Children MinValue="1" MaxValue="40" Interval="2" RepeatCount="1" MaxGenerateCount="0" ColumnName="temp2" Enabled="True" Priority="0" Position="0" MergeType="Merge" Type="生成区间数" Group="生成" />
+      <Children Script="data['temp']+ data['temp2']" ColumnName="temp" NewColumnName="result" Enabled="True" ShouldContainName="True" TargetDataType="STRING" Type="脚本引擎转换器" Group="转换" IsMultiData="False" />
+    </Children>
+	
+	 <Children Collection="(空)" OutputCollection="" Name="网页采集器-大众点评" ExecuteCommand="默认命令" Type="网页采集器" URL="http://www.dianping.com/search/category/2/10/g110" IsMultiData="List" URLFilter="" ContentFilter="" TypeName="普通任务" CreateTime="2016/2/11 12:50:42" Description="任务描述" Children="System.Collections.Generic.List`1[XFrmWork.Data.Interface.FreeDocument]">
+      <HttpSet URL="http://www.dianping.com/search/category/2/10/g110" Allowautoredirect="False" Postdata="" Encoding="Unknown" Method="GET" Parameters="Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8&#xA;Cookie:s_ViewType=10;Domain=.dianping.com;Expires=Fri;10-Feb-2018 04:38:45 GMT=;Path=/;JSESSIONID=315E49CCAE5A19F4D393EEEA49E8DC6A;aburl=1;10-Feb-2017 04:38:46 GMT=;cy=2;cye=beijing;10-Feb-2018 04:18:40 GMT=;10-Feb-2017 04:18:41 GMT=;navCtgScroll=0;showNav=#nav-tab|0|1;_hc.v=&quot;\&quot;7ebbc90d-1288-4f90-bf2f-e6bcd3e653c1.1446514502\&quot;&quot;;PHOENIX_ID=0a01842d-152ce8c9958-c7b287&#xA;Host:www.dianping.com&#xA;Referer:http://www.dianping.com/search/category/2/10/g0r0&#xA;User-Agent:Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36&#xA;Accept-Encoding:gzip,deflate,sdch&#xA;Accept-Language:zh-CN,zh;q=0.8&#xA;Cache-Control:max-age=0&#xA;Connection:keep-alive&#xA;" />
+      <Proxy ProxyStrategy="NoAgent" MaxVisitCount="100000" CurrentAgentIndex="0">
+        <ParaGenerator MaxGenerateCount="0" ColumnName="ProxyIp" Enabled="True" Priority="0" Position="0" MergeType="Append" Type="从文本生成" Group="生成" />
+      </Proxy>
+      <Children Name="名称" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[1]/div[1]/a[1]/img[1]/@title[1]" IsHtml="False" />
+      <Children Name="图片" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[1]/div[1]/a[1]/img[1]/@data-src[1]" IsHtml="False" />
+      <Children Name="id" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[1]/div[1]/a[1]/@href[1]" IsHtml="False" />
+      <Children Name="是否分店" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[1]/a[2]" IsHtml="False" />
+      <Children Name="登记" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[1]/div[2]/div[2]/span[1]/@title[1]" IsHtml="False" />
+      <Children Name="点评数" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[2]/a[1]/b[1]" IsHtml="False" />
+      <Children Name="人均" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[2]/a[2]/b[1]" IsHtml="False" />
+      <Children Name="分类" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[3]/a[1]/span[1]" IsHtml="False" />
+      <Children Name="地址" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[3]/span[1]" IsHtml="False" />
+      <Children Name="口味" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[1]/div[2]/span[1]/span[1]/b[1]" IsHtml="False" />
+      <Children Name="环境" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[2]/div[2]/span[1]/span[2]/b[1]" IsHtml="False" />
+      <Children Name="服务" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[1]/div[2]/span[1]/span[3]/b[1]" IsHtml="False" />
+      <Children Name="商区" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[1]/div[2]/ul[1]/li[13]/div[2]/div[3]/a[2]/span[1]" IsHtml="False" />
+    </Children>
+    <Children Collection="(空)" OutputCollection="" Name="数据清洗ETL-大众点评" ExecuteCommand="清空所有工具" Type="数据清洗ETL" DelayTime="30000" BatchMount="1" GenerateMode="并行模式" TypeName="普通任务" CreateTime="2016/2/11 12:50:45" Description="任务描述" Children="System.Collections.Generic.List`1[XFrmWork.Data.Interface.FreeDocument]">
+      <Children FilePath="C:\Users\zhaoyiming-laptop\Desktop\type.xml" EncodingType="UTF8" MaxGenerateCount="0" ColumnName="id" Enabled="True" Priority="0" Position="0" MergeType="Append" Type="从文件中读取" Group="生成" />
+      <Children ColumnName="OHTML" NewColumnName="OHTML2" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="列名修改器" Group="转换" IsMultiData="False" />
+      <Children ColumnName="Text" NewColumnName="Text2" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="列名修改器" Group="转换" IsMultiData="False" />
+      <Children FilePath="C:\Users\zhaoyiming-laptop\Desktop\region.xml" EncodingType="UTF8" MaxGenerateCount="0" ColumnName="id" Enabled="True" Priority="0" Position="0" MergeType="Cross" Type="从文件中读取" Group="生成" />
+      <Children MinValue="1" MaxValue="50" Interval="1" RepeatCount="1" MaxGenerateCount="0" ColumnName="id" Enabled="True" Priority="0" Position="0" MergeType="Cross" Type="生成区间数" Group="生成" />
+      <Children MergeWith="OHTML id" Format="http://www.dianping.com/{0}{1}p{2}" ColumnName="OHTML2" NewColumnName="url" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="合并多列" Group="转换" IsMultiData="False" />
+      <Children ColumnName="id" NewColumnName="id2" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="列名修改器" Group="转换" IsMultiData="False" />
+      <Children CrawlerSelector="网页采集器-大众点评" ColumnName="url" NewColumnName="id2 Text" Enabled="True" ShouldContainName="True" TargetDataType="STRING" Type="从爬虫转换" Group="转换" IsMultiData="True" />
+      <Children ExecuteType="OnlyInsert" NewTaleName="dazhongfood" ColumnName="名称" Enabled="True" Priority="0" Type="数据库操作" Group="执行" Connector="MongoDB数据库" />
+      <Children NewTableName="food" ColumnName="名称" Enabled="True" Priority="0" Type="对数据表操作" Group="执行" />
+    </Children>
+	 <Children Collection="(空)" OutputCollection="" Name="数据清洗ETL-链家二手房" ExecuteCommand="清空所有工具" Type="数据清洗ETL" DelayTime="200" BatchMount="1" GenerateMode="串行模式" TypeName="普通任务" CreateTime="2016/3/15 13:04:12" Description="任务描述" Children="System.Collections.Generic.List`1[XFrmWork.Data.Interface.FreeDocument]">
+      <Children MinValue="1" MaxValue="20" Interval="1" RepeatCount="1" MaxGenerateCount="0" ColumnName="id" Enabled="True" Priority="0" Position="0" MergeType="Append" Type="生成区间数" Group="生成" />
+      <Children MergeWith="" Format="http://bj.lianjia.com/ershoufang/pg{0}/" ColumnName="id" NewColumnName="url" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="合并多列" Group="转换" IsMultiData="False" />
+      <Children CrawlerSelector="网页采集器-链家二手房" ColumnName="url" NewColumnName="" Enabled="True" ShouldContainName="True" TargetDataType="STRING" Type="从爬虫转换" Group="转换" IsMultiData="True" />
+      <Children ConvertType="Decode" ColumnName="where_" NewColumnName="" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="HTML字符转义" Group="转换" IsMultiData="False" />
+      <Children ConvertType="Decode" ColumnName="属性3" NewColumnName="" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="HTML字符转义" Group="转换" IsMultiData="False" />
+      <Children IsManyData="False" Index="0" ScriptCode="(-?\d+)(\.\d+)?" NewColumnName="" ColumnName="col-3_price-pre" Enabled="True" ShouldContainName="True" TargetDataType="DOUBLE" Type="提取数字" Group="转换" IsMultiData="False" />
+      <Children ColumnName="col-3_price-pre" NewColumnName="单价" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="列名修改器" Group="转换" IsMultiData="False" />
+      <Children ColumnName="属性6" NewColumnName="区域" Enabled="True" ShouldContainName="False" TargetDataType="STRING" Type="列名修改器" Group="转换" IsMultiData="False" />
+    </Children>
+    <Children Collection="(空)" OutputCollection="" Name="网页采集器-链家二手房" ExecuteCommand="默认命令" Type="网页采集器" URL="http://bj.lianjia.com/ershoufang/pg2/" IsMultiData="List" URLFilter="" ContentFilter="" TypeName="普通任务" CreateTime="2016/3/15 13:04:15" Description="任务描述" Children="System.Collections.Generic.List`1[XFrmWork.Data.Interface.FreeDocument]">
+      <HttpSet URL="http://bj.lianjia.com/ershoufang/pg2/" Allowautoredirect="False" Postdata="" Encoding="Unknown" Method="GET" Parameters="Cookie:lianjia_uuid=4ad1da1f-8fb8-497a-8087-6d56c5313430;expires=Mon;05-Mar-2026 11:49:23 GMT=;Max-Age=315360000;path=/;domain=.lianjia.com;logger_session=f29b3d248467111a78cda6a2610cc72a;07-Mar-2016 14:49:23 GMT=;select_city=110000;30-Jan-2016 10:40:30 GMT=;29-Jan-2016 13:40:30 GMT=;26-Jan-26 10:42:35 GMT=&#xA;" />
+      <Proxy ProxyStrategy="NoAgent" MaxVisitCount="100000" CurrentAgentIndex="0">
+        <ParaGenerator MaxGenerateCount="0" ColumnName="ProxyIp" Enabled="True" Priority="0" Position="0" MergeType="Append" Type="从文本生成" Group="生成" />
+      </Proxy>
+      <Children Name="属性0" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[1]/div[2]/h2[1]/a[1]/@title[1]" IsHtml="False" />
+      <Children Name="属性1" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[2]/div[2]/h2[1]/a[1]" IsHtml="False" />
+      <Children Name="laisuzhou_" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[1]/div[2]/div[1]/div[1]/a[1]/span[1]" IsHtml="False" />
+      <Children Name="属性3" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[1]/div[1]/span[1]/span[1]" IsHtml="False" />
+      <Children Name="where_" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[1]/div[2]/div[1]/div[1]/span[2]" IsHtml="False" />
+      <Children Name="属性5" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[1]/div[1]/span[3]" IsHtml="False" />
+      <Children Name="属性6" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[1]/div[2]/div[1]/div[2]/div[1]/a[1]" IsHtml="False" />
+      <Children Name="属性7" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[1]/div[3]/div[1]/div[1]/span[2]/span[1]" IsHtml="False" />
+      <Children Name="属性8" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[1]/div[2]/div[1]/div[3]/div[1]/div[1]/span[4]/span[1]" IsHtml="False" />
+      <Children Name="属性9" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[1]/div[3]/div[1]/div[1]/span[6]/span[1]" IsHtml="False" />
+      <Children Name="col-3_price-pre" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[2]/div[2]/div[2]/div[2]" IsHtml="False" />
+      <Children Name="属性0" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[4]/div[2]/div[2]/div[1]/span[1]" IsHtml="False" />
+      <Children Name="属性1" XPath="/html[1]/body[1]/div[6]/div[3]/div[1]/div[2]/ul[1]/li[5]/div[2]/div[3]/div[1]/div[1]/span[1]" IsHtml="False" />
+    </Children>
+</Doc>
+</root>
+	

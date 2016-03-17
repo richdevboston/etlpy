@@ -560,10 +560,4 @@ class ETLTool(object):
         return generator;
 
 
-if __name__ == '__main__':
 
-    tool = ETLTool();
-    tool.LoadProject('D:\我的工程.xml', '数据清洗ETL-大众点评');
-    datas = tool.RefreshDatas();
-    for r in datas:
-        print(r)
