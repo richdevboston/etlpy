@@ -3,7 +3,7 @@ import gzip
 from io import StringIO
 
 import re
-import urllib
+import urllib.request
 import socket
 
 from lxml import etree
