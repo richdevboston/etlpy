@@ -131,7 +131,7 @@ def ReReplaceTF(etl, data):
 
 
 def RegexTF(etl, data):
-    item = re.findall(etl.Regex, data);
+    item = re.findall(etl.Regex, str(data));
     if etl.Index < 0:
         return '';
     if len(item) <= etl.Index:
@@ -190,7 +190,13 @@ def PythonTF(etl, data):
 def CrawlerTF(etl, data):
     crawler = etl.crawler;
     url = data[etl.Column];
-    datas = crawler.CrawData(url);
+    buff=etl.buff;
+    if url in buff:
+        datas=buff[url];
+    else:
+        datas = crawler.CrawData(url);
+        if len(buff)<100:
+            buff[url]=datas;
     if etl.crawler.IsMultiData == 'List':
         for d in datas:
             res = extends.MergeQuery(d, data, etl.NewColumn);
@@ -243,15 +249,15 @@ def RangeFT(etl, data):
 
 def EtlGE(etl, data):
     subetl = modules[etl.ETLSelector];
-
+    index=etl.Tool.AllETLTools.index(etl)
     def checkname(item, name):
         if hasattr(item, "Name") and item.Name == name:
             return True;
         return False;
 
-    tools = extends.Append((r for r in etl.Tool.AllETLTools if checkname(r, etl.Insert)),
+    tools = extends.Append((r for r in etl.Tool.AllETLTools[:index] if checkname(r, etl.Insert)),
                            (r for r in subetl.AllETLTools if not checkname(r, etl.Insert)))
-    for r in subetl.RefreshDatas2(tools):
+    for r in subetl.__generate__(tools):
         yield r;
 
 
@@ -478,13 +484,13 @@ class ETLTool(object):
             etl.arglists = [r.strip() for r in etl.Content.split('\n')];
         if etl.Func == CrawlerTF:
             etl.crawler = modules[etl.CrawlerSelector];
+            etl.buff={};
         if etl.Func in [RegexTF, NumberTF, TrimTF, UrlTF, RegexTF, SplitTF, HtmlTF]:
             etl.OneInput = True;
         else:
             etl.OneInput = False;
 
-    def RefreshDatas2(self, tools):
-        generator = None;
+    def __generate__(self, tools, generator=None, execute=False):
         for tool in tools:
             if tool.Group == 'Generator':
                 if generator is None:
@@ -500,10 +506,31 @@ class ETLTool(object):
                 generator = transform(tool, generator);
             elif tool.Group == 'Filter':
                 generator = filter(tool, generator);
-            elif tool.Group == 'Executor':
-                pass;
+            elif tool.Group == 'Executor' and execute:
+                pass
+                #generator = tool.Func(tool, generator);
 
         return generator;
 
-    def RefreshDatas(self, etlCount=100):
-        return self.RefreshDatas2((tool for tool in self.AllETLTools[:etlCount] if tool.Enabled));
+    def QueryDatas(self, etlCount=100, execute=False):
+        return self.__generate__((tool for tool in self.AllETLTools[:etlCount] if tool.Enabled), None, execute);
+
+    def mThreadExecute(self, threadcount=10):
+        import threadpool
+        pool = threadpool.ThreadPool(threadcount)
+        tools = [tool for tool in self.AllETLTools if tool.Enabled];
+        index = extends.getindex(tools, lambda d: d.Type == 'ToListTF');
+        if index == -1:
+            index=0;
+            tool=tools[index];
+            generator = tool.Func(tool,None);
+        else:
+            generator = self.__generate__(tools[:index]);
+        def Funcs(item):
+            mgenerator = self.__generate__(tools[index+1:], (r for r in [item]), True);
+            for r in mgenerator:
+                print(r)
+            print('finish' + str(item));
+        requests = threadpool.makeRequests(Funcs, generator);
+        [pool.putRequest(req) for req in requests]
+        pool.wait()
