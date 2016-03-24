@@ -1,9 +1,10 @@
 # encoding: UTF-8
-from etl import ETLTool
+import etl;
 
-tool = ETLTool();
-tool.LoadProject('project.xml', '数据清洗ETL-链家二手房');
-datas = tool.RefreshDatas();
+
+etl.LoadProject('D:\我的工程.xml');
+tool=etl.modules['数据清洗ETL-链家二手房'];
+datas = tool.RefreshDatas(etlCount=100)
 i = 0;
 for r in datas:
     try:
@@ -11,5 +12,5 @@ for r in datas:
     except:
         pass;
     i += 1;
-    if i > 200:
+    if i > 500:
         break;

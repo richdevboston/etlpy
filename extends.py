@@ -6,7 +6,7 @@ spacern = re.compile("(^\r\n?)|(\r\n?$)")
 
 
 def SaveFile(name, lines):
-    f = open(name, 'w', encoding= 'utf-8');
+    f = open(name, 'w', encoding='utf-8');
     if isinstance(lines, list) == True:
         for r in lines:
             f.write(str(r) + '\r');
@@ -16,7 +16,7 @@ def SaveFile(name, lines):
 
 
 def ReadFile(filename):
-    f = open(filename, 'r',encoding= 'utf-8');
+    f = open(filename, 'r', encoding='utf-8');
     r = f.read();
     f.close();
     return r;
@@ -27,13 +27,15 @@ def ReplaceLongSpace(txt):
     r = spacern.subn('', r)[0]
     return r;
 
-def Merge(d1,d2):
+
+def Merge(d1, d2):
     for r in d2:
-        d1[r]=d2[r];
+        d1[r] = d2[r];
     return d1;
 
+
 def MergeQuery(d1, d2, columns):
-    if isinstance(columns, str):
+    if isinstance(columns, str) and columns.strip() != "":
         columns = columns.split(' ');
     for r in columns:
         if r in d2:
@@ -116,14 +118,12 @@ def getindex(iteral, func):
     return -1;
 
 
-
-def Cross(a,genefunc,tool):
+def Cross(a, genefunc, tool):
     for r1 in a:
-        for r2 in genefunc(tool,r1):
+        for r2 in genefunc(tool, r1):
             for r3 in r2:
-                r1[r3]=r2[r3]
+                r1[r3] = r2[r3]
             yield r1;
-
 
 
 def MergeAll(a, b):
@@ -185,4 +185,3 @@ def WriteHTMLHeader(file):
 def WriteHTMLEnd(file):
     file.write('''</body>
 </html>''');
-

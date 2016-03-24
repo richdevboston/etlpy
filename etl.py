@@ -19,7 +19,7 @@ class ETLItem(object):
 
 # 识别变量名字，然后改成Int/string
 intattrs = re.compile('Max|Min|Count|Index|Interval|Position');
-boolre = re.compile('^(Can|Is)|Enable|Should|Have');
+boolre = re.compile('^(One|Can|Is)|Enable|Should|Have');
 rescript = re.compile('正则|提取数字')
 
 
@@ -64,28 +64,13 @@ def nullfilter(etl, data):
 
 # ('添加新列','转换')
 def AddNewcolumn(etl, data):
-    data[etl.NewColumn] = etl.NewValue;
-
-
-# ('自增键生成','转换')
-def Array2Multicolumn(etl, data):
-    v = data[etl.Column];
-    if not isinstance(v, list):
-        return False;
-    for i in range(min(len(v), etl.Maxcolumn)):
-        data[etl.NewColumn + str(i)] = v[i];
+    return etl.NewValue;
 
 
 # ('自增键生成','转换')
 def AutoIndex(etl, data):
     etl.currindex += 1;
     return etl.currindex;
-
-
-# ('批量删除列','转换')
-def BatchDelete(etl, data):
-    for r in etl.columns:
-        del data[r];
 
 
 # ('列名修改器','转换')
@@ -136,19 +121,16 @@ def URLConvert(etl, data):
 # ('正则分割','转换')
 def RegexSplit(etl, data):
     items = re.split(etl.Regex, data)
-    if etl.TargetDataType == 'ARRAY':
-        data[etl.NewColumn] = items;
+    if len(items) <= etl.Index:
+        return data;
+    if not etl.FromBack:
+        return items[etl.Index];
     else:
-        if len(items) <= etl.Index:
-            return "";
-        if not etl.FromBack:
-            return items[etl.Index];
+        index = len(items) - etl.Index - 1;
+        if index < 0:
+            return data;
         else:
-            index = len(items) - etl.Index - 1;
-            if index < 0:
-                return "";
-            else:
-                return items[index];
+            return items[index];
 
 
 # ('合并多列','转换')
@@ -161,8 +143,7 @@ def Merge(etl, data):
     res = etl.Format;
     for i in range(len(columns)):
         res = res.replace('{' + str(i) + '}', str(columns[i]))
-    key = etl.NewColumn if etl.NewColumn != '' else etl.Column;
-    data[key] = res;
+    return res;
 
 
 # ('正则替换','转换')
@@ -179,8 +160,9 @@ def RegexTransform(etl, data):
         return '';
     else:
         r = item[etl.Index];
-        r = r[0]
-        return r;
+        if isinstance(r, str):
+            return r;
+        return r[0];
 
 
 # ('提取数字','转换')
@@ -191,23 +173,15 @@ def SelectNumber(etl, data):
     return t;
 
 
-# ('获取长度','转换')
-def GetLength(etl, data):
-    return len(data);
-
-
-# ('按字符分割','转换')
-def SplitByChar(etl, data):
-    return [r for r in data];
-
-
 def SplitByArray(etl, data):
     splits = etl.SplitChar.split(' ');
+    sp = splits[0]
+    if sp == '':
+        return data;
     r = data.split(splits[0])[etl.Index];
     return r;
 
 
-# ('字符首尾抽取','转换')
 def TrimData(etl, data):
     return data.strip();
 
@@ -227,11 +201,16 @@ def StringRange(etl, data):
     return data[start:end];
 
 
-# ('脚本引擎转换器','转换')
+# ('脚本引擎转换器')
 def PythonScript(etl, data):
     value = data[etl.Column];
-    key = etl.NewColumn if etl.NewColumn != '' else etl.Column;
-    data[key] = eval(etl.Script);
+    if len(etl.Script.split('\n'))==1:
+        result = eval(etl.Script,None,data);
+        if result is not None:
+            key = etl.NewColumn if etl.NewColumn != '' else etl.Column;
+            data[key] = result;
+    else:
+        exec(etl.Script,None,data);
 
 
 # 网页爬虫抓取器
@@ -248,19 +227,20 @@ def CrawlHTML(etl, data):
         yield data;
 
 
-def XPathTransformer(etl, datas):
+def XPathTransformer(etl, data):
+    from lxml import etree
     if etl.IsManyData:
-        for data in datas:
-            tree = spider.GetHtmlTree(data[etl.Column]);
-            nodes = tree.xpath(etl.XPath);
-            for node in nodes:
-                ext = {'Text': node.text, 'HTML': node.html, 'OHTML': node.parent.html};
-                yield extends.MergeQuery(data, ext, etl.NewColumn);
-    else:
-        tree = spider.GetHtmlTree(datas[etl.Column]);
+        tree = spider.GetHtmlTree(data[etl.Column]);
         nodes = tree.xpath(etl.XPath);
-        datas[etl.NewColumn] = nodes[0].text;
-        yield datas;
+        for node in nodes:
+            ext = {'Text': spider.getnodetext(node), 'HTML': etree.tostring(node).decode('utf-8')};
+            ext['OHTML'] = ext['HTML']
+            yield extends.MergeQuery(ext, data, etl.NewColumn);
+    else:
+        tree = spider.GetHtmlTree(data[etl.Column]);
+        nodes = tree.xpath(etl.XPath);
+        data[etl.NewColumn] = nodes[0].text;
+        yield data;
 
 
 def tolist(etl, data):
@@ -287,6 +267,20 @@ def RangeFilter(etl, data):
             continue;
         if i >= take:
             break;
+        yield r;
+
+
+def ETLGene(etl, data):
+    subetl = modules[etl.ETLSelector];
+
+    def checkname(item, name):
+        if hasattr(item, "Name") and item.Name == name:
+            return True;
+        return False;
+
+    tools = extends.Append((r for r in etl.Tool.AllETLTools if checkname(r, etl.Insert)),
+                           (r for r in subetl.AllETLTools if not checkname(r, etl.Insert)))
+    for r in subetl.RefreshDatas2(tools):
         yield r;
 
 
@@ -374,13 +368,14 @@ def SaveFileExe(etl, data):
 
 filterdict = {'正则筛选器': regexfilter, '数量范围选择': RangeFilter, '数值范围过滤器': rangefilter, '重复项过滤': repeatfilter,
               '空对象过滤器': nullfilter};
-transformdict = {'添加新列': AddNewcolumn, '数组转多列': Array2Multicolumn, '自增键生成': AutoIndex, '批量删除列': BatchDelete,
+transformdict = {'添加新列': AddNewcolumn, '自增键生成': AutoIndex,
                  '列名修改器': columnTransformer, '删除该列': Deletecolumn, '类型转换器': DataFormat, 'HTML字符转义': HtmlConvert,
                  'URL字符转义': URLConvert, '正则分割': RegexSplit, '合并多列': Merge, '正则替换': RegexReplace,
-                 '正则转换器': RegexTransform, '提取数字': SelectNumber, '获取长度': GetLength, '按字符分割': SplitByChar,
-                 '清除空白符': TrimData, '数列分割': SplitByArray, 'XPath筛选器': XPathTransformer, '列表实例化': tolist,
-                 '字符首尾抽取': StringRange, '脚本引擎转换器': PythonScript, '转换为Json': JsonTrans, '从爬虫转换': CrawlHTML};
-genedict = {'生成区间数': RangeGene, '从文本生成': TextGene, '从文件中读取': lambda etl, data: FileOper(etl, data, 'r')};
+                 '正则转换器': RegexTransform, '提取数字': SelectNumber,
+                 '清除空白符': TrimData, '字符串分割': SplitByArray, 'XPath筛选器': XPathTransformer, '列表实例化': tolist,
+                 '字符首尾抽取': StringRange, 'Python转换器': PythonScript, '转换为Json': JsonTrans, '从爬虫转换': CrawlHTML};
+genedict = {'生成区间数': RangeGene, '从文本生成': TextGene, '从ETL生成': ETLGene,
+            '从文件中读取': lambda etl, data: FileOper(etl, data, 'r')};
 
 
 def filter(tool, data):
@@ -406,21 +401,18 @@ def transform(tool, data):
                 yield p;
         return;
     for d in data:  # one to one
-        if tool.AllColumn:
-            if tool.Column not in d:
+        if tool.OneOutput:
+            if tool.Column not in d or tool.Column not in d:
                 yield d;
                 continue;
-            item = d[tool.Column];
-            if item is None:
-                yield d;
-                continue;
-            res = func(tool, item);
+            item = d[tool.Column] if tool.OneInput else d;
+            res = func(tool, item)
             if tool.NewColumn != '':
-                d[tool.NewColumn] = res;
+                d[tool.NewColumn] = res
             else:
-                d[tool.Column] = res;
+                d[tool.Column] = res
         else:
-            func(tool, d);
+            func(tool, d)
         yield d;
 
 
@@ -452,64 +444,76 @@ def InitFromHttpItem(config, item):
         item.postdata = None;
 
 
-def InitFromCrawler(etl, root):
-    import spider;
-    etl.crawler = spider.SmartCrawler();
-    crawltask = GetChildNode(root, etl.CrawlerSelector);
-    etl.crawler.Name = crawltask.attrib['Name'];
-    etl.crawler.IsMultiData = crawltask.attrib['IsMultiData']
-    httpconfig = GetChildNode(crawltask, 'HttpSet');
-    InitFromHttpItem(httpconfig, etl.crawler.HttpItem);
-    login = GetChildNode(crawltask, 'Login');
-    if login is not None:
-        etl.crawler.Login = spider.HTTPItem();
-        InitFromHttpItem(login, etl.crawler.Login);
+modules = {};
 
-    etl.crawler.CrawItems = [];
-    for child in crawltask:
-        if child.tag == 'Children':
-            crawitem = spider.CrawItem(child.attrib['Name']);
-            crawitem.XPath = str(spider.XPath(spider.XPath(child.attrib['XPath'])[1:]))
-            etl.crawler.CrawItems.append(crawitem);
-    if etl.crawler.IsMultiData == 'List':
-        etl.crawler.CrawItems = spider.CompileCrawItems(etl.crawler.CrawItems);
+
+def SetAttr(etl, key, value):
+    if intattrs.search(key) is not None:
+        try:
+            t = int(value);
+            setattr(etl, key, t);
+        except ValueError:
+            print('it is a ValueError')
+            setattr(etl, key, value);
+    elif boolre.search(key) is not None:
+        setattr(etl, key, True if value == 'True' else False);
+    else:
+        setattr(etl, key, value);
+
+
+def LoadProject(path):
+    tree = ET.parse(path);
+    root = tree.getroot();
+    root = root.find('Doc');
+    for etool in root:
+        if etool.tag == 'Children':
+            etype = etool.get('Type');
+            name = etool.get('Name');
+            if etype == '数据清洗ETL':
+                etltool = ETLTool();
+                for m in etool:
+                    if m.tag == 'Children':
+                        etl = ETLItem();
+                        for att in m.attrib:
+                            SetAttr(etl, att, m.attrib[att]);
+                        etltool.AllETLTools.append(etl);
+                modules[name] = etltool;
+            elif etype == '网页采集器':
+                import spider;
+                crawler = spider.SmartCrawler();
+                crawler.Name = etool.attrib['Name'];
+                crawler.IsMultiData = etool.attrib['IsMultiData']
+                httpconfig = GetChildNode(etool, 'HttpSet');
+                InitFromHttpItem(httpconfig, crawler.HttpItem);
+                login = GetChildNode(etool, 'Login');
+                if login is not None:
+                    crawler.Login = spider.HTTPItem();
+                    InitFromHttpItem(login, crawler.Login);
+                crawler.CrawItems = [];
+                for child in etool:
+                    if child.tag == 'Children':
+                        crawitem = spider.CrawItem(child.attrib['Name']);
+                        crawitem.XPath = str(spider.XPath(spider.XPath(child.attrib['XPath'])[1:]))
+                        crawler.CrawItems.append(crawitem);
+                if crawler.IsMultiData == 'List':
+                    crawler.CrawItems = spider.CompileCrawItems(crawler.CrawItems);
+                modules[name] = crawler;
+    for name in modules:
+        module = modules[name];
+        if not isinstance(module, ETLTool):
+            continue
+        for tool in module.AllETLTools:
+            module.ETLInit(tool)
+
+    print('load project success')
 
 
 class ETLTool(object):
     def __init__(self):
         self.AllETLTools = [];
 
-    def LoadProject(self, path, name):
-        tree = ET.parse(path);
-        root = tree.getroot();
-        root = root.find('Doc');
-        for etool in root:
-            if etool.tag == 'Children':
-                if etool.get('Type') == '数据清洗ETL' and etool.get('Name') == name:
-                    for m in etool:
-                        if m.tag == 'Children':
-                            etl = ETLItem();
-                            for att in m.attrib:
-                                self.SetAttr(etl, att, m.attrib[att]);
-                            self.ETLInit(etl, root);
-                            self.AllETLTools.append(etl);
-                    break;
-        print('load project success')
-
-    def SetAttr(self, etl, key, value):
-        if intattrs.search(key) is not None:
-            try:
-                t = int(value);
-                setattr(etl, key, t);
-            except ValueError:
-                print('it is a ValueError')
-                setattr(etl, key, value);
-        elif boolre.search(key) is not None:
-            setattr(etl, key, True if value == 'True' else False);
-        else:
-            setattr(etl, key, value);
-
-    def ETLInit(self, etl, root):
+    def ETLInit(self, etl):
+        etl.Tool = self;
         if rescript.match(etl.Type):
             etl.Regex = re.compile(etl.Script);
         if etl.Type == '删除重复项':
@@ -518,27 +522,20 @@ class ETLTool(object):
             etl.currindex = 0;
         elif etl.Type == '批量删除列':
             etl.columns = etl.Editcolumn.split(' ');
-        elif etl.Type in ['正则转换器', '提取数字', '清除空白符', 'URL字符转义', '正则过滤器']:
-            etl.AllColumn = True;
-        elif etl.Type in ['合并多列', '删除该列', '列名修改器', '脚本引擎转换器']:
-            etl.AllColumn = False;
-        elif etl.Type in ['从爬虫转换', 'XPath筛选器', '列表实例化']:
+        elif etl.Type in ['从爬虫转换', 'XPath筛选器']:
             etl.IsMultiYield = True;
         elif etl.Type == '从文本生成':
             etl.arglists = [r.strip() for r in etl.Content.split('\n')];
         if etl.Type == '从爬虫转换':
-            InitFromCrawler(etl, root);
+            etl.crawler = modules[etl.CrawlerSelector];
+        if etl.Type in ['正则转换器', '提取数字', '清除空白符', 'URL字符转义', '正则过滤器', '字符串分割', 'HTML字符转义']:
+            etl.OneInput = True;
+        else:
+            etl.OneInput = False;
 
-    def GetAllDatas(self):
-        return [r for r in self.RefreshDatas()]
-
-    def RefreshDatas(self, etlCount=100):
-        index = 0;
+    def RefreshDatas2(self, tools):
         generator = None;
-        for tool in self.AllETLTools[:etlCount]:
-            if not tool.Enabled:
-                index += 1;
-                continue
+        for tool in tools:
             if tool.Group == '生成':
                 if generator is None:
                     generator = generate(tool, None);
@@ -557,5 +554,8 @@ class ETLTool(object):
                 pass;
             elif tool.Group == '排序':
                 pass;
-            index += 1;
+
         return generator;
+
+    def RefreshDatas(self, etlCount=100):
+        return self.RefreshDatas2((tool for tool in self.AllETLTools[:etlCount] if tool.Enabled));

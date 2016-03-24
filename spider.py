@@ -180,7 +180,6 @@ class HTTPItem(object):
         else:
             page = self.opener.open(destUrl);
 
-
         html = page.read()
         if page.info().get('Content-Encoding') == 'gzip':
             html = gzip.decompress(html).decode("utf-8")
@@ -191,6 +190,23 @@ class HTTPItem(object):
 def ungzip(data):
     data = gzip.decompress(data)
     return data;
+
+
+def __getnodetext__(node, arrs):
+    t=node.text;
+    if t is not None:
+        s = t.strip();
+        if s != '':
+            arrs.append(s)
+    for sub in node.iterchildren():
+        __getnodetext__(sub,arrs)
+
+def getnodetext(node):
+    if node is None:
+        return ""
+    arrs=[];
+    __getnodetext__(node,arrs);
+    return ' '.join(arrs);
 
 
 class SmartCrawler(object):
