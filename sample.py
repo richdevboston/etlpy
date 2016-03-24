@@ -3,6 +3,7 @@ import etl;
 
 
 etl.LoadProject('project.xml');
+
 tool=etl.modules['数据清洗ETL-链家二手房'];
 #tool=etl.modules['大众点评门店'];
 #etlcount is used for debug
