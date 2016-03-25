@@ -1,11 +1,8 @@
 # coding=utf-8
 import gzip
-from io import StringIO
-
 import re
-import urllib.request
 import socket
-
+import urllib.request
 from lxml import etree
 from urllib.parse import urlparse
 

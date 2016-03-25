@@ -3,23 +3,17 @@ __author__ = 'zhaoyiming'
 import re;
 import extends
 import urllib
+import spider;
 import json;
 import html
-import spider;
 import xml.etree.ElementTree as ET
 
 modules = {};
+tables = {};
+connectors = {}
 
 
-class ETLItem(object):
-    def __init__(self):
-        pass;
-
-    def __str__(self):
-        return '%s:%s'(self.Name, self.Column);
-
-
-# 识别变量名字，然后改成Int/string
+# translate Int/string
 intattrs = re.compile('Max|Min|Count|Index|Interval|Position');
 boolre = re.compile('^(One|Can|Is)|Enable|Should|Have');
 rescript = re.compile('Regex|Number')
@@ -29,14 +23,12 @@ def getMatchCount(mat):
     return mat.lastindex if mat.lastindex is not None else 1;
 
 
-def RegexTF(etl, data):
+def RegexFT(etl, data):
     v = etl.Regex.findall(data);
     if v is None:
         return False;
     else:
-        if etl.Count < len(v):
-            return False;
-        return True;
+        return etl.Count >= len(v)
 
 
 def RangeFT(etl, item):
@@ -84,12 +76,7 @@ def DeleteTF(etl, data):
 
 
 def HtmlTF(etl, data):
-    if etl.ConvertType == 'Encode':
-        return html.escape(data);
-    else:
-        import html.parser as h
-        html_parser = h.HTMLParser()
-        return html_parser.unescape(data);
+    return html.escape(data) if etl.ConvertType == 'Encode' else html.unescape(data);
 
 
 def UrlTF(etl, data):
@@ -138,9 +125,7 @@ def RegexTF(etl, data):
         return '';
     else:
         r = item[etl.Index];
-        if isinstance(r, str):
-            return r;
-        return r[0];
+        return r if isinstance(r, str) else r[0];
 
 
 def NumberTF(etl, data):
@@ -190,13 +175,13 @@ def PythonTF(etl, data):
 def CrawlerTF(etl, data):
     crawler = etl.crawler;
     url = data[etl.Column];
-    buff=etl.buff;
+    buff = etl.buff;
     if url in buff:
-        datas=buff[url];
+        datas = buff[url];
     else:
         datas = crawler.CrawData(url);
-        if len(buff)<100:
-            buff[url]=datas;
+        if len(buff) < 100:
+            buff[url] = datas;
     if etl.crawler.IsMultiData == 'List':
         for d in datas:
             res = extends.MergeQuery(d, data, etl.NewColumn);
@@ -244,12 +229,14 @@ def RangeFT(etl, data):
             continue;
         if i >= take:
             break;
+        i += 1;
         yield r;
 
 
 def EtlGE(etl, data):
     subetl = modules[etl.ETLSelector];
-    index=etl.Tool.AllETLTools.index(etl)
+    index = etl.Tool.AllETLTools.index(etl)
+
     def checkname(item, name):
         if hasattr(item, "Name") and item.Name == name:
             return True;
@@ -279,66 +266,86 @@ def TextGE(etl, data):
         yield {etl.Column: etl.arglists[i]}
 
 
-def FileOper(etl, data, type):
-    path = etl.FilePath;
+def MongoConnect(etl, datas, type):
+    import pymongo
+    if not etl.Init:
+        client = pymongo.MongoClient('localhost', 27017);
+        db = client[etl.connector.DBName];
+        if etl.ExecuteType == 'OnlyInsert':
+            etl.Table = db[etl.NewTaleName];
+        else:
+            etl.Table = db[etl.TableName];
+        etl.Init = True
+    else:
+        etype = etl.ExecuteType;
+        table = etl.Table;
+        if type == 'r':
+            work = {'OnlyInsert': lambda d: table.insert(d)};
+            for data in datas:
+                work[etype](data);
+                yield data;
+        else:
+            for data in table.find():
+                yield data;
+
+
+def FileConnect(etl, datas, type):
+    path = etl.NewTableName;
     filetype = path.split('.')[-1].lower();
-    encode = 'utf-8' if etl.EncodingType == 'UTF8'  else 'ascii';
+    encode = 'utf-8';
+    if not etl.Init:
+        file=open(path, type, encoding=encode)
+        etl.file = file;
+        etl.filetype = filetype;
     if filetype in ['csv', 'txt']:
-        import csv
-        file = open(etl.FilePath, type, encoding=encode);
         sp = ',' if filetype == 'csv' else '\t';
+        if not etl.Init:
+            import csv
+            if type == 'w':
+                field = extends.getkeys(datas);
+                etl.writer = csv.DictWriter(file, field, delimiter=sp, lineterminator='\n')
+                etl.writer.writeheader()
+            etl.Init = True;
         if type == 'r':
             reader = csv.DictReader(file, delimiter=sp)
             for r in reader:
                 yield r;
         else:
-            writer = csv.DictWriter(file, delimiter=sp)
-            start = False;
-            for r in data:
-                if not start:
-                    field = r.keys;
-                    writer.fieldnames = field;
-                    writer.writerow(dict(zip(field, field)))
-                    start = True;
-                writer.writer(r)
-                yield r;
-        file.close();
-    elif filetype == 'xlsx':
-        pass;
-    elif filetype == 'xml' and type == 'r':
-        tree = ET.parse(path);
-        root = tree.getroot();
-        root = root.findall('Doc');
-        for etool in root:
-            p = {r: etool.attrib[r] for r in etool.attrib};
-            yield p;
-    elif filetype == 'xml' and type == 'w':
-        pass;
+            for data in datas:
+                etl.writer.writerow(data);
+                yield data;
     elif filetype == 'json':
         if type == 'r':
-            items = json.load(open(path, encoding=encode));
+            items = json.load(file);
             for r in items:
                 yield r;
         else:
-            json.open(path);
-            for r in data:
-                json.write(r)
-                yield r;
-            json.close()
-            json.dump([r for r in data], open(path, type, encode));
-            # json.dumps()
+            file.write('[')
+            for data in datas:
+                json.dump(data, file, ensure_ascii=False)
+                file.write(',');
+                yield data;
+    etl.Init = True
 
 
-# 从数据库读取,MONGODB,SQL...
-def DbGE(etl, data, type):
-    pass;
+def DbConnect(etl, datas, type):
+    etl.connector = connectors[etl.Connector];
+    if etl.connector.TypeName == 'MongoDB':
+        return MongoConnect(etl, datas, type);
+    else:
+
+        return FileConnect(etl, datas, type);
 
 
-def TableEX(etl, data):
-    pass;
+def TableEX(etl, datas):
+    tname = etl.NewTableName;
+    if tname not in tables:
+        tables[tname] = [];
+    for r in datas:
+        tables[tname].append(r);
+        yield r;
 
 
-# 保存超链接文件
 def SaveFileExe(etl, data):
     save_path = extends.Query(data, etl.SavePath);
     urllib.request.urlretrieve(data[etl.Column], save_path)
@@ -351,7 +358,6 @@ def filter(tool, data):
             item = r[tool.Column];
         if item is None and tool.Func != NullFT:
             continue;
-
         result = tool.Func(tool, item)
         if result == True and tool.Revert == 'False':
             yield r;
@@ -392,10 +398,6 @@ def GetChildNode(roots, name):
 def InitFromHttpItem(config, item):
     httprib = config.attrib;
     paras = spider.Para2Dict(httprib['Parameters'], '\n', ':');
-    # cookie = 'Cookie';
-    # if cookie in paras:
-    #     item.Cookie = paras[cookie];
-    #     del paras[cookie];
     item.Headers = paras;
     item.Url = httprib['URL'];
     post = 'Postdata';
@@ -419,6 +421,10 @@ def SetAttr(etl, key, value):
         setattr(etl, key, value);
 
 
+class EObject(object):
+    pass;
+
+
 def LoadProject(path):
     tree = ET.parse(path);
     root = tree.getroot();
@@ -431,7 +437,7 @@ def LoadProject(path):
                 etltool = ETLTool();
                 for m in etool:
                     if m.tag == 'Children':
-                        etl = ETLItem();
+                        etl = EObject();
                         for att in m.attrib:
                             SetAttr(etl, att, m.attrib[att]);
                         etltool.AllETLTools.append(etl);
@@ -456,6 +462,14 @@ def LoadProject(path):
                 if crawler.IsMultiData == 'List':
                     crawler.CrawItems = spider.CompileCrawItems(crawler.CrawItems);
                 modules[name] = crawler;
+        elif etool.tag == 'DBConnections':
+            for tool in etool:
+                if tool.tag == 'Children':
+                    connector = EObject();
+                    for att in tool.attrib:
+                        SetAttr(connector, att, tool.attrib[att]);
+                    connectors[connector.Name] = connector;
+
     for name in modules:
         module = modules[name];
         if not isinstance(module, ETLTool):
@@ -471,7 +485,14 @@ class ETLTool(object):
 
     def ETLInit(self, etl):
         etl.Tool = self;
-        etl.Func = eval(etl.Type);
+        if etl.Type == 'DbGE':
+            etl.Func = lambda tool, data: DbConnect(tool, data, 'r');
+            etl.Init = False;
+        elif etl.Type == 'DbEX':
+            etl.Func = lambda tool, data: DbConnect(tool, data, 'w');
+            etl.Init = False;
+        else:
+            etl.Func = eval(etl.Type);
         if rescript.match(etl.Type):
             etl.Regex = re.compile(etl.Script);
         if etl.Func == RepeatFT:
@@ -484,8 +505,8 @@ class ETLTool(object):
             etl.arglists = [r.strip() for r in etl.Content.split('\n')];
         if etl.Func == CrawlerTF:
             etl.crawler = modules[etl.CrawlerSelector];
-            etl.buff={};
-        if etl.Func in [RegexTF, NumberTF, TrimTF, UrlTF, RegexTF, SplitTF, HtmlTF]:
+            etl.buff = {};
+        if etl.Func in [RegexTF, NumberTF, TrimTF, UrlTF, RegexFT, SplitTF, HtmlTF]:
             etl.OneInput = True;
         else:
             etl.OneInput = False;
@@ -507,13 +528,20 @@ class ETLTool(object):
             elif tool.Group == 'Filter':
                 generator = filter(tool, generator);
             elif tool.Group == 'Executor' and execute:
-                pass
-                #generator = tool.Func(tool, generator);
+                generator = tool.Func(tool, generator);
 
         return generator;
 
     def QueryDatas(self, etlCount=100, execute=False):
         return self.__generate__((tool for tool in self.AllETLTools[:etlCount] if tool.Enabled), None, execute);
+
+    def Close(self):
+        for tool in self.AllETLTools:
+            if tool.Type in ['DbGE', 'DbEX']:
+                if tool.connector.TypeName == 'FileManager':
+                    if tool.filetype == 'json':
+                        tool.file.write('{}]');
+                    tool.file.close();
 
     def mThreadExecute(self, threadcount=10):
         import threadpool
@@ -521,16 +549,19 @@ class ETLTool(object):
         tools = [tool for tool in self.AllETLTools if tool.Enabled];
         index = extends.getindex(tools, lambda d: d.Type == 'ToListTF');
         if index == -1:
-            index=0;
-            tool=tools[index];
-            generator = tool.Func(tool,None);
+            index = 0;
+            tool = tools[index];
+            generator = tool.Func(tool, None);
         else:
             generator = self.__generate__(tools[:index]);
+
         def Funcs(item):
-            mgenerator = self.__generate__(tools[index+1:], (r for r in [item]), True);
+            mgenerator = self.__generate__(tools[index + 1:], (r for r in [item]), True);
             for r in mgenerator:
-                print(r)
+                pass;
             print('finish' + str(item));
+
         requests = threadpool.makeRequests(Funcs, generator);
         [pool.putRequest(req) for req in requests]
         pool.wait()
+        # self.__close__()
