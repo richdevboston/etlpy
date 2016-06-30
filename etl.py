@@ -77,7 +77,9 @@ class Executor(ETLTool):
     def execute(self,data):
         pass;
     def process(self,data):
-        return self.execute(data)
+        for r in data:
+            self.execute(r);
+            yield r;
 
 
 class Filter(ETLTool):
@@ -642,10 +644,14 @@ class BfsGE(Generator):
 class DictTF(Transformer):
     pass;
 
-class FileExistFT(Filter):
-    def filter(self, item):
+class FileExistFT(Transformer):
+    def __init__(self):
+        super(FileExistFT,self).__init__();
+        self.Script = '';
+        self.OneInput = True;
+    def transform(self,data):
         import os;
-        return str(os.path.exists(item));
+        return str(os.path.exists(data));
 
 class MergeRepeatTF(Transformer):
     pass;
@@ -740,6 +746,7 @@ def LoadProject_dict(dic):
                 task.CrawItems.append(crawlitem)
             task.HttpItem= etl_factory(spider.HTTPItem(),proj)
             extends.dict_copy_poco(task.HttpItem,module['HttpItem'])
+            task.HttpItem.Headers=module['HttpItem']["Headers"];
         if task is not  None:
             proj.modules[key]=task;
 

@@ -123,6 +123,6 @@ def dict_to_poco_type(obj):
 def dict_copy_poco(obj,dic):
     for key,value in obj.__dict__.items():
         if key in dic:
-            if isinstance(value, (str,int,float)):
+            if isinstance(dic[key], (str,int,float)):
 
                 setattr(obj,key,dic[key])
