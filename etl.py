@@ -9,6 +9,7 @@ import html
 import xml.etree.ElementTree as ET
 import csv
 
+import os;
 
 intattrs = re.compile('Max|Min|Count|Index|Interval|Position');
 boolre = re.compile('^(One|Can|Is)|Enable|Should|Have|Revert');
@@ -642,7 +643,9 @@ class DictTF(Transformer):
     pass;
 
 class FileExistFT(Filter):
-    pass;
+    def filter(self, item):
+        import os;
+        return str(os.path.exists(item));
 
 class MergeRepeatTF(Transformer):
     pass;
@@ -674,7 +677,11 @@ class SaveFileEX(Executor):
         self.SavePath='';
 
     def execute(self,data):
+
         save_path = extends.Query(data, self.SavePath);
+        (folder,file)=os.path.split(save_path);
+        if not os.path.exists(folder):
+            os.makedirs(folder);
         urllib.request.urlretrieve(data[self.Column], save_path)
 
 
