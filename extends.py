@@ -63,13 +63,13 @@ def getindex(iteral, func):
             return r;
     return -1;
 
-def Cross(a, genefunc, tool):
+def Cross(a, genefunc):
 
     for r1 in a:
-        for r2 in genefunc(tool, r1):
-            for key in r1:
-                r2[key] = r1[key]
-            yield r2;
+        for r2 in genefunc(r1):
+            for key in r2:
+                r1[key] = r2[key]
+            yield r1;
 
 
 def MergeAll(a, b):
@@ -89,3 +89,40 @@ def Append(a, b):
         yield r;
     for r in b:
         yield r;
+
+def get_type_name(obj):
+    s=str(obj.__class__);
+    p=s.find('.');
+    r= s[p+1:].split('\'')[0]
+    return r;
+
+
+class EObject(object):
+    pass;
+
+
+
+def convert_to_builtin_type(obj):
+    d=  { key:value for key,value in obj.__dict__.items() if isinstance(value,(str,int,float,list,dict,tuple,EObject) or value is None)};
+    return d
+
+def dict_to_poco_type(obj):
+    if isinstance(obj,dict):
+        result=  EObject();
+        for key in obj:
+            v= obj[key]
+            setattr(result,key,dict_to_poco_type(v))
+        return result
+    elif isinstance(obj,list):
+        for i in range(len(obj)):
+            obj[i]=dict_to_poco_type(obj[i]);
+
+    return obj;
+
+
+def dict_copy_poco(obj,dic):
+    for key,value in obj.__dict__.items():
+        if key in dic:
+            if isinstance(value, (str,int,float)):
+
+                setattr(obj,key,dic[key])

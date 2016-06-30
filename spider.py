@@ -4,14 +4,16 @@ import re
 import socket
 import urllib.request
 from lxml import etree
-from urllib.parse import urlparse
+from urllib.parse import urlparse,urlunparse
+import extends;
+import http.cookiejar
+from urllib.request import quote
 
 boxRegex = re.compile(r"\[\d{1,3}\]");
 
 
-class CrawItem(object):
-    def __init__(self, name, sample=None, ismust=False, isHTMLorText=True, xpath=None):
-        super(CrawItem, self).__init__()
+class CrawItem(extends.EObject):
+    def __init__(self, name=None, sample=None, ismust=False, isHTMLorText=True, xpath=None):
         self.XPath = xpath;
         self.Sample = sample;
         self.Name = name;
@@ -23,56 +25,18 @@ class CrawItem(object):
         return "%s %s %s" % (self.Name, self.XPath, self.Sample);
 
 
-class XPath(object):
-    def __init__(self, items=None):
-        super(XPath, self).__init__()
-        self.Paths = [];
-        if items is not None:
-            if type(items) == type('u'):
-                items = items.split('/');
-            for x in items:
-                if len(x) != 0:
-                    self.Paths.append(x);
-
-    def __len__(self):
-        return len(self.Paths);
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return XPath(self.Paths[key.start:key.stop]);
-
-        return self.Paths[key];
-
-    def __str__(self):
-        if len(self) == 0:
-            return "";
-        s = self.Paths[0];
-        l = len(self.Paths);
-        for r in range(1, l):
-            s += '/' + self.Paths[r];
-        return s;
-
-    def takeoff(self, fullpath):
-        if fullpath == "" or fullpath is None: return self;
-        temp = XPath(fullpath);
-        return self[len(temp):len(self)];
-
-    def RemoveFinalNum(self):
-        v = self.Paths[-1];
-        m = boxRegex.search(v);
-        if m is None:
-            return self;
-        s = m.group(0);
-        self.Paths[-1] = v.replace(s, "");
-        return self;
-
-    def itersub(self):
-        for r in range(1, len(self.Paths)):
-            yield XPath(self.Paths[0: r]).RemoveFinalNum();
+def RemoveFinalNum(paths):
+    v = paths[-1];
+    m = boxRegex.search(v);
+    if m is None:
+        return paths;
+    s = m.group(0);
+    paths[-1] = v.replace(s, "");
+    return paths;
 
 
 def GetMaxCompareXPath(items):
-    xpaths = [XPath(r) for r in items];
+    xpaths = [r.XPath.split('/') for r in items];
     minlen = min(len(r) for r in xpaths);
     c = None;
     for i in range(minlen):
@@ -82,60 +46,28 @@ def GetMaxCompareXPath(items):
                 c = path[i];
             elif c != path[i]:
                 first = path[0:i + 1];
-                return first.RemoveFinalNum();
+                return '/'.join(RemoveFinalNum(first));
 
+
+attrsplit=re.compile('@|\[');
 
 def GetDataFromXPath(node, path):
-    p = node.xpath(str(path));
+    p = node.xpath(path);
     if p is None:
         return None;
     if len(p) == 0:
         return None;
-    if path.find('@') >= 0:
-        return str(p[0]);
-    return p[0].text;
+    paths = path.split('/');
+    last = paths[-1];
+    if last.find('@')>=0 and last.find('[1]')>=0:
+        return p[0];
+    return  getnodetext(p[0]);
 
 
-def GetDataFromCrawItems(tree, crawItems):
-    documents = [];
-    if isinstance(crawItems, list):
-        document = {};
-        for r in crawItems:
-            data = GetDataFromXPath(tree, r.XPath);
-            if data is not None:
-                document[r.Name] = data;
-            else:
-                document[r.Name] = "";
-        documents.append(document);
-        return documents;
-    else:
-        nodes = tree.xpath(crawItems.XPath)
-        if nodes is not None:
-            for node in nodes:
-                document = {};
-                for r in crawItems.Children:
-                    data = GetDataFromXPath(node, r.XPath);
-                    if data is not None:
-                        document[r.Name] = data;
-                if len(document) == 0:
-                    continue;
-                documents.append(document);
-            return documents;
 
 
-def CompileCrawItems(crawitems, name='List'):
-    if len(crawitems) == 0:
-        return crawitems;
-    crs = [r for r in crawitems];
-    available = [r.XPath for r in crs if r.XPath is not None];
-    shortv = GetMaxCompareXPath(available);
-    craw = CrawItem(name);
-    for r in crawitems:
-        if r.XPath is not None:
-            r.XPath = str(XPath(r.XPath).takeoff(shortv));
-            craw.Children.append(r);
-    craw.XPath = str(shortv);
-    return craw;
+
+
 
 
 def GetImage(addr, fname):
@@ -146,20 +78,36 @@ def GetImage(addr, fname):
     f.close()
 
 
+def urlEncodeNonAscii(b):
+    return re.sub('[\x80-\xFF]', lambda c: '%%%02x' % ord(c.group(0)), b)
+
+def iriToUri(iri):
+    parts= urlparse(iri)
+
+    pp= [(parti,part) for parti, part in enumerate(parts)]
+    res=[];
+    for p in pp:
+        res.append(p[1] if p[0] != 4 else quote(p[1] ))
+
+    return urlunparse(res);
+
+
+
+
 extract = re.compile('\[(\w+)\]');
 
-
-class HTTPItem(object):
+charset = re.compile(r'content="text/html;.?charset=(.*?)"');
+class HTTPItem(extends.EObject):
     def __init__(self):
         self.Url = ''
         self.Cookie = '';
         self.Headers = None;
         self.Timeout = 30;
-        self.opener = None;
+        self.opener = "";
+        self.postdata=''
 
     def PraseURL(self, url):
         u = Para2Dict(urlparse(self.Url).query, '&', '=');
-
         for r in extract.findall(url):
             url = url.replace('[' + r + ']', u[r])
         return url;
@@ -169,17 +117,43 @@ class HTTPItem(object):
             destUrl = self.Url;
         destUrl = self.PraseURL(destUrl);
         socket.setdefaulttimeout(self.Timeout);
+        cj = http.cookiejar.CookieJar()
+        pro = urllib.request.HTTPCookieProcessor(cj)
+        opener = urllib.request.build_opener(pro)
+        t = [(r, self.Headers[r]) for r in self.Headers];
+        opener.addheaders = t;
+        binary_data = self.postdata.encode('utf-8')
+        try:
+            destUrl.encode('ascii')
+        except UnicodeEncodeError:
+            destUrl =  iriToUri(destUrl)
 
-        if self.opener is None:
-            i_headers = self.Headers;
-            req = urllib.request.Request(url=destUrl, headers=i_headers)
-            page = urllib.request.urlopen(req)
-        else:
-            page = self.opener.open(destUrl);
+        try:
+            if self.postdata=='':
+                page=opener.open(destUrl);
+            else:
+                page = opener.open(destUrl, binary_data)
+            html = page.read()
+        except Exception as e:
+            print(e);
+            return ""
 
-        html = page.read()
+
         if page.info().get('Content-Encoding') == 'gzip':
-            html = gzip.decompress(html).decode("utf-8")
+            html = gzip.decompress(html)
+        encoding = charset.search(str(html))
+        if encoding is not None:
+            encoding = encoding.group(1);
+        if encoding is None:
+            encoding = 'utf-8'
+        try:
+            html=html.decode(encoding)
+        except UnicodeDecodeError as e:
+            print(e);
+            import chardet
+            encoding= chardet.detect(html)
+            html=html.decode(encoding);
+
         return html;
 
 
@@ -188,6 +162,8 @@ def ungzip(data):
     data = gzip.decompress(data)
     return data;
 
+def IsNone(data):
+    return  data is  None or data=='';
 
 def __getnodetext__(node, arrs):
     t=node.text;
@@ -206,19 +182,19 @@ def getnodetext(node):
     return ' '.join(arrs);
 
 
-class SmartCrawler(object):
+class SmartCrawler(extends.EObject):
     def __init__(self):
-        self.IsMultiData = None;
-        self.HttpItem = HTTPItem();
+        self.IsMultiData = "List";
+        self.HttpItem = None;
         self.Name = None;
         self.CrawItems = None;
-        self.Login = None;
+        self.Login = "";
         self.haslogin = False;
+        self.RootXPath=''
 
     def autologin(self, loginItem):
         if loginItem.postdata is None:
             return;
-        import http
         import http.cookiejar
         cj = http.cookiejar.CookieJar()
         pro = urllib.request.HTTPCookieProcessor(cj)
@@ -234,16 +210,55 @@ class SmartCrawler(object):
 
     def CrawData(self, url):
 
-        if self.Login is not None and self.haslogin == False:
+        if   self.Login !="" and  self.haslogin == False:
             self.HttpItem.opener = self.autologin(self.Login);
             self.haslogin = True;
         html = self.HttpItem.GetHTML(url);
-        root = etree.HTML(html);
+
+        root =None if html=='' else etree.HTML(html);
+        if root is None:
+            return {} if self.IsMultiData == 'One' else [];
+
         tree = etree.ElementTree(root);
         if isinstance(self.CrawItems, list) and len(self.CrawItems) == 0:
             return {'Content': html};
-        return GetDataFromCrawItems(tree, self.CrawItems);
 
+        return self.GetDataFromCrawItems(tree );
+
+    def GetDataFromCrawItems(self,tree):
+        documents = [];
+        if self.IsMultiData =='One':
+            document = {};
+            for r in self.CrawItems:
+                data = GetDataFromXPath(tree, r.XPath);
+                if data is not None:
+                    document[r.Name] = data;
+                else:
+                    document[r.Name] = "";
+            return document;
+        else:
+            if not IsNone(self.RootXPath):
+                rootXPath = self.RootXPath;
+            else:
+                rootXPath = GetMaxCompareXPath(self.CrawItems);
+            nodes = tree.xpath(rootXPath)
+            if nodes is not None:
+                for node in nodes:
+                    document = {};
+                    for r in self.CrawItems:
+                        path=r.XPath;
+                        if IsNone(self.RootXPath):
+                            paths=r.XPath.split('/');
+                            path='/'.join(paths[len(rootXPath.split('/')):len(paths)]);
+                        else:
+                            path=  tree.getpath(node)+ path;
+                        data = GetDataFromXPath(node,path);
+                        if data is not None:
+                            document[r.Name] = data;
+                    if len(document) == 0:
+                        continue;
+                    documents.append(document);
+                return documents;
 
 def Para2Dict(para, split1, split2):
     r = {};
