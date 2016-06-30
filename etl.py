@@ -653,8 +653,6 @@ class NumRangeFT(Filter):
 class DelayTF(Transformer):
     pass;
 
-class SaveFileEX(Executor):
-    pass;
 class ReadFileTextTF(Transformer):
     pass;
 
@@ -674,6 +672,7 @@ class SaveFileEX(Executor):
     def __init__(self):
         super(SaveFileEX, self).__init__()
         self.SavePath='';
+
     def execute(self,data):
         save_path = extends.Query(data, self.SavePath);
         urllib.request.urlretrieve(data[self.Column], save_path)
