@@ -7,7 +7,7 @@ import extends;
 import time;
 authkey= "etlpy".encode('utf-8')
 timeout=1;
-
+rpc_port=8888
 
 class ETLJob:
     def __init__(self,project,jobname,config,id):
@@ -39,7 +39,7 @@ class Master:
     def get_finished_job_queue(self):
         return self.finished_job_queue
 
-    def start(self):
+    def start(self,skip=0):
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue', callable=self.get_dispatched_job_queue)
         BaseManager.register('get_finished_job_queue', callable=self.get_finished_job_queue)
@@ -59,6 +59,8 @@ class Master:
         while True:
             for task in etl.parallel_map(module):
                 job_id = job_id + 1
+                if job_id<skip:
+                    continue
                 job = ETLJob(proj, self.jobname, task, job_id);
                 print('Dispatch job: %s' % job.id)
                 dispatched_jobs.put(job)
@@ -111,10 +113,13 @@ class Slave:
             project= etl.LoadProject_dict(project);
             module= project.modules[job.jobname];
             count=0
-            generator= etl.parallel_reduce(module,[ job.config],execute)
-            for r in generator:
-                print(r)
-                count+=1;
+            try:
+                generator= etl.parallel_reduce(module,[ job.config],execute)
+                for r in generator:
+                    count+=1;
+            except Exception as e:
+                print(e)
+            print('finish job,id %s, count %s'%(job.id,count))
             resultjob= JobResult(job.jobname,count,job.id)
 
             finished_jobs.put(resultjob)

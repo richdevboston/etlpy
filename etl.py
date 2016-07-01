@@ -155,7 +155,7 @@ class DbEX(ConnectorBase):
         if self.connector.TypeName == 'MongoDBConnector':
             etype = self.ExecuteType;
             table = self.Table;
-            work = {'OnlyInsert': lambda d: table.save(d)};
+            work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
             for data in datas:
                 work[etype](data);
                 yield data;
