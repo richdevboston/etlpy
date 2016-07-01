@@ -151,6 +151,13 @@ class DbEX(ConnectorBase):
         super(DbEX, self).__init__()
         self.TableName=''
 
+    def process(self, data):
+        for r in data:
+            self.execute(r);
+            yield r;
+
+
+
     def execute(self,datas):
         if self.connector.TypeName == 'MongoDBConnector':
             etype = self.ExecuteType;
@@ -194,6 +201,17 @@ class DBGE(ConnectorBase):
                 items = json.load(self.file);
                 for r in items:
                     yield r;
+
+    def process(self, generator):
+        if generator is None:
+            return self.generate(None);
+        else:
+            if self.MergeType == 'Append':
+                return extends.Append(generator, self.process(None));
+            elif self.MergeType == 'Merge':
+                return extends.Merge(generator, self.process(None));
+            else:
+                return extends.Cross(generator, self.generate)
 
 
 def setValue(data,etl,value):
