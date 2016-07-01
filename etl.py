@@ -841,7 +841,7 @@ def etl_factory(item,proj):
     import copy
     name = extends.get_type_name(item)
     if name not in proj.__defaultdict__:
-        proj.__defaultdict__[name]=copy.copy(  item.__dict__);
+        proj.__defaultdict__[name]=copy.deepcopy(  item.__dict__);
     return item;
 
 
