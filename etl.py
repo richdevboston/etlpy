@@ -151,14 +151,10 @@ class DbEX(ConnectorBase):
         super(DbEX, self).__init__()
         self.TableName=''
 
-    def process(self, data):
-        for r in data:
-            self.execute(r);
-            yield r;
 
 
 
-    def execute(self,datas):
+    def process(self,datas):
         if self.connector.TypeName == 'MongoDBConnector':
             etype = self.ExecuteType;
             table = self.Table;
