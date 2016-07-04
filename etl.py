@@ -237,11 +237,13 @@ class RangeFT(Filter):
 
 class RepeatFT(Filter):
 
+    def init(self):
+        self.set=set();
     def filter(self,data):
         if data in self.set:
             return False;
         else:
-            self.set.append(data);
+            self.set.add(data);
             return True;
 
 class NullFT(Filter):
@@ -410,6 +412,7 @@ class StrExtractTF(Transformer):
         super(StrExtractTF, self).__init__()
         self.HaveStartEnd=False;
         self.Start=''
+        self.OneInput=True;
         self.End=''
 
     def transform(self, data):
@@ -902,6 +905,7 @@ def Project_LoadXml(path):
 
 
 def generate(tools, generator=None, execute=False, enabledFilter=True):
+    #print(task_DumpLinq(tools));
     for tool in tools:
         if tool.Enabled == False and enabledFilter == True:
             continue
@@ -927,7 +931,7 @@ def parallel_reduce(task,generator=None, execute=True):
     tools = task.AllETLTools;
     index = extends.getindex(tools, lambda d: isinstance(d,ToListTF));
     index =0 if index==-1 else index;
-    generator = generate(tools[index + 1:], generator, execute);
+    generator = generate(tools[index + 1:index+11], generator, execute);
     return generator;
 
 
