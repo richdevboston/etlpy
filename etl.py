@@ -931,7 +931,7 @@ def parallel_reduce(task,generator=None, execute=True):
     tools = task.AllETLTools;
     index = extends.getindex(tools, lambda d: isinstance(d,ToListTF));
     index =0 if index==-1 else index;
-    generator = generate(tools[index + 1:index+11], generator, execute);
+    generator = generate(tools[index + 1:], generator, execute);
     return generator;
 
 
