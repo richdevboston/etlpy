@@ -512,15 +512,19 @@ class JsonTF(Transformer):
         self.ScriptWorkMode='文档列表';
 
     def init(self):
-        self.IsMultiYield= self.ScriptWorkMode=='文档列表';
+        self.IsMultiYield= True;
 
     def transform(self, data):
         js = json.loads(data[self.Column]);
-        if isinstance(js, list):
+        mode=self.ScriptWorkMode;
+        if mode== '文档列表' and isinstance(js,list):
             for j in js:
                 yield j;
+        elif mode=='单文档':
+            yield extends.Merge(data,js);
         else:
-            yield js;
+            setValue(data,self,js);
+            yield data;
 
 class RangeGE(Generator):
     def __init__(self):
@@ -909,6 +913,7 @@ def Project_LoadXml(path):
                         crawitem= factory(spider.CrawItem());
                         crawitem.Name=child.attrib['Name'];
                         crawitem.XPath = child.attrib['XPath'];
+                        crawitem.IsHtml= child.attrib['IsHtml']=='True'
                         crawler.CrawItems.append(crawitem);
 
                 proj.modules[name] = crawler;

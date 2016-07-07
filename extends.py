@@ -66,10 +66,11 @@ def getindex(iteral, func):
 def Cross(a, genefunc):
 
     for r1 in a:
+        r1=dict.copy(r1);
         for r2 in genefunc(r1):
             for key in r2:
                 r1[key] = r2[key]
-            yield r1;
+            yield dict.copy(r1);
 
 
 def MergeAll(a, b):

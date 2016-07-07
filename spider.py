@@ -13,12 +13,12 @@ boxRegex = re.compile(r"\[\d{1,3}\]");
 
 
 class CrawItem(extends.EObject):
-    def __init__(self, name=None, sample=None, ismust=False, isHTMLorText=True, xpath=None):
+    def __init__(self, name=None, sample=None, ismust=False, isHTMLorText=False, xpath=None):
         self.XPath = xpath;
         self.Sample = sample;
         self.Name = name;
         self.IsMust = ismust;
-        self.IsHTMLorText = isHTMLorText;
+        self.IsHtml = isHTMLorText;
         self.Children = [];
 
     def __str__(self):
@@ -51,7 +51,7 @@ def GetMaxCompareXPath(items):
 
 attrsplit=re.compile('@|\[');
 
-def GetDataFromXPath(node, path):
+def GetDataFromXPath(node, path,ishtml=False):
     p = node.xpath(path);
     if p is None:
         return None;
@@ -61,6 +61,8 @@ def GetDataFromXPath(node, path):
     last = paths[-1];
     if last.find('@')>=0 and last.find('[1]')>=0:
         return p[0];
+    if ishtml:
+        return etree.tostring(p[0]).decode('utf-8');
     return  getnodetext(p[0]);
 
 
@@ -233,14 +235,14 @@ class SmartCrawler(extends.EObject):
         tree = etree.ElementTree(root);
 
 
-        return self.GetDataFromCrawItems(tree );
+        return self.GetDataFromCrawItems(tree);
 
     def GetDataFromCrawItems(self,tree):
         documents = [];
         if self.IsMultiData =='One':
             document = {};
             for r in self.CrawItems:
-                data = GetDataFromXPath(tree, r.XPath);
+                data = GetDataFromXPath(tree, r.XPath,r.IsHtml);
                 if data is not None:
                     document[r.Name] = data;
                 else:
@@ -262,7 +264,7 @@ class SmartCrawler(extends.EObject):
                             path='/'.join(paths[len(rootXPath.split('/')):len(paths)]);
                         else:
                             path=  tree.getpath(node)+ path;
-                        data = GetDataFromXPath(node,path);
+                        data = GetDataFromXPath(node,path,r.IsHtml);
                         if data is not None:
                             document[r.Name] = data;
                     if len(document) == 0:
