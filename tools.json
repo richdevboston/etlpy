@@ -1,0 +1,527 @@
+{
+  "RegexSplitTF": {
+    "Script": "",
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": false,
+    "FromBack": "False",
+    "Column": "",
+    "NewColumn": "",
+    "Index": 0,
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "EtlEX": {
+    "Enabled": false,
+    "AddTask": "False",
+    "Group": "Executor",
+    "OneInput": false
+  },
+  "NlpTF": {
+    "IsMultiYield": false,
+    "Pattern": "分词",
+    "OneInput": false,
+    "ResultType": "Text",
+    "Column": "",
+    "NewColumn": "",
+    "Group": "Transformer",
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "EtlGE": {
+    "Enabled": false,
+    "Position": 0,
+    "Group": "Generator",
+    "OneInput": false,
+    "MergeType": "Append"
+  },
+  "RangeGE": {
+    "OneInput": false,
+    "Interval": 1,
+    "MinValue": 1,
+    "MaxValue": 1,
+    "Column": "id",
+    "Position": 0,
+    "Group": "Generator",
+    "Enabled": true,
+    "MergeType": "Append"
+  },
+  "EtlTF": {
+    "Enabled": false,
+    "NewColumn": "",
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": false
+  },
+  "TableEX": {
+    "Enabled": true,
+    "Group": "Executor",
+    "OneInput": false,
+    "IsClone": false
+  },
+  "FolderGE": {
+    "Pattern": "*.*",
+    "OneInput": false,
+    "SearchOption": "TopDirectoryOnly",
+    "Column": "获取文件夹文件",
+    "Position": 0,
+    "Group": "Generator",
+    "Enabled": true,
+    "MergeType": "Append"
+  },
+  "TrimTF": {
+    "IsMultiYield": false,
+    "OneInput": true,
+    "Group": "Transformer",
+    "ReplaceInnerBlank": "True",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true,
+    "ReplaceBlank": "False"
+  },
+  "ToListTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "DisplayProgress": "False",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "AutoIndexTF": {
+    "Enabled": true,
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "currindex": 0,
+    "StartIndex": 0,
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "OneInput": false
+  },
+  "DeleteTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "RepeatFT": {
+    "Enabled": true,
+    "IsDebugFilter": true,
+    "Group": "Filter",
+    "set": [],
+    "Column": "",
+    "OneInput": false,
+    "Revert": "False"
+  },
+  "RangeFT": {
+    "OneInput": false,
+    "IsDebugFilter": true,
+    "Group": "Filter",
+    "Column": "",
+    "Enabled": true,
+    "Revert": "False"
+  },
+  "DictTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "NumberTF": {
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": true,
+    "Script": "(-?\\d+)(\\.\\d+)?",
+    "Column": "",
+    "NewColumn": "",
+    "Index": 0,
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "FileDataTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": false
+  },
+  "Time2StrTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true,
+    "Format": "yyyy-MM-dd"
+  },
+  "UrlTF": {
+    "IsMultiYield": false,
+    "OneInput": true,
+    "Group": "Transformer",
+    "ConvertType": "Decode",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "ReadFileTextTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "EncodingType": "UTF8",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "NullFT": {
+    "OneInput": false,
+    "IsDebugFilter": true,
+    "Group": "Filter",
+    "Column": "",
+    "Enabled": true,
+    "Revert": "False"
+  },
+  "NumRangeFT": {
+    "Take": "0",
+    "Skip": "0",
+    "IsDebugFilter": true,
+    "OneInput": false,
+    "Column": "",
+    "Group": "Filter",
+    "Enabled": true,
+    "Revert": "False"
+  },
+  "RepeatTF": {
+    "RepeatCount": 1,
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true,
+    "RepeatType": "OneRepeat"
+  },
+  "DelayTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "JsonTF": {
+    "IsMultiYield": true,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": false,
+    "Enabled": true,
+    "ScriptWorkMode": "文档列表"
+  },
+  "ReReplaceTF": {
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": true,
+    "ReplaceText": "",
+    "Script": "",
+    "Column": "",
+    "NewColumn": "",
+    "Index": 0,
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "DbGE": {
+    "Mount": "-1",
+    "Group": "Generator",
+    "Column": "从连接器生成",
+    "Position": 0,
+    "Enabled": true,
+    "MergeType": "Append"
+  },
+  "RegexFT": {
+    "Count": 1,
+    "IsDebugFilter": true,
+    "OneInput": true,
+    "Script": "",
+    "Column": "",
+    "Group": "Filter",
+    "Enabled": true,
+    "Revert": "False"
+  },
+  "RenameTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "TransTF": {
+    "Enabled": true,
+    "Target": "自动检测",
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Source": "自动检测",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "ClientID": "0CupOSsCC4YaDozfkC9gE5EO"
+  },
+  "SplitTF": {
+    "SplitNull": "True",
+    "SplitChar": "",
+    "Group": "Transformer",
+    "FromBack": "False",
+    "OneOutput": true,
+    "IsMultiYield": false,
+    "Enabled": true,
+    "ShouldSplitChars": false,
+    "Column": "",
+    "NewColumn": "",
+    "Index": 0,
+    "OneInput": true,
+    "SplitPause": "False"
+  },
+  "XPathTF": {
+    "Column": "",
+    "IsInsertNull": false,
+    "IsMultiYield": true,
+    "OneInput": false,
+    "Group": "Transformer",
+    "GetCount": "False",
+    "IsManyData": false,
+    "GetText": "False",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "BaiduLocation": {
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": false,
+    "Region": "北京",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": false,
+    "Enabled": true
+  },
+  "SaveFileEX": {
+    "Enabled": true,
+    "IsAsync": false,
+    "Group": "Executor",
+    "OneInput": false
+  },
+  "ResponseTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": false,
+    "Enabled": true
+  },
+  "StrExtractTF": {
+    "Former": "",
+    "End": "",
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "HaveStartEnd": false,
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "TextGE": {
+    "arglists": [
+      ""
+    ],
+    "Group": "Generator",
+    "OneInput": false,
+    "Content": "",
+    "Column": "从文本生成",
+    "Position": 0,
+    "Enabled": true,
+    "MergeType": "Append"
+  },
+  "GetIPLocation": {
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": false,
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": false,
+    "Enabled": true
+  },
+  "MergeRepeatTF": {
+    "Column": "",
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": false,
+    "SumColumns": "",
+    "NewColumn": "",
+    "CollectionColumns": "",
+    "IsLazyLinq": false,
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "RegexTF": {
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": true,
+    "Script": "",
+    "Column": "",
+    "NewColumn": "",
+    "Index": 0,
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "CrawlerTF": {
+    "Group": "Transformer",
+    "OneInput": false,
+    "buff": {},
+    "MaxTryCount": 1,
+    "ErrorDelay": "3000",
+    "IsMultiYield": true,
+    "CrawlerSelector": "",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": false,
+    "Enabled": true,
+    "IsRegex": false
+  },
+  "BfsGE": {
+    "DelayTime": "0",
+    "Group": "Generator",
+    "OneInput": false,
+    "Column": "请求队列",
+    "Position": 0,
+    "Enabled": true,
+    "MergeType": "Append"
+  },
+  "GetRoute": {
+    "DestCity": "北京",
+    "SourceCity": "北京",
+    "IsMultiYield": false,
+    "Group": "Transformer",
+    "OneInput": false,
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": false,
+    "Enabled": true
+  },
+  "HtmlTF": {
+    "IsMultiYield": false,
+    "OneInput": true,
+    "Group": "Transformer",
+    "ConvertType": "Decode",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "MergeTF": {
+    "MergeWith": "",
+    "OneInput": false,
+    "Group": "Transformer",
+    "IsMultiYield": false,
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true,
+    "Format": ""
+  },
+  "DbEX": {
+    "Group": "Executor",
+    "Enabled": true,
+    "ExecuteType": "OnlyInsert"
+  },
+  "WriteFileTextTF": {
+    "Enabled": true,
+    "Group": "Executor",
+    "OneInput": false,
+    "EncodingType": "UTF8"
+  },
+  "FileExistFT": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "PythonTF": {
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "ScriptWorkMode": "不进行转换",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true,
+    "Script": "value"
+  },
+  "TableGE": {
+    "OneInput": false,
+    "Group": "Generator",
+    "Column": "从数据表生成",
+    "Position": 0,
+    "Enabled": true,
+    "MergeType": "Append"
+  },
+  "JoinDBTF": {
+    "SearchStrategy": "Contains",
+    "OneInput": false,
+    "Group": "Transformer",
+    "IsMutliDatas": false,
+    "IsMultiYield": false,
+    "Connector": "",
+    "Columns": "",
+    "TableName": "",
+    "Column": "",
+    "NewColumn": "",
+    "OneOutput": true,
+    "Enabled": true
+  },
+  "NearbySearch": {
+    "Radius": "2000",
+    "IsMultiYield": false,
+    "Lng": "pos_lng",
+    "OneInput": false,
+    "AllResult": "False",
+    "Column": "",
+    "NewColumn": "",
+    "Group": "Transformer",
+    "Enabled": true,
+    "OneOutput": true
+  },
+  "AddNewTF": {
+    "NewValue": "",
+    "IsMultiYield": false,
+    "OneInput": false,
+    "Group": "Transformer",
+    "Column": "",
+    "NewColumn": "NewColumn",
+    "OneOutput": true,
+    "Enabled": true
+  }
+}

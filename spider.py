@@ -112,7 +112,7 @@ class HTTPItem(extends.EObject):
             url = url.replace('[' + r + ']', u[r])
         return url;
 
-    def GetHTML(self, destUrl=None):
+    def GetData(self, destUrl=None):
         if destUrl is None:
             destUrl = self.Url;
         destUrl = self.PraseURL(destUrl);
@@ -120,7 +120,7 @@ class HTTPItem(extends.EObject):
         cj = http.cookiejar.CookieJar()
         pro = urllib.request.HTTPCookieProcessor(cj)
         opener = urllib.request.build_opener(pro)
-        t = [(r, self.Headers[r]) for r in self.Headers];
+        t = [(r.strip(), self.Headers[r]) for r in self.Headers];
         opener.addheaders = t;
         binary_data = self.postdata.encode('utf-8')
         try:
@@ -132,13 +132,17 @@ class HTTPItem(extends.EObject):
             if self.postdata=='':
                 page=opener.open(destUrl);
             else:
-                page = opener.open(destUrl, binary_data)
-            html = page.read()
+                page =opener.open(destUrl, binary_data)
+            return  page;
         except Exception as e:
             print(e);
-            return ""
+            return None;
 
-
+    def GetHTML(self,destUrl=None):
+        page = self.GetData(destUrl);
+        if page is None:
+            return "";
+        html=page.read();
         if page.info().get('Content-Encoding') == 'gzip':
             html = gzip.decompress(html)
         encoding = charset.search(str(html))
@@ -214,14 +218,20 @@ class SmartCrawler(extends.EObject):
             self.HttpItem.opener = self.autologin(self.Login);
             self.haslogin = True;
         html = self.HttpItem.GetHTML(url);
+        if isinstance(self.CrawItems, list) and len(self.CrawItems) == 0:
+            return {'Content': html};
+        root=None;
+        if html !='':
+            try:
+                root=etree.HTML(html);
+            except Exception as e:
+                print(e)
 
-        root =None if html=='' else etree.HTML(html);
         if root is None:
             return {} if self.IsMultiData == 'One' else [];
 
         tree = etree.ElementTree(root);
-        if isinstance(self.CrawItems, list) and len(self.CrawItems) == 0:
-            return {'Content': html};
+
 
         return self.GetDataFromCrawItems(tree );
 
@@ -273,14 +283,18 @@ def Para2Dict(para, split1, split2):
     return r;
 
 
-def GetHTML(url, code=None):
+def GetWebData(url, code=None):
     url = url.strip();
     if not url.startswith('http'):
         url = 'http://' + url;
         print("auto transform %s" % (url));
     socket.setdefaulttimeout(30)
-    i_headers = {"User-Agent": "Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-CN; rv:1.9.1) Gecko/20090624 Firefox/3.5",
-                 "Accept": "text/plain"}
+    i_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
+                    "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                 "Accept-Encoding": "gzip, deflate, sdch",
+                 "Connection":"keep-alive",
+                 "Accept-Language": "zh-CN,zh;q=0.8,en;q = 0.6"
+    }
     req = urllib.request.Request(url=url, headers=i_headers)
     page = urllib.request.urlopen(req)
     html = page.read()

@@ -116,6 +116,7 @@ class Slave:
             try:
                 generator= etl.parallel_reduce(module,[ job.config],execute)
                 for r in generator:
+                    print(r)
                     count+=1;
             except Exception as e:
                 print(e)
@@ -126,7 +127,7 @@ class Slave:
 
 
 if __name__ == '__main__':
-    ip='127.0.0.1'
+    ip='10.101.167.107'
     port=8888;
     argv=sys.argv;
     if len(argv)>1:

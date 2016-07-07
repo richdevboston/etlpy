@@ -699,13 +699,33 @@ class SaveFileEX(Executor):
         super(SaveFileEX, self).__init__()
         self.SavePath='';
 
+    # def DownloadFile(url, tofile):
+    #     f = urllib2.urlopen(url)
+    #     outf = open(tofile, 'wb')
+    #     c = 0
+    #     CallBackFunction('Download %s to %s' % (url, tofile))
+    #     while True:
+    #         s = f.read(1024 * 32)
+    #         if len(s) == 0:
+    #             break
+    #         outf.write(s)
+    #         c += len(s)
+    #         CallBackFunction('Download %d' % (c))
+    #     return c
+
+
     def execute(self,data):
 
         save_path = extends.Query(data, self.SavePath);
         (folder,file)=os.path.split(save_path);
         if not os.path.exists(folder):
             os.makedirs(folder);
-        urllib.request.urlretrieve(data[self.Column], save_path)
+        urlpath= data[self.Column];
+        newfile= open(save_path,'wb');
+        newdata=spider.GetWebData(urlpath);
+        newfile.write(newdata);
+        newfile.close();
+        #urllib.request.urlretrieve(urlpath, save_path)
 
 
 def GetChildNode(roots, name):
