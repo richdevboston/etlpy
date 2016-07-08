@@ -153,12 +153,12 @@ class HTTPItem(extends.EObject):
         if encoding is None:
             encoding = 'utf-8'
         try:
-            html=html.decode(encoding)
+            html=html.decode(encoding,errors='ignore')
         except UnicodeDecodeError as e:
             print(e);
             import chardet
             encoding= chardet.detect(html)
-            html=html.decode(encoding);
+            html=html.decode(encoding,errors='ignore');
 
         return html;
 
