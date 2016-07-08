@@ -98,7 +98,7 @@ def iriToUri(iri):
 
 extract = re.compile('\[(\w+)\]');
 
-charset = re.compile(r'content="text/html;.?charset=(.*?)"');
+charset = re.compile(r'charset="(.*?)"');
 class HTTPItem(extends.EObject):
     def __init__(self):
         self.Url = ''
