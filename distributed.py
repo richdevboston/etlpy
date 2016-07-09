@@ -120,7 +120,7 @@ class Slave:
             try:
                 generator= etl.parallel_reduce(module,[ job.config],execute)
                 for r in generator:
-                    print(r.keys())
+                    #print(r.keys())
                     count+=1;
             except Exception as e:
                 print(e)
