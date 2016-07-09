@@ -257,10 +257,15 @@ class NullFT(Filter):
 
 
 class AddNewTF(Transformer):
+    def init(self):
+        super(AddNewTF, self).__init__()
+
+    def init(self):
+        self.OneInput = False;
+        self.OneOutput = False;
 
     def transform(self,data):
-        return self.NewValue;
-
+        data[self.NewColumn]=self.NewValue;
 
 class AutoIndexTF(Transformer):
     def init(self):
