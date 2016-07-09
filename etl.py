@@ -78,8 +78,8 @@ class Executor(ETLTool):
         pass;
     def process(self,data):
         for r in data:
-            self.execute(r);
-            yield r;
+            yield self.execute(r);
+
 
 
 class Filter(ETLTool):
@@ -593,8 +593,7 @@ class EtlEX(Executor):
             count=0;
             for r in result:
                 count+=1;
-                print(r);
-            print(count)
+            print('subtask:'+str(count))
             yield data;
 
 class EtlTF(Transformer):
