@@ -8,8 +8,15 @@ from urllib.parse import urlparse,urlunparse
 import extends;
 import http.cookiejar
 from urllib.request import quote
+import random;
 
 boxRegex = re.compile(r"\[\d{1,3}\]");
+
+agent_list = []
+with open('agent.list.d') as f:
+    for line_data in f:
+        agent_list.append(line_data.strip())
+
 
 
 class CrawItem(extends.EObject):
@@ -108,6 +115,7 @@ class HTTPItem(extends.EObject):
         self.opener = "";
         self.postdata=''
 
+
     def PraseURL(self, url):
         u = Para2Dict(urlparse(self.Url).query, '&', '=');
         for r in extract.findall(url):
@@ -122,7 +130,9 @@ class HTTPItem(extends.EObject):
         cj = http.cookiejar.CookieJar()
         pro = urllib.request.HTTPCookieProcessor(cj)
         opener = urllib.request.build_opener(pro)
+        self.Headers['User-Agent']=random.choice(agent_list)
         t = [(r.strip(), self.Headers[r]) for r in self.Headers];
+
         opener.addheaders = t;
         binary_data = self.postdata.encode('utf-8')
         try:
@@ -197,6 +207,8 @@ class SmartCrawler(extends.EObject):
         self.Login = "";
         self.haslogin = False;
         self.RootXPath=''
+
+
 
     def autologin(self, loginItem):
         if loginItem.postdata is None:
