@@ -484,6 +484,8 @@ class XPathTF(Transformer):
     def init(self):
         self.IsMultiYield=True;
         self.OneOutput = False;
+        self.GetText= str(self.GetText)=='True'
+        self.GetTextHtml= str(self.GetTextHtml)=='True'
     def transform(self, data):
         from lxml import etree
         tree,root= spider.GetHtmlTree(data[self.Column]);
@@ -511,7 +513,7 @@ class XPathTF(Transformer):
                 setValue(data, self, etree.tostring(node).decode('utf-8'))
             else:
                 if hasattr(node,'text'):
-                    setValue(data, self, node.text);
+                    setValue(data, self, spider.getnodetext( node));
                 else:
                     setValue(data,self,str(node))
             yield data;
@@ -581,20 +583,19 @@ class EtlGE(Generator):
             yield r;
 
 class EtlEX(Executor):
-    def execute(self,datas):
+    def execute(self,data):
         subetl = self.__proj__.modules[self.ETLSelector];
-        for data in datas:
-            if spider.IsNone(self.NewColumn):
-                doc = data.copy();
-            else:
-                doc = {};
-                extends.MergeQuery(doc, data, self.NewColumn + " " + self.Column);
-            result=(r for r in generate(subetl.AllETLTools, [doc]))
-            count=0;
-            for r in result:
-                count+=1;
-            print('subtask:'+str(count))
-            yield data;
+        if spider.IsNone(self.NewColumn):
+            doc = data.copy();
+        else:
+            doc = {};
+            extends.MergeQuery(doc, data, self.NewColumn + " " + self.Column);
+        result=(r for r in generate(subetl.AllETLTools, [doc]))
+        count=0;
+        for r in result:
+            count+=1;
+        print('subtask:'+str(count))
+        return data;
 
 class EtlTF(Transformer):
     def transform(self,datas):

@@ -183,13 +183,21 @@ def IsNone(data):
     return  data is  None or data=='';
 
 def __getnodetext__(node, arrs):
-    t=node.text;
-    if t is not None:
-        s = t.strip();
-        if s != '':
-            arrs.append(s)
-    for sub in node.iterchildren():
-        __getnodetext__(sub,arrs)
+
+    if  hasattr(node,'tag')  and  isinstance(node.tag,str) and node.tag.lower() not in ['script','style','comment']:
+        t = node.text;
+        if t is not None:
+            t=t.strip()
+            if t != '':
+                arrs.append(t)
+        t = node.tail;
+        if t is not None:
+            t = t.strip()
+            if t != '':
+                arrs.append(t)
+
+        for sub in node.iterchildren():
+            __getnodetext__(sub,arrs)
 
 def getnodetext(node):
     if node is None:
