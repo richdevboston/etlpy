@@ -1,4 +1,5 @@
 # coding=utf-8
+import sys;
 import gzip
 import re
 import socket
@@ -147,7 +148,7 @@ class HTTPItem(extends.EObject):
                 page =opener.open(destUrl, binary_data)
             return  page;
         except Exception as e:
-            print(e);
+            sys.stderr.write(str(e));
             return None;
 
     def GetHTML(self,destUrl=None):
@@ -165,7 +166,7 @@ class HTTPItem(extends.EObject):
         try:
             html=html.decode(encoding,errors='ignore')
         except UnicodeDecodeError as e:
-            print(e);
+            sys.stderr.write(e);
             import chardet
             encoding= chardet.detect(html)
             html=html.decode(encoding,errors='ignore');
@@ -231,7 +232,10 @@ class SmartCrawler(extends.EObject):
         if   self.Login !="" and  self.haslogin == False:
             self.HttpItem.opener = self.autologin(self.Login);
             self.haslogin = True;
-        html = self.HttpItem.GetHTML(url);
+        try:
+            html = self.HttpItem.GetHTML(url);
+        except Exception as e:
+            sys.stderr.write(str(e));
         if isinstance(self.CrawItems, list) and len(self.CrawItems) == 0:
             return {'Content': html};
         root=None;
@@ -239,7 +243,7 @@ class SmartCrawler(extends.EObject):
             try:
                 root=etree.HTML(html);
             except Exception as e:
-                print(e)
+                sys.stderr.write(str(e))
 
         if root is None:
             return {} if self.IsMultiData == 'One' else [];
@@ -357,6 +361,11 @@ def GetCrawData(crawitems, tree):
 
 
 def GetHtmlTree(html):
-    root = etree.HTML(html);
-    tree = etree.ElementTree(root);
-    return tree;
+    try:
+        root = etree.HTML(html);
+        tree = etree.ElementTree(root);
+    except Exception as e:
+        sys.stderr.write(str(e))
+        return None,None;
+
+    return tree,root;

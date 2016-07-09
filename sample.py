@@ -13,9 +13,9 @@ tools= lagou.AllETLTools;
 #tools[17].CrawlerSelector='瀑布流列表2'
 #tools[-1].Enabled=False;
 #tools[-9].Enabled=False;
-for r in lagou.QueryDatas(etlCount=30,execute=False):
-    print(r)
-exit();
+#for r in lagou.QueryDatas(etlCount=30,execute=False):
+#    print(r)
+#exit();
 from  distributed import  *
 master =Master(proj,"马蜂窝相册");
 master.start();

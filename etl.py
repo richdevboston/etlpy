@@ -8,7 +8,7 @@ import json;
 import html
 import xml.etree.ElementTree as ET
 import csv
-
+import xspider;
 import os;
 
 intattrs = re.compile('Max|Min|Count|Index|Interval|Position');
@@ -477,27 +477,43 @@ class XPathTF(Transformer):
         self.XPath=''
         self.IsMultiYield = True;
         self.OneOutput=False;
+        self.GetTextHtml=False;
+        self.GetText=False;
+        self.GetCount=False;
 
     def init(self):
         self.IsMultiYield=True;
         self.OneOutput = False;
     def transform(self, data):
         from lxml import etree
+        tree,root= spider.GetHtmlTree(data[self.Column]);
+        if tree is None:
+            yield data;
+            return ;
         if self.IsManyData:
-            tree = spider.GetHtmlTree(data[self.Column]);
             nodes = tree.xpath(self.XPath);
             for node in nodes:
                 ext = {'Text': spider.getnodetext(node), 'HTML': etree.tostring(node).decode('utf-8')};
                 ext['OHTML'] = ext['HTML']
                 yield extends.MergeQuery(ext, data, self.NewColumn);
         else:
-            tree = spider.GetHtmlTree(data[self.Column]);
-            nodes = tree.xpath(self.XPath);
-            node=nodes[0]
-            if hasattr(node,'text'):
-                setValue(data, self, node.text);
+            if self.GetTextHtml or self.GetText:
+                nodepath=xspider.GetTextRootProbability(tree,root);
             else:
-                setValue(data,self,str(node))
+                nodepath=self.XPath;
+            if nodepath is None:
+                yield data
+                return
+            nodes = tree.xpath(nodepath);
+
+            node=nodes[0]
+            if self.GetTextHtml:
+                setValue(data, self, etree.tostring(node).decode('utf-8'))
+            else:
+                if hasattr(node,'text'):
+                    setValue(data, self, node.text);
+                else:
+                    setValue(data,self,str(node))
             yield data;
 
 
@@ -795,7 +811,7 @@ def LoadProject_dict(dic):
     return proj;
 
 
-def task_DumpLinq(tools):
+def Task_DumpLinq(tools):
     array=[];
     for t in tools:
         typename= extends.get_type_name(t);
