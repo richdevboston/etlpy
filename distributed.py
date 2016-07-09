@@ -68,7 +68,7 @@ class Master:
                 except Exception as e:
                     print(e);
                     continue;
-
+            print('all task dispatched...')
             while not dispatched_jobs.empty():
                 job = finished_jobs.get(60)
                 print('Finished Job: %s, Count: %s' % (job.id, job.count))

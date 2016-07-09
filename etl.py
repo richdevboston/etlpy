@@ -512,7 +512,9 @@ class XPathTF(Transformer):
                 yield data
                 return
             nodes = tree.xpath(nodepath);
-
+            if len(nodes)<1:
+                yield data;
+                return
             node=nodes[0]
             if self.GetTextHtml:
                 setValue(data, self, etree.tostring(node).decode('utf-8'))
