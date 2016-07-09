@@ -58,12 +58,16 @@ class Master:
         proj=json.loads(json.dumps(etl.convert_dict(self.project,self.project.__defaultdict__), ensure_ascii=False))
         while True:
             for task in etl.parallel_map(module):
-                job_id = job_id + 1
-                if job_id<skip:
-                    continue
-                job = ETLJob(proj, self.jobname, task, job_id);
-                print('Dispatch job: %s' % job.id)
-                dispatched_jobs.put(job)
+                try:
+                    job_id = job_id + 1
+                    if job_id<skip:
+                        continue
+                    job = ETLJob(proj, self.jobname, task, job_id);
+                    print('Dispatch job: %s' % job.id)
+                    dispatched_jobs.put(job)
+                except Exception as e:
+                    print(e);
+                    continue;
 
             while not dispatched_jobs.empty():
                 job = finished_jobs.get(60)
@@ -116,7 +120,7 @@ class Slave:
             try:
                 generator= etl.parallel_reduce(module,[ job.config],execute)
                 for r in generator:
-                    print(r)
+                    print(r.keys())
                     count+=1;
             except Exception as e:
                 print(e)
