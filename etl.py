@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 import csv
 import xspider;
 import os;
-
+import  sys;
 intattrs = re.compile('Max|Min|Count|Index|Interval|Position');
 boolre = re.compile('^(One|Can|Is)|Enable|Should|Have|Revert');
 rescript = re.compile('Regex|Number')
@@ -594,13 +594,20 @@ class RangeTF(Transformer):
 
 class EtlGE(Generator):
     def generate(self,data):
-        subetl = self.__proj__.modules[self.ETLSelector];
+        subetl= __gettask__(self,data);
         for r in generate(subetl.AllETLTools):
             yield r;
 
+def __gettask__(task,data):
+    etlselector = extends.Query(data, task.ETLSelector);
+    if etlselector not in task.__proj__.modules:
+        sys.stderr.write('sub task %s  not in current project' % etlselector);
+    subetl = task.__proj__.modules[etlselector];
+    return subetl;
 class EtlEX(Executor):
     def execute(self,data):
-        subetl = self.__proj__.modules[self.ETLSelector];
+
+        subetl= __gettask__(self,data);
         if spider.IsNone(self.NewColumn):
             doc = data.copy();
         else:
@@ -615,6 +622,7 @@ class EtlEX(Executor):
 
 class EtlTF(Transformer):
     def transform(self,datas):
+
         subetl = self.__proj__.modules[self.ETLSelector];
         if self.IsMultiYield:
 
