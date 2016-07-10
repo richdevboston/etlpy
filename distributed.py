@@ -39,7 +39,7 @@ class Master:
     def get_finished_job_queue(self):
         return self.finished_job_queue
 
-    def start(self,skip=0):
+    def start(self,skip=0,count=100000):
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue', callable=self.get_dispatched_job_queue)
         BaseManager.register('get_finished_job_queue', callable=self.get_finished_job_queue)
@@ -62,6 +62,8 @@ class Master:
                     job_id = job_id + 1
                     if job_id<skip:
                         continue
+                    if job_id>count:
+                        break;
                     job = ETLJob(proj, self.jobname, task, job_id);
                     print('Dispatch job: %s' % job.id)
                     dispatched_jobs.put(job)
