@@ -616,7 +616,7 @@ class EtlEX(Executor):
         else:
             doc = {};
             extends.MergeQuery(doc, data, self.NewColumn + " " + self.Column);
-        result=(r for r in generate(subetl.AllETLTools, [doc]))
+        result=(r for r in generate(subetl.AllETLTools[:3], [doc]))
         count=0;
         for r in result:
             count+=1;
@@ -643,7 +643,7 @@ class EtlTF(Transformer):
             else:
                 doc = data.copy();
                 for r in generate(subetl.AllETLTools, [doc]):
-                    yield extends.MergeQuery(r, data, self.NewColumn);
+                    yield extends.MergeQuery(r, doc, self.NewColumn);
         else:
             for r in generate(subetl.AllETLTools,[data.copy()]):
                 yield extends.Merge(data,r);
