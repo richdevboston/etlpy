@@ -291,6 +291,7 @@ class SmartCrawler(extends.EObject):
                         data = GetDataFromXPath(node,path,r.IsHtml);
                         if data is not None:
                             document[r.Name] = data;
+
                     if len(document) == 0:
                         continue;
                     documents.append(document);

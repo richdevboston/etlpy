@@ -146,11 +146,12 @@ class ConnectorBase(ETLTool):
             self.filetype = filetype;
 
 
+update={'$inc':{'id':1}}
+
 class DbEX(ConnectorBase):
     def __init__(self):
         super(DbEX, self).__init__()
         self.TableName=''
-
 
 
 
@@ -160,6 +161,7 @@ class DbEX(ConnectorBase):
             table = self.Table;
             work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
             for data in datas:
+
                 work[etype](data);
                 yield data;
         else:
