@@ -36,7 +36,10 @@ def MergeQuery(d1, d2, columns):
     return d1;
 
 
-
+def FirstOrDefault(generator):
+    for r in generator:
+        return r;
+    return None;
 
 def Query(data, key):
     if data is None:

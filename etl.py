@@ -401,12 +401,14 @@ class SplitTF(Transformer):
             self.splits.append(' ');
         if str(self.SplitNull)=='True':
             self.splits.append('\n')
-        self.splits= ''.join(self.splits);
         self.FromBack=str(self.FromBack)=='True'
     def transform(self, data):
         if len(self.splits)==0:
             return data;
-        r=re.split(self.splits,data);
+        for i in self.splits:
+            data = data.replace(i, '\001');
+
+        r=data.split('\001');
         if len(r) < self.Index:
             return data;
         if self.FromBack:
@@ -509,7 +511,8 @@ class XPathTF(Transformer):
         if self.IsManyData:
             nodes = tree.xpath(self.XPath);
             for node in nodes:
-                ext = {'Text': spider.getnodetext(node), 'HTML': etree.tostring(node).decode('utf-8')};
+                html= etree.tostring(node).decode('utf-8');
+                ext = {'Text': spider.getnodetext(node),'HTML':html };
                 ext['OHTML'] = ext['HTML']
                 yield extends.MergeQuery(ext, data, self.NewColumn);
         else:
@@ -621,17 +624,31 @@ class EtlEX(Executor):
         return data;
 
 class EtlTF(Transformer):
-    def transform(self,datas):
 
+    def __init__(self):
+        self.IsCycle=False;
+
+
+    def transform(self,data):
         subetl = self.__proj__.modules[self.ETLSelector];
         if self.IsMultiYield:
-
-            for data in datas:
+            newdata=data;
+            if self.IsCycle:
+                while newdata[self.Column]!='':
+                    result= extends.FirstOrDefault( generate (subetl.AllETLTools, [newdata.copy()]))
+                    if result is None:
+                        break
+                    yield result.copy();
+                    newdata=result;
+            else:
                 doc = data.copy();
-                for r in subetl.__generate__(subetl.AllETLTools, [doc]):
+                for r in generate(subetl.AllETLTools, [doc]):
                     yield extends.MergeQuery(r, data, self.NewColumn);
         else:
-            yield None;  # TODO
+            for r in generate(subetl.AllETLTools,[data.copy()]):
+                yield extends.Merge(data,r);
+                return
+
 
 
 
