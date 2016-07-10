@@ -399,6 +399,8 @@ class SplitTF(Transformer):
 
     def init(self):
         self.splits = self.SplitChar.split(' ');
+        if '' in self.splits:
+            self.splits.remove('')
         if str(self.SplitPause)=='True':
             self.splits.append(' ');
         if str(self.SplitNull)=='True':
