@@ -391,18 +391,27 @@ class SplitTF(Transformer):
         super(SplitTF, self).__init__()
         self.SplitChar='';
         self.OneInput = True;
+        self.FromBack=False;
+        self.SplitPause=False;
+        self.SplitNull=False;
 
-
+    def init(self):
+        self.splits = self.SplitChar.split(' ');
+        if str(self.SplitPause)=='True':
+            self.splits.append(' ');
+        if str(self.SplitNull)=='True':
+            self.splits.append('\n')
+        self.splits= ''.join(self.splits);
+        self.FromBack=str(self.FromBack)=='True'
     def transform(self, data):
-        splits = self.SplitChar.split(' ');
-        sp = splits[0]
-        if sp == '':
+        if len(self.splits)==0:
             return data;
-
-        r = data.split(splits[0]);
-        if len(r) > self.Index:
-            return r[self.Index];
-        return '';
+        r=re.split(self.splits,data);
+        if len(r) < self.Index:
+            return data;
+        if self.FromBack:
+            return r[-self.Index-1];
+        return r[self.Index];
 
 class TrimTF(Transformer):
     def __init__(self):
