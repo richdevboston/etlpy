@@ -616,7 +616,7 @@ class EtlEX(Executor):
         else:
             doc = {};
             extends.MergeQuery(doc, data, self.NewColumn + " " + self.Column);
-        result=(r for r in generate(subetl.AllETLTools[:3], [doc]))
+        result=(r for r in generate(subetl.AllETLTools, [doc]))
         count=0;
         for r in result:
             count+=1;
