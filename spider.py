@@ -240,6 +240,7 @@ class SmartCrawler(extends.EObject):
         if   self.Login !="" and  self.haslogin == False:
             self.HttpItem.opener = self.autologin(self.Login);
             self.haslogin = True;
+        html='';
         try:
             html = self.HttpItem.GetHTML(url);
         except Exception as e:
