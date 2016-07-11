@@ -66,7 +66,7 @@ class Master:
                         break;
                     job = ETLJob(proj, self.jobname, task, job_id);
                     if id%10==0 and id >0:
-                        print('Dispatch job: %d - %d' % job.id-10,job.id)
+                        print('Dispatch job: %d - %d' % (job.id-10,job.id))
                     dispatched_jobs.put(job)
                 except Exception as e:
                     print(e);
