@@ -117,7 +117,7 @@ class Slave:
             job = dispatched_jobs.get(timeout=timeout)
             print('Run job: %s ' % job.id)
             project=job.project;
-            project= etl.LoadProject_dict(project);
+            project= etl.proj_load_dict(project);
             module= project.modules[job.jobname];
             count=0
             try:

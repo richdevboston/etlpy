@@ -35,7 +35,8 @@ def get_keys(generator,s):
         count+=1;
         if count<5:
             for key in r.keys():
-                setattr(s,key,key);
+                if not key.startswith('_'):
+                    setattr(s,key,key);
         yield r
 
 def repl_long_space(txt):

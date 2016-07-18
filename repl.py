@@ -41,8 +41,6 @@ def new_task(name='etl'):
         newtool._proj=proj
         set_attrs(newtool,locals())
         task.tools.append(newtool);
-        datas=task.query();
-        #set_cols(datas)
         return task;
     '''
 
@@ -97,14 +95,14 @@ if __name__ == '__main__':
         .CrawlerTF('p', selector='网页采集器') \
         .JsonTF('Content', scriptworkmode='不进行转换') \
         .PythonTF('Content', script="value['data']['list']", scriptworkmode='文档列表', ncol='class') \
-        .RenameTF('hotcount', ncol='like') \
+        .TnTF('hotcount',rule= 'integer_int', ncol='like') \
         .RenameTF('m_summary', ncol='description') \
         .RenameTF('m_title', ncol='title') \
         .RenameTF('m_create_time', ncol='date') \
+        .TnTF('date',rule='daterule',ncol='timestamp')\
+        .PythonFT('timestamp',script='timestamp>get_time(datetime(2016,7,10))',stopwhile=True)\
         .RenameTF('m_writer_name', ncol='source') \
         .RenameTF('m_display_url', ncol='url') \
         .CrawlerTF('url', selector='百度百家文章') \
-        .NumRangeFT(take=20) \
         .TableEX(table=buf) \
-        .exec(notify_count=2)
-        #.get(format='print',etl_count=30)
+        .get(format='print')

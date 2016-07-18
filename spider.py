@@ -1,16 +1,15 @@
 # coding=utf-8
-import sys;
-import gzip
-import re
-import socket
+import etl;
+import copy
 import urllib.request
 from lxml import etree
 from urllib.parse import urlparse,urlunparse
 import extends;
+import socket
 import http.cookiejar
 from urllib.request import quote
+from xspider import *
 import random;
-
 boxRegex = re.compile(r"\[\d{1,3}\]");
 
 agent_list = []
@@ -19,47 +18,39 @@ with open('agent.list.d') as f:
         agent_list.append(line_data.strip())
 
 
-
-class CrawItem(extends.EObject):
-    def __init__(self, name=None, sample=None, ismust=False, isHTMLorText=False, xpath=None):
+class XPath(extends.EObject):
+    def __init__(self, name=None,  xpath=None, ishtml =False,sample=None, ismust=False):
         self.XPath = xpath;
         self.Sample = sample;
         self.Name = name;
         self.IsMust = ismust;
-        self.IsHtml = isHTMLorText;
+        self.IsHtml = ishtml;
         self.Children = [];
 
     def __str__(self):
         return "%s %s %s" % (self.Name, self.XPath, self.Sample);
 
 
-def RemoveFinalNum(paths):
-    v = paths[-1];
-    m = boxRegex.search(v);
-    if m is None:
-        return paths;
-    s = m.group(0);
-    paths[-1] = v.replace(s, "");
-    return paths;
 
 
-def GetMaxCompareXPath(items):
-    xpaths = [r.XPath.split('/') for r in items];
-    minlen = min(len(r) for r in xpaths);
+
+def get_common_xpath(xpaths):
+    paths = [r.XPath.split('/') for r in xpaths];
+    minlen = min(len(r) for r in paths);
     c = None;
     for i in range(minlen):
-        for index in range(len(xpaths)):
-            path = xpaths[index];
+        for index in range(len(paths)):
+            path = paths[index];
             if index == 0:
                 c = path[i];
             elif c != path[i]:
                 first = path[0:i + 1];
-                return '/'.join(RemoveFinalNum(first));
+                return remove_last_xpath_num(first);
 
 
 attrsplit=re.compile('@|\[');
 
-def GetDataFromXPath(node, path,ishtml=False):
+def get_xpath_data(node, path, ishtml=False):
     p = node.xpath(path);
     if p is None:
         return None;
@@ -71,88 +62,69 @@ def GetDataFromXPath(node, path,ishtml=False):
         return p[0];
     if ishtml:
         return etree.tostring(p[0]).decode('utf-8');
-    return  getnodetext(p[0]);
-
-
-
-
-
-
-
-
-def GetImage(addr, fname):
-    u = urllib.urlopen(addr)
-    data = u.read()
-    f = open(fname, 'wb')
-    f.write(data)
-    f.close()
-
-
-def urlEncodeNonAscii(b):
-    return re.sub('[\x80-\xFF]', lambda c: '%%%02x' % ord(c.group(0)), b)
-
-def iriToUri(iri):
-    parts= urlparse(iri)
-
-    pp= [(parti,part) for parti, part in enumerate(parts)]
-    res=[];
-    for p in pp:
-        res.append(p[1] if p[0] != 4 else quote(p[1] ))
-
-    return urlunparse(res);
-
-
+    return  get_node_text(p[0]);
 
 
 extract = re.compile('\[(\w+)\]');
-
 charset = re.compile('<meta[^>]*?charset=(\\w+)[\\W]*?>');
-class HTTPItem(extends.EObject):
+
+
+class Requests(extends.EObject):
+    '''
+    save request parameters and can query html from certain url
+    '''
     def __init__(self):
         self.Url = ''
         self.Cookie = '';
-        self.Headers = None;
+        self.Headers = {};
         self.Timeout = 30;
         self.opener = "";
         self.postdata=''
         self.bestencoding='utf-8'
 
-    def PraseURL(self, url):
-        u = Para2Dict(urlparse(self.Url).query, '&', '=');
+    def parse_url(self, url):
+        u = para_to_dict(urlparse(self.Url).query, '&', '=');
         for r in extract.findall(url):
             url = url.replace('[' + r + ']', u[r])
         return url;
 
-    def GetData(self, destUrl=None):
-        if destUrl is None:
-            destUrl = self.Url;
-        destUrl = self.PraseURL(destUrl);
+    def get_page(self, url=None):
+        def irl_to_url(iri):
+            parts = urlparse(iri)
+            pp = [(parti, part) for parti, part in enumerate(parts)]
+            res = [];
+            for p in pp:
+                res.append(p[1] if p[0] != 4 else quote(p[1]))
+            return urlunparse(res);
+
+        if url is None:
+            url = self.Url;
+        url = self.parse_url(url);
         socket.setdefaulttimeout(self.Timeout);
         cj = http.cookiejar.CookieJar()
         pro = urllib.request.HTTPCookieProcessor(cj)
         opener = urllib.request.build_opener(pro)
         self.Headers['User-Agent']=random.choice(agent_list)
         t = [(r.strip(), self.Headers[r]) for r in self.Headers];
-
         opener.addheaders = t;
         binary_data = self.postdata.encode('utf-8')
         try:
-            destUrl.encode('ascii')
+            url.encode('ascii')
         except UnicodeEncodeError:
-            destUrl =  iriToUri(destUrl)
+            url =  irl_to_url(url)
 
         try:
             if self.postdata=='':
-                page=opener.open(destUrl);
+                page=opener.open(url);
             else:
-                page =opener.open(destUrl, binary_data)
+                page =opener.open(url, binary_data)
             return  page;
         except Exception as e:
             sys.stderr.write(str(e));
             return None;
 
-    def GetHTML(self,destUrl=None):
-        page = self.GetData(destUrl);
+    def get_html(self, url=None):
+        page = self.get_page(url);
         if page is None:
             return "";
         html=page.read();
@@ -171,20 +143,13 @@ class HTTPItem(extends.EObject):
             import chardet
             self.bestencoding= chardet.detect(html)['encoding']
             html=html.decode(self.bestencoding,errors='ignore');
-
         return html;
 
 
-# 解压函数
-def ungzip(data):
-    data = gzip.decompress(data)
-    return data;
-
-def IsNone(data):
+def is_none(data):
     return  data is  None or data=='';
 
-def __getnodetext__(node, arrs):
-
+def __get_node_text(node, arrs):
     if  hasattr(node,'tag')  and  isinstance(node.tag,str) and node.tag.lower() not in ['script','style','comment']:
         t = node.text;
         if t is not None:
@@ -196,31 +161,40 @@ def __getnodetext__(node, arrs):
             t = t.strip()
             if t != '':
                 arrs.append(t)
-
         for sub in node.iterchildren():
-            __getnodetext__(sub,arrs)
+            __get_node_text(sub, arrs)
 
-def getnodetext(node):
+def get_node_text(node):
     if node is None:
         return ""
     arrs=[];
-    __getnodetext__(node,arrs);
+    __get_node_text(node, arrs);
     return ' '.join(arrs);
 
 
+def _get_etree( html):
+    root = None
+    if html != '':
+        try:
+            root = etree.HTML(html);
+
+        except Exception as e:
+            sys.stderr.write(str(e))
+    return root;
+
 class SmartCrawler(extends.EObject):
+    '''
+    A _crawler with httpitem and parse html to structured data by search & xpath
+    '''
     def __init__(self):
         self.IsMultiData = "List";
-        self.HttpItem = None;
+        self.requests = Requests()
         self.Name = None;
-        self.CrawItems = None;
-        self.Login = "";
+        self.Login = '';
         self.haslogin = False;
-        self.RootXPath=''
-
-
-
-    def autologin(self, loginItem):
+        self.clear();
+        self.url='http://wwww.cnblogs.com';
+    def auto_login(self, loginItem):
         if loginItem.postdata is None:
             return;
         import http.cookiejar
@@ -233,73 +207,163 @@ class SmartCrawler(extends.EObject):
         op = opener.open(loginItem.Url, binary_data)
         data = op.read().decode('utf-8')
         print(data)
-        self.HttpItem.Url = op.url;
+        self.requests.Url = op.url;
         return opener;
 
-    def CrawData(self, url):
+    def great_hand(self,has_attr=False):
+        root=self.__root;
+        self.__stage=2;
+        if self.IsMultiData is not 'List':
+            return
+        root_path,xpaths=search_properties(root,self.xpaths,has_attr);
+        datas= self._get_datas(root,xpaths, None)
+        self.__datas= datas;
+        self.__xpaths= xpaths;
+        return self;
 
+    def set_paras(self,is_list=True,rootxpath=None):
+        self.IsMultiData=is_list;
+        if rootxpath is not None:
+            self.RootXPath=rootxpath;
+        return self;
+
+
+    def test(self):
+        paths= self.xpaths if  self.__stage==1 else self.__xpaths;
+        rootpath= self.RootXPath if  self.__stage==1 else self.__RootXPath;
+        self.__stage = 3;
+        self.__datas=self.__get_data_from_html(self.__html,paths,rootpath)
+        return self;
+
+    def crawl(self,url):
         if   self.Login !="" and  self.haslogin == False:
-            self.HttpItem.opener = self.autologin(self.Login);
+            self.requests.opener = self.auto_login(self.Login);
             self.haslogin = True;
         html='';
         try:
-            html = self.HttpItem.GetHTML(url);
+            html = self.requests.get_html(url);
         except Exception as e:
             sys.stderr.write(str(e));
-        if isinstance(self.CrawItems, list) and len(self.CrawItems) == 0:
+        return self.__get_data_from_html(html,self.xpaths,self.RootXPath);
+
+    def __get_data_from_html(self, html, xpaths, rootpath):
+        if isinstance(xpaths, list) and len(xpaths) == 0:
             return {'Content': html};
-        root=None;
-        if html !='':
-            try:
-                root=etree.HTML(html);
-            except Exception as e:
-                sys.stderr.write(str(e))
-
-        if root is None:
+        tree = _get_etree(html);
+        if tree is None:
             return {} if self.IsMultiData == 'One' else [];
+        return self._get_datas(tree, xpaths, rootpath);
 
+    def add_xpath(self, name, xpath, ishtml=False):
+        xpath = XPath(name, xpath, ishtml);
+        self.xpaths.append(xpath);
+        return self;
+
+    def search(self, tree, keyword, has_attr=False):
+        return search_xpath(tree , keyword, has_attr);
+
+    def visit(self, url=None):
+        if url is not None:
+           self.url=url;
+        else:
+            url= self.url;
+        self.__stage=1;
+        html = self.requests.get_html(url);
+        self.__html= html;
+        self.__root= _get_etree(html);
+        return self;
+
+    def clear(self):
+        self.__stage=0;
+        self.xpaths=[];
+        self.__xpaths=[];
+        self.RootXPath=None;
+        self.__datas=None;
+        self.__RootXPath=None;
+        return self;
+    def print_xpaths(self,is_test=True):
+        if is_test:
+            paths=self.__xpaths;
+        else:
+            paths= self.xpaths;
+        if paths is None:
+            print( 'xpaths is None');
+        if len(paths)==0:
+            print('xpath  is empty')
+        buf=[];
+        buf.append('root:'+ (self.RootXPath if not is_test else self.__RootXPath));
+        for r in paths:
+            buf.append('%s\t%s\tishtml: %s' % (r.Name, r.XPath, r.IsHtml))
+        result= '\n'.join(buf);
+        return result;
+
+    def __str__(self):
+        return self.print_xpaths(False);
+
+    def accept(self,set_root_xpath=False):
+        self.__stage=4;
+        if any(self.__xpaths):
+            self.xpaths=self.__xpaths;
+        if set_root_xpath:
+            self.RootXPath= get_common_xpath(self.__xpaths)
+            for path in self.xpaths:
+                mpath = path.XPath.split('/');
+                path.XPath = '/'.join(mpath[len(self.RootXPath.split('/')):len(mpath)]);
+        if self.__RootXPath is not None:
+            self.RootXPath= self.__RootXPath;
+        return self;
+    def get(self,format='df', take=10,skip=0):
+        s=self.__stage;
+        if s==0:
+            print(self)
+        elif s==1:
+            if format=='web':
+                from IPython.core.display import HTML,display
+                display(HTML(self.__html));
+            else:
+                print(self.__html);
+        elif s==2:
+            print(self.print_xpaths(True))
+        else :
+            return extends.get(self.__datas,format,take,skip);
+
+    def _get_datas(self, root,xpaths,rootpath=None):
         tree = etree.ElementTree(root);
-
-
-        return self.GetDataFromCrawItems(tree);
-
-    def GetDataFromCrawItems(self,tree):
         documents = [];
         if self.IsMultiData =='One':
-            document = {};
-            for r in self.CrawItems:
-                data = GetDataFromXPath(tree, r.XPath,r.IsHtml);
+            doc = {};
+            for r in xpaths:
+                data = get_xpath_data(tree, r.XPath, r.IsHtml);
                 if data is not None:
-                    document[r.Name] = data;
+                    doc[r.Name] = data;
                 else:
-                    document[r.Name] = "";
-            return document;
+                    doc[r.Name] = "";
+            return doc;
         else:
-            if not IsNone(self.RootXPath):
-                rootXPath = self.RootXPath;
+            if is_none(rootpath):
+                root_path = get_common_xpath(xpaths);
             else:
-                rootXPath = GetMaxCompareXPath(self.CrawItems);
-            nodes = tree.xpath(rootXPath)
+                root_path=rootpath;
+            nodes = tree.xpath(root_path)
             if nodes is not None:
                 for node in nodes:
-                    document = {};
-                    for r in self.CrawItems:
+                    doc = {};
+                    for r in xpaths:
                         path=r.XPath;
-                        if IsNone(self.RootXPath):
+                        if is_none(rootpath):
                             paths=r.XPath.split('/');
-                            path='/'.join(paths[len(rootXPath.split('/')):len(paths)]);
+                            path='/'.join(paths[len(root_path.split('/')):len(paths)]);
                         else:
                             path=  tree.getpath(node)+ path;
-                        data = GetDataFromXPath(node,path,r.IsHtml);
+                        data = get_xpath_data(node, path, r.IsHtml);
                         if data is not None:
-                            document[r.Name] = data;
-
-                    if len(document) == 0:
+                            doc[r.Name] = data;
+                    if len(doc) == 0:
                         continue;
-                    documents.append(document);
+                    documents.append(doc);
                 return documents;
 
-def Para2Dict(para, split1, split2):
+def para_to_dict(para, split1, split2):
     r = {};
     for s in para.split(split1):
         rs = s.split(split2);
@@ -308,11 +372,10 @@ def Para2Dict(para, split1, split2):
         key = rs[0];
         value = s[len(key) + 1:];
         r[rs[0]] = value;
-
     return r;
 
 
-def GetWebData(url, code=None):
+def get_web_file(url, code=None):
     url = url.strip();
     if not url.startswith('http'):
         url = 'http://' + url;
@@ -330,17 +393,6 @@ def GetWebData(url, code=None):
     return html;
 
 
-def GetHTMLFromFile(fname):
-    f = open(fname, 'r', 'utf-8');
-    r = f.read();
-    return r;
-
-
-def GetCrawNode(craws, name, tree):
-    for r in craws:
-        if r.Name == name:
-            return tree.xpath(r.XPath);
-    return None;
 
 
 def GetImageFormat(name):
@@ -356,27 +408,5 @@ def GetImageFormat(name):
     return None, None;
 
 
-def GetCrawData(crawitems, tree):
-    doc = {};
-    for crawItem in crawitems:
-        node = tree.xpath(crawItem.XPath);
-        if len(node) == 0:
-            if crawItem.IsMust:
-                return;
-        if crawItem.IsHTMLorText is False:
-            text = node[0].text;
-        else:
-            text = etree.tostring(node[0]);
-        doc[crawItem.Name] = text;
-    return doc;
 
 
-def GetHtmlTree(html):
-    try:
-        root = etree.HTML(html);
-        tree = etree.ElementTree(root);
-    except Exception as e:
-        sys.stderr.write(str(e))
-        return None,None;
-
-    return tree,root;
