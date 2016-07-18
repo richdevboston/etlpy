@@ -2,13 +2,15 @@ import etl;
 
 import extends
 import time;
+import pprint;
 import  sys
 if __name__ == '__main__':
-    projfile='../Hawk-Projects/新闻抓取/微信头条.xml';
-    name='单公共号文章列表'
+    projfile='../Hawk-Projects/新闻抓取/百度新闻.xml';
+    name='百度百家'
     argv=sys.argv;
-    mode='keys'
-    count=116;
+    mode='pprint'
+    count=30000;
+    proj=etl.Project();
     count1= 0;
     if len(argv)>1:
         projfile=argv[1];
@@ -21,7 +23,7 @@ if __name__ == '__main__':
     if len(argv)>5:
         count1= int(argv[5])
     try:
-        proj=etl.Project_LoadXml(projfile);
+        proj=proj.load_xml(projfile);
     except Exception as e:
         print('load project failed:'+ str(e));
         exit();
@@ -35,15 +37,19 @@ if __name__ == '__main__':
         master = Master(proj, name);
         master.start(count1,count);
     elif mode =='display':
-        print(etl.Task_DumpLinq(task.AllETLTools))
-    elif mode in ['print','keys','exec']:
+        print(etl)
+    elif mode in ['pprint','print','keys','exec']:
         resultcount=0;
 
-        for r in task.QueryDatas(etlCount=count,execute=mode=='exec'):
-            if mode =='print':
+        for r in task.query(etl_count=count, execute=mode== 'exec'):
+            if mode =='pprint':
+                pprint.pprint(r);
+            elif mode=='print':
                 print(r);
             elif mode=='keys':
                 print(r.keys())
+            if resultcount%100==0:
+                print(resultcount)
             resultcount+=1;
         print('task finished,total count is %d'%resultcount);
 
