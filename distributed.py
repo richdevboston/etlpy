@@ -55,7 +55,7 @@ class Master:
         job_id = 0
         module= self.project.modules[self.jobname];
 
-        proj=json.loads(self.project.dumps_json(), ensure_ascii=False)
+        proj=json.loads(self.project.dumps_json() )
         while True:
             for task in etl.parallel_map(module):
                 try:
