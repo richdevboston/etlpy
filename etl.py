@@ -577,7 +577,6 @@ class CrawlerTF(Transformer):
         crawler = self._crawler;
         url = data[self.Column];
         buff = self.__buff;
-        print(url)
         if url in buff:
             datas = buff[url];
         else:
