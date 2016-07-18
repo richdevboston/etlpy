@@ -67,6 +67,8 @@ def new_task(name='etl'):
         setattr(task,name,func);
     return task;
 
+def fuck(x):
+    print(x['date']);
 
 if __name__ == '__main__':
     proj.load_xml('../Hawk-Projects/新闻抓取/百度新闻.xml')
@@ -100,9 +102,12 @@ if __name__ == '__main__':
         .RenameTF('m_title', ncol='title') \
         .RenameTF('m_create_time', ncol='date') \
         .TnTF('date',rule='daterule',ncol='timestamp')\
-        .PythonFT('timestamp',script='timestamp>get_time(datetime(2016,7,10))',stopwhile=True)\
+        .PythonFT('timestamp',script='get_time(datetime(2016,7,18))>timestamp>get_time(datetime(2016,7,16))',\
+                  stopwhile=True)\
         .RenameTF('m_writer_name', ncol='source') \
         .RenameTF('m_display_url', ncol='url') \
         .CrawlerTF('url', selector='百度百家文章') \
-        .TableEX(table=buf) \
-        .get(format='print')
+        .TnTF('date', rule='daterule', ncol='timestamp') \
+        .exec()
+
+    print(buf);

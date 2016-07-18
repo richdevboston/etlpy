@@ -1,6 +1,8 @@
 # encoding: UTF-8
 import re;
 
+STOP_ITER_FLAG='STOP';
+
 def get_mount(generator,take,skip=0):
     i=0;
     for r in generator:
@@ -105,11 +107,18 @@ def get_index(iteral, filter):
 def cross(a, genefunc):
     for r1 in a:
         r1=dict.copy(r1);
-        for r2 in genefunc(r1):
-            for key in r2:
-                r1[key] = r2[key]
-            yield dict.copy(r1);
+        try:
+            for r2 in genefunc(r1):
+                for key in r2:
+                    r1[key] = r2[key]
+                yield dict.copy(r1);
+        except LevelStopIteration as e:
+            if e.level>0:
+                raise LevelStopIteration(e.level-1);
 
+class LevelStopIteration(Exception):
+    def __init__(self,level):
+        self.level=level;
 
 def merge_all(a, b):
     while True:

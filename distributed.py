@@ -117,11 +117,15 @@ class Slave:
             job = dispatched_jobs.get(timeout=timeout)
             print('Run job: %s ' % job.id)
             project=job.project;
-            project= etl.proj_load_dict(project);
-            module= project.modules[job.jobname];
+            proj= etl.Project();
+            proj.load_dict(project);
+            module= proj.modules[job.jobname];
             count=0
             try:
-                generator= etl.parallel_reduce(module,[ job.config],execute)
+                config= job.config;
+                if not isinstance(config,list):
+                    config=[config];
+                generator= etl.parallel_reduce(module,config,execute)
                 for r in generator:
                     #print(r.keys())
                     count+=1;

@@ -53,7 +53,8 @@ class ETLTool(extends.EObject):
         result=None;
         try:
             if global_para is not None:
-                result = eval(self.Script,global_para,  locals())
+                result = eval(self.Script,global_para,locals())
+
             else:
                 result=eval(self.Script);
         except Exception as e:
@@ -76,12 +77,15 @@ class Transformer(ETLTool):
                 try:
                     datas=self.transform(r);
                     for p in datas:
-                        yield extends.merge_query(p, r, self.nCol);
+                        my=extends.merge_query(p, r, self.nCol);
+                        yield my;
                 except Exception as e:
                     sys.stderr.write(str(e));
 
             return;
-        for d in data:  # one to one
+        for d in data:
+            if d==extends.STOP_ITER_FLAG:
+                break;            # one to one
             if self.OneOutput:
                 if self.Column not in d or self.Column not in d:
                     yield d;
@@ -128,7 +132,8 @@ class Filter(ETLTool):
                 yield r;
             else:
                 if self.StopWhile:
-                    return ;
+                    yield extends.STOP_ITER_FLAG;
+
 class Generator(ETLTool):
     def __init__(self):
         super(Generator, self).__init__()
@@ -381,7 +386,6 @@ class MergeTF(Transformer):
         res = self.Format;
         for i in range(len(columns)):
             res = res.replace('{' + str(i) + '}', str(columns[i]))
-        print(res);
         return res;
 
 
@@ -544,10 +548,13 @@ class PythonFT(Filter):
         return  isinstance(self.Script,str);
     def filter(self, data):
         import inspect
+        data=data.copy();
         if isinstance(self.Script, str):
             result = self._eval_script(data);
         elif inspect.isfunction(self.Script):
             result = self.Script(data)
+        if result==None:
+            return True;
         return result;
 
 class CrawlerTF(Transformer):
@@ -570,6 +577,7 @@ class CrawlerTF(Transformer):
         crawler = self._crawler;
         url = data[self.Column];
         buff = self.__buff;
+        print(url)
         if url in buff:
             datas = buff[url];
         else:
@@ -1072,10 +1080,11 @@ class Project(extends.EObject):
                         setattr(etl, attr, value);
                     etl._proj = self;
                     crawler.tools.append(etl)
-            elif 'xpaths' in module:
+            elif 'RootXPath' in module:
                 crawler = spider.SmartCrawler();
                 extends.dict_copy_poco(crawler, module);
-                for r in module['xpaths']:
+                paths = module.get('xpaths',{});
+                for r in paths:
                     xpath = spider.XPath()
                     extends.dict_copy_poco(xpath, r);
                     crawler.xpaths.append(xpath)
@@ -1141,11 +1150,11 @@ def parallel_map(task, execute=True):
         generator = generate(tools[:index],None, execute=execute);
     return generator;
 
-def parallel_reduce(task,generator=None, execute=True):
+def parallel_reduce(task,generator=None, execute=True,etl_count=100):
     tools = task.tools;
     index = extends.get_index(tools, lambda d: isinstance(d, ToListTF));
     index =0 if index==-1 else index;
-    generator = generate(tools[index + 1:], generator, execute);
+    generator = generate(tools[index + 1:index+etl_count+1], generator, execute);
     return generator;
 
 

@@ -23,7 +23,10 @@ if __name__ == '__main__':
     if len(argv)>5:
         count1= int(argv[5])
     try:
-        proj=proj.load_xml(projfile);
+        if projfile.find('xml')>0:
+            proj=proj.load_xml(projfile);
+        else:
+            proj=proj.loads_json(projfile);
     except Exception as e:
         print('load project failed:'+ str(e));
         exit();

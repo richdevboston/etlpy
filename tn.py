@@ -16,8 +16,8 @@ def date_translate(entity,ms):
     m=ms[0]
     m.ExtractDocument(doc);
     ctime= time.localtime()
-    curtime= [ctime[i] for i in range(0,3)]
-    timekey=['Year','Month','Day'];
+    curtime= [ctime[i] for i in range(0,6)]
+    timekey=['Year','Month','Day', 'Hour','Minute','Second'];
     max_accu =0;
     for i in range(len(timekey)):
         if timekey[i] in doc:
@@ -40,13 +40,13 @@ def date_translate(entity,ms):
     if month_key in doc:
         value=doc[month_key];
         curtime[1]+=month_dic[value];
-    ttime= datetime.datetime(year=getvalue(0),month=getvalue(1),day=getvalue(2));
+    ttime= datetime.datetime(year=getvalue(0),month=getvalue(1),day=getvalue(2),hour=getvalue(3),minute=getvalue(4),second=getvalue(5));
     ts=mktime(utc.localize(ttime).utctimetuple())
     m.rewrite=ts;
 
     return m.rewrite;
 
-daterule = SQE(['date_fix'], [SCE(date_translate)]);
+daterule = SQE(['datetime'], [SCE(date_translate)]);
 
 core= RegexCore();
 core.InitTNRule('../tnpy/rules/cnext');
