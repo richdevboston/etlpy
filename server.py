@@ -5,10 +5,10 @@ import time;
 import pprint;
 import  sys
 if __name__ == '__main__':
-    projfile='../Hawk-Projects/新闻抓取/百度新闻.xml';
+    projfile='../Hawk-Projects/新闻抓取/百度新闻.json';
     name='百度百家'
     argv=sys.argv;
-    mode='pprint'
+    mode='exec'
     count=30000;
     proj=etl.Project();
     count1= 0;
@@ -26,7 +26,7 @@ if __name__ == '__main__':
         if projfile.find('xml')>0:
             proj=proj.load_xml(projfile);
         else:
-            proj=proj.loads_json(projfile);
+            proj=proj.load_json(projfile);
     except Exception as e:
         print('load project failed:'+ str(e));
         exit();

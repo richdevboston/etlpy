@@ -163,18 +163,18 @@ class ConnectorBase(ETLTool):
         self.filetype = '';
 
     def init(self):
-        self.connector= self._proj.connectors[self.Connector];
-        if self.connector.TypeName=='MongoDBConnector':
+        self._connector= self._proj.connectors[self.Connector];
+        if self._connector.TypeName=='MongoDBConnector':
             import pymongo
-            client = pymongo.MongoClient(self.connector.ConnectString);
-            db = client[self.connector.DBName];
-            self.Table = db[self.TableName];
+            client = pymongo.MongoClient(self._connector.ConnectString);
+            db = client[self._connector.DBName];
+            self._Table = db[self.TableName];
         else:
             path = self.TableName;
             filetype = path.split('.')[-1].lower();
             encode = 'utf-8';
-            self.file = open(path, type, encoding=encode)
-            self.filetype = filetype;
+            self._file = open(path, type, encoding=encode)
+            self._filetype = filetype;
 
 
 
@@ -183,50 +183,47 @@ class DbEX(ConnectorBase):
         super(DbEX, self).__init__()
         self.TableName=''
 
-
-
     def process(self,datas):
-        if self.connector.TypeName == 'MongoDBConnector':
+        if self._connector.TypeName == 'MongoDBConnector':
             etype = self.ExecuteType;
-            table = self.Table;
+            table = self._Table;
             work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
             for data in datas:
-
                 work[etype](data);
                 yield data;
         else:
 
             if self.filetype in ['csv', 'txt']:
                 field = extends.get_keys(datas);
-                self.writer = csv.DictWriter(self.file, field, delimiter=sp, lineterminator='\n')
-                self.writer.writeheader()
+                self._writer = csv.DictWriter(self.file, field, delimiter=sp, lineterminator='\n')
+                self._writer.writeheader()
                 for data in datas:
-                    self.writer.writerow(data);
+                    self._writer.writerow(data);
                     yield data;
             elif self.filetype == 'json':
-                self.file.write('[')
+                self._file.write('[')
                 for data in datas:
                     json.dump(data, self.file, ensure_ascii=False)
-                    self.file.write(',');
+                    self._file.write(',');
                     yield data;
-                self.file.write(']')
-            self.file.close();
+                self._file.write(']')
+            self._file.close();
 
 
 class DBGE(ConnectorBase):
 
     def generate(self,data):
         if self.Connector=='MongoDBConnector':
-            for data in self.Table.find():
+            for data in self._Table.find():
                 yield data;
         else:
             if self.filetype in ['csv', 'txt']:
                 sp = ',' if self.filetype == 'csv' else '\t';
-                reader = csv.DictReader(self.file, delimiter=sp)
+                reader = csv.DictReader(self._file, delimiter=sp)
                 for r in reader:
                     yield r;
             elif self.filetype == 'json':
-                items = json.load(self.file);
+                items = json.load(self._file);
                 for r in items:
                     yield r;
 
@@ -798,10 +795,10 @@ class TextGE(Generator):
         self.Content='';
     def init(self):
         value=self.Content.replace('\n','\001').replace(' ','\001')
-        self.arglists= [r.strip() for r in value.split('\001')];
+        self._arglists= [r.strip() for r in value.split('\001')];
     def generate(self,data):
-        for i in range(int(self.Position), len(self.arglists)):
-            yield {self.Column: self.arglists[i]}
+        for i in range(int(self.Position), len(self._arglists)):
+            yield {self.Column: self._arglists[i]}
 
 
 

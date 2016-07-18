@@ -21,7 +21,7 @@ def new_task(name='etl'):
     import inspect
     import extends;
     basetype= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer,etl.ConnectorBase];
-    ignoreparas=['OneInput','IsMultiYield','Column','OneOutput','Enabled'];
+    ignoreparas=['OneInput','IsMultiYield','Column','OneOutput'];
     task=etl.ETLTask();
     proj.modules[name]=task;
     setattr(proj,name,task);
