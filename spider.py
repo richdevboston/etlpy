@@ -115,7 +115,7 @@ class HTTPItem(extends.EObject):
         self.Timeout = 30;
         self.opener = "";
         self.postdata=''
-
+        self.bestencoding='utf-8'
 
     def PraseURL(self, url):
         u = Para2Dict(urlparse(self.Url).query, '&', '=');
@@ -162,14 +162,15 @@ class HTTPItem(extends.EObject):
         if encoding is not None:
             encoding = encoding.group(1);
         if encoding is None:
-            encoding = 'utf-8'
+            encoding = self.bestencoding
         try:
-            html=html.decode(encoding,errors='ignore')
+            html=html.decode(encoding)
         except UnicodeDecodeError as e:
-            sys.stderr.write(e);
+            sys.stderr.write(str(e));
+            sys.stdout.write('try to auto recognize encode')
             import chardet
-            encoding= chardet.detect(html)
-            html=html.decode(encoding,errors='ignore');
+            self.bestencoding= chardet.detect(html)['encoding']
+            html=html.decode(self.bestencoding,errors='ignore');
 
         return html;
 

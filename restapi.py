@@ -38,7 +38,7 @@ def extract():
     func(task,keyword,start,end);
     buff = [];
 
-    for r in task.QueryDatas():
+    for r in task.query():
         if len(buff)<count:
             buff.append(r)
         else:
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     if len(argv) > 3:
         port = argv[3];
     try:
-        proj = etl.Project_LoadXml(projfile);
+        proj = etl.proj_load_xml(projfile);
     except Exception as e:
         print('load project failed:' + str(e));
         exit();

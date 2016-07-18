@@ -49,7 +49,6 @@ class Transformer(ETLTool):
         super(Transformer, self).__init__()
         self.IsMultiYield=False
         self.NewColumn='';
-        self.OneOutput=True;
         self.OneInput = False;
 
     def transform(self,data):
@@ -57,8 +56,13 @@ class Transformer(ETLTool):
     def process(self,data):
         if self.IsMultiYield:  # one to many
             for r in data:
-                for p in self.transform( r):
-                    yield extends.MergeQuery(p, r,self.NewColumn);
+                try:
+                    datas=self.transform(r);
+                    for p in datas:
+                        yield extends.MergeQuery(p, r, self.NewColumn);
+                except Exception as e:
+                    sys.stderr.write(str(e));
+
             return;
         for d in data:  # one to one
             if self.OneOutput:
@@ -455,7 +459,9 @@ class PythonTF(Transformer):
         self.Script='value'
         self.ScriptWorkMode='不进行转换'
     def transform(self, data):
-        result = eval(self.Script, {'value': data[self.Column]}, data);
+        s=str(data[self.Column]);
+        result=  '0'+ s if len(s)==1 else s;
+        #result = eval(self.Script, {'value': data[self.Column]}, data);
         if result is not None and self.IsMultiYield == False:
             key = self.NewColumn if self.NewColumn != '' else self.Column;
             data[key] = result;
@@ -747,6 +753,9 @@ class DelayTF(Transformer):
 class ReadFileTextTF(Transformer):
     pass;
 
+class ReadFileTF(Transformer):
+    pass;
+
 class WriteFileTextTF(Transformer):
     pass;
 class FolderGE(Generator):
@@ -909,9 +918,6 @@ def convert_dict(obj,defaultdict):
 
 
 
-
-    return d
-
 def Project_DumpJson(proj):
     dic=  convert_dict(proj,proj.__defaultdict__)
     return  json.dumps(dic, ensure_ascii=False, indent=2)
@@ -991,7 +997,6 @@ def Project_LoadXml(path):
 
 
 def generate(tools, generator=None, execute=False, enabledFilter=True):
-    #print(task_DumpLinq(tools));
     for tool in tools:
         if tool.Enabled == False and enabledFilter == True:
             continue
