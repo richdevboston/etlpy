@@ -1,3 +1,4 @@
+# coding=utf-8
 import etl;
 
 import extends
@@ -5,11 +6,11 @@ import time;
 import pprint;
 import  sys
 if __name__ == '__main__':
-    projfile='../Hawk-Projects/新闻抓取/百度新闻.json';
-    name='百度百家'
+    projfile=u'../Hawk-Projects/新闻抓取/财经新闻.xml';
+    name=u'新浪股吧清洗'
     argv=sys.argv;
-    mode='exec'
-    count=30000;
+    mode='master'
+    count=10000;
     proj=etl.Project();
     count1= 0;
     if len(argv)>1:

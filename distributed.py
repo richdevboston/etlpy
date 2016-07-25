@@ -8,7 +8,7 @@ import extends;
 import time;
 authkey= "etlpy".encode('utf-8')
 timeout=1;
-rpc_port=8888
+rpc_port=8998
 
 class ETLJob:
     def __init__(self,project,jobname,config,id):
@@ -58,7 +58,7 @@ class Master:
 
         proj=json.loads(self.project.dumps_json() )
         while True:
-            for task in etl.parallel_map(module):
+            for task in etl.generate(etl.parallel_map(module.tools)[0]):
                 try:
                     job_id = job_id + 1
                     if job_id<skip:
@@ -83,6 +83,7 @@ class Master:
                 break
 
         #manager.shutdown()
+
 
 
 
@@ -126,7 +127,7 @@ class Slave:
                 config= job.config;
                 if not isinstance(config,list):
                     config=[config];
-                generator= etl.parallel_reduce(module,config,execute)
+                generator= etl.generate(etl.parallel_map(module.tools)[1],execute)
                 for r in generator:
                     #print(r.keys())
                     count+=1;
