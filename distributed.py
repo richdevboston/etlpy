@@ -1,3 +1,4 @@
+# coding=utf-8
 import  sys;
 from queue import Queue
 from multiprocessing.managers import BaseManager

@@ -1,5 +1,4 @@
 # coding=utf-8
-__author__ = 'zhaoyiming'
 import time;
 import re;
 import extends
@@ -65,17 +64,15 @@ class Transformer(ETLTool):
     def __init__(self):
         super(Transformer, self).__init__()
         self.IsMultiYield=False
-        self.nCol='';
-        self.OneOutput=True;
         self.OneInput = False;
-
+        self.nCol=None
     def transform(self,data):
         pass;
     def process(self,data):
         if self.IsMultiYield:  # one to many
             for r in data:
                 try:
-                    datas=self.transform(r);
+                    datas=self.mtransform(r,self.Column);
                     for p in datas:
                         my=extends.merge_query(p, r, self.nCol);
                         yield my;
@@ -84,18 +81,24 @@ class Transformer(ETLTool):
 
             return;
         for d in data:
-            if d==extends.STOP_ITER_FLAG:
-                break;            # one to one
-            if self.OneOutput:
-                if self.Column not in d or self.Column not in d:
-                    yield d;
-                    continue;
-                item = d[self.Column] if self.OneInput else d;
-                res = self.transform(item)
-                key= self.nCol if self.nCol!='' else self.Column;
-                d[key]=res;
+            def edit_data(col, ncol=None):
+                if col not in d:
+                    return
+                if self.OneInput:
+                    res = self.transform(d[col]);
+                    ncol = ncol if ncol != '' and  ncol is  not None  else col;
+                    d[ncol]=res;
+                else:
+                    ncol = ncol if ncol != '' and  ncol is  not None else col;
+                    self.transform(d,col,ncol);
+            if isinstance(self.Column,dict):
+                for k,v in self.Column.items():
+                    edit_data(k,v);
+            elif isinstance(self.Column,(list,set)):
+                for k in self.Column:
+                    edit_data(k)
             else:
-                self.transform( d)
+                edit_data(self.Column,self.nCol)
             yield d;
 
 class Executor(ETLTool):
@@ -132,8 +135,7 @@ class Filter(ETLTool):
                 yield r;
             else:
                 if self.StopWhile:
-                    yield extends.STOP_ITER_FLAG;
-
+                    break;
 class Generator(ETLTool):
     def __init__(self):
         super(Generator, self).__init__()
@@ -239,11 +241,11 @@ class DBGE(ConnectorBase):
                 return extends.cross(generator, self.generate)
 
 
-def setValue(data,etl,value):
-    if etl.nCol!='':
-        data[etl.nCol]=value;
+def set_value(data, value, col, ncol=None):
+    if ncol!='' and ncol is not None:
+        data[ncol]=value;
     else:
-        data[etl.Column]=value;
+        data[col]=value;
 
 class RegexFT(Filter):
     def __init__(self):
@@ -296,9 +298,6 @@ class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
         self.NewValue=''
-    def init(self):
-        self.OneInput = False;
-        self.OneOutput = False;
 
     def transform(self,data):
         data[self.nCol]=self.NewValue;
@@ -316,22 +315,17 @@ class RenameTF(Transformer):
 
     def __init__(self):
         super(RenameTF, self).__init__()
-        self.OneOutput = False;
-    def transform(self, data):
-        if not self.Column in data:
-            return;
-        item = data[self.Column];
-        del data[self.Column];
-        if self.nCol != "":
-            data[self.nCol] = item;
-
+        self.Script=None;
+    def transform(self, data, col, ncol):
+        data[ncol]=data[col];
+        if col !=ncol:
+            del data[col]
 class DeleteTF(Transformer):
     def __init__(self):
         super(DeleteTF, self).__init__()
-        self.OneOutput = False;
-    def transform(self, data):
-        if self.Column in data:
-            del data[self.Column];
+        self.Script=None;
+    def transform(self, data,col,ncol ):
+        del data[col];
 
 class HtmlTF(Transformer):
     def __init__(self):
@@ -374,17 +368,17 @@ class MergeTF(Transformer):
         super(MergeTF, self).__init__()
         self.Format='{0}'
         self.MergeWith=''
-    def transform(self, data):
+    def transform(self, data, col, ncol=None):
         if self.MergeWith == '':
             columns = [];
         else:
             columns = [str(data[r]) for r in self.MergeWith.split(' ')]
-        columns.insert(0, data[self.Column] if self.Column in data else '');
+        columns.insert(0, data[col] if col in data else '');
         res = self.Format;
         for i in range(len(columns)):
             res = res.replace('{' + str(i) + '}', str(columns[i]))
-        return res;
-
+        col = ncol if ncol is not None else col;
+        data[col]=res;
 
 
 
@@ -418,6 +412,7 @@ class NumberTF(Transformer):
         self.Index=0
     def init(self):
         self.Regex=  re.compile('\d+');
+        self.Index=int(self.Index)
     def transform(self, data):
         item = re.findall(self.Regex, str(data));
         if self.Index < 0:
@@ -446,12 +441,12 @@ class SplitTF(Transformer):
         if str(self.SplitNull)=='True':
             self.splits.append('\n')
         self.FromBack=str(self.FromBack)=='True'
+        self.Index = int(self.Index)
     def transform(self, data):
         if len(self.splits)==0:
             return data;
         for i in self.splits:
             data = data.replace(i, '\001');
-
         r=data.split('\001');
         if len(r) < self.Index:
             return data;
@@ -491,34 +486,35 @@ class StrExtractTF(Transformer):
 class PythonTF(Transformer):
     def __init__(self):
         super(PythonTF, self).__init__()
-        self.IsMultiYield=True
         self.Script='value'
         self.ScriptWorkMode=GENERATE_NONE;
 
     def init(self):
-        self.IsMultiYield=True;
-    def transform(self, data):
-        value=data[self.Column] if self.Column in data else '';
-        if isinstance(self.Script,str):
-            result = self._eval_script( {'value': value}, data);
+        self.IsMultiYield=self.ScriptWorkMode==GENERATE_DOCS;
+
+    def _get_data(self, data, col):
+        value = data[col] if col in data else '';
+        if isinstance(self.Script, str):
+            result = self._eval_script({'value': value}, data);
         else:
-            result= self.Script(data);
-        if result is not None:
-            mode = self.ScriptWorkMode;
-            if mode == GENERATE_DOCS and isinstance(result, list):
-                for j in result:
-                    yield j;
-            elif mode == GENERATE_DOC:
-                yield extends.merge(data, result);
-            else:
-                setValue(data, self, result);
-                yield data;
+            result = self.Script(data);
+        return result;
+    def mtransform(self,data,col):
+        js= self._get_data(data,col)
+        for j in js:
+            yield j;
+    def transform(self, data,col,ncol):
+        js = self._get_data( data,col)
+        if self.ScriptWorkMode == GENERATE_DOC:
+            extends.merge(data, js);
+        else:
+            col= ncol if ncol is not None else col;
+            data[col]=js;
 
 
 class PythonGE(Generator):
     def __init__(self):
         super(PythonGE, self).__init__()
-        self.OneOutput=False
         self.Script='xrange(1,20,1)'
     def can_dump(self):
         return  isinstance(self.Script,str);
@@ -528,10 +524,12 @@ class PythonGE(Generator):
             result = self._eval_script();
         elif inspect.isfunction(self.Script):
             result= self.Script()
-        elif inspect.isgenerator(self.Script):
+        else:
             result= self.Script;
         for r in result:
             if self.Column!='':
+                if self.Column=='id' and r==8:
+                    break;
                 yield {self.Column:r};
             else:
                 yield r;
@@ -560,9 +558,10 @@ class CrawlerTF(Transformer):
         self.Selector='';
         self.MaxTryCount=1;
         self.IsRegex=False
-        self.OneOutput=False;
+        self.nCol=None;
+
+
     def init(self):
-        self.IsMultiYield = True;
         if isinstance(self.Selector,str):
             dic= self._proj.modules;
             if self.Selector in dic:
@@ -570,23 +569,28 @@ class CrawlerTF(Transformer):
         else:
             self._crawler=self.Selector;
         self.__buff = {};
-    def transform(self, data):
+        self.IsMultiYield = self._crawler.IsMultiData  == 'List' and any(self._crawler.xpaths);
+    def _get_data(self,url):
         crawler = self._crawler;
-        url = data[self.Column];
         buff = self.__buff;
+        # print(url)
         if url in buff:
             datas = buff[url];
         else:
             datas = crawler.crawl(url);
             if len(buff) < 100:
                 buff[url] = datas;
-        if self._crawler.IsMultiData == 'List':
-            for d in datas:
-                res = extends.merge_query(d, data, self.nCol);
-                yield res;
-        else:
-            data = extends.merge(data, datas);
-            yield data;
+        return datas;
+    def mtransform(self,data,col):
+        url = data[col];
+        datas = self._get_data(url)
+        for d in datas:
+            yield d;
+
+    def transform(self, data, col,ncol):
+        ndata=self._get_data(data[col])
+        for k,v in ndata.items():
+            data[k]=v;
 
 
 class XPathTF(Transformer):
@@ -594,50 +598,53 @@ class XPathTF(Transformer):
         super(XPathTF, self).__init__()
         self.XPath=''
         self.IsMultiYield = True;
-        self.OneOutput=False;
         self.GetTextHtml=False;
         self.GetText=False;
         self.GetCount=False;
         self.IsManyData=False;
 
     def init(self):
-        self.IsMultiYield=True;
-        self.OneOutput = False;
-    def transform(self, data):
+        self.IsMultiYield=self.IsManyData;
+
+    def mtransform(self,data,col):
         from lxml import etree
-        root= spider._get_etree(data[self.Column]);
-        tree= etree.ElementTree(root)
+        root = spider._get_etree(data[col]);
+        tree = etree.ElementTree(root)
         if tree is None:
             yield data;
+            return;
+        nodes = tree.xpath(self.XPath);
+        for node in nodes:
+            html = etree.tostring(node).decode('utf-8');
+            ext = {'Text': spider.get_node_text(node), 'HTML': html};
+            ext['OHTML'] = ext['HTML']
+            yield extends.merge_query(ext, data, self.nCol);
+
+
+    def transform(self, data,col,ncol):
+        from lxml import etree
+        root = spider._get_etree(data[col]);
+        tree = etree.ElementTree(root)
+        if tree is None:
             return ;
-        if self.IsManyData:
-            nodes = tree.xpath(self.XPath);
-            for node in nodes:
-                html= etree.tostring(node).decode('utf-8');
-                ext = {'Text': spider.get_node_text(node), 'HTML':html};
-                ext['OHTML'] = ext['HTML']
-                yield extends.merge_query(ext, data, self.nCol);
+        if self.GetTextHtml or self.GetText:
+            nodepath=xspider.search_text_root(tree, root);
         else:
-            if self.GetTextHtml or self.GetText:
-                nodepath=xspider.search_text_root(tree, root);
+            nodepath=self.XPath;
+        if nodepath is None:
+            return
+        nodes = tree.xpath(nodepath);
+        if len(nodes)<1:
+            return
+        node=nodes[0]
+        if self.GetTextHtml:
+            res= self, etree.tostring(node).decode('utf-8');
+        else:
+            if hasattr(node,'text'):
+                res =spider.get_node_text(node);
             else:
-                nodepath=self.XPath;
-            if nodepath is None:
-                yield data
-                return
-            nodes = tree.xpath(nodepath);
-            if len(nodes)<1:
-                yield data;
-                return
-            node=nodes[0]
-            if self.GetTextHtml:
-                setValue(data, self, etree.tostring(node).decode('utf-8'))
-            else:
-                if hasattr(node,'text'):
-                    setValue(data, self, spider.get_node_text(node));
-                else:
-                    setValue(data,self,str(node))
-            yield data;
+                res= str(node)
+        data[ncol]=res;
 
 class TnTF(Transformer):
 
@@ -645,7 +652,6 @@ class TnTF(Transformer):
         super(TnTF,self).__init__()
         self.Rule=None;
         self.OneInput=True;
-        self.OneOutput=True;
     def init(self):
         import tn;
         self._core =tn.core;
@@ -664,29 +670,28 @@ class ToListTF(Transformer):
         self.MountPerThread=1;
         self.IsMultiYield=True;
 
-    def transform(self, data):
+    def mtransform(self, data,col):
         yield data;
 
 class JsonTF(Transformer):
     def __init__(self):
         super(JsonTF, self).__init__()
-        self.OneOutput=False
         self.ScriptWorkMode=GENERATE_DOCS
 
     def init(self):
-        self.IsMultiYield= True;
+        self.IsMultiYield= self.ScriptWorkMode==GENERATE_DOC;
 
-    def transform(self, data):
-        js = json.loads(data[self.Column]);
-        mode=self.ScriptWorkMode;
-        if mode== GENERATE_DOCS and isinstance(js,list):
-            for j in js:
-                yield j;
-        elif mode==GENERATE_DOC:
-            yield extends.merge(data, js);
+    def mtransform(self,data,col):
+        js=json.loads(data[col]);
+        for j in js:
+            yield j;
+
+    def transform(self, data,col,ncol):
+        js = json.loads(data[col]);
+        if self.ScriptWorkMode==GENERATE_DOC:
+            extends.merge(data, js);
         else:
-            setValue(data,self,js);
-            yield data;
+            data[ncol]=js
 
 class RangeGE(Generator):
     def __init__(self):
@@ -706,22 +711,6 @@ class RangeGE(Generator):
             item= {self.Column:round(i,5)}
             yield item;
 
-class RangeTF(Transformer):
-    def __init__(self):
-        super(RangeTF, self).__init__()
-        self.Skip=0;
-        self.Take=9999999;
-    def transform(self, data):
-        skip = int(extends.query(data, self.Skip));
-        take = int(extends.query(data, self.Take));
-        i = 0;
-        for r in data:
-            if i < skip:
-                continue;
-            if i >= take:
-                break;
-            i += 1;
-            yield r;
 
 
 
@@ -746,7 +735,7 @@ class EtlGE(Generator):
 class EtlEX(Executor):
     def __init__(self):
         super(EtlEX, self).__init__()
-        self.ETLSelector = ''
+        self.Selector = ''
     def execute(self,data):
         subetl= __gettask(self, data);
         if spider.is_none(self.nCol):
@@ -765,26 +754,26 @@ class EtlTF(Transformer):
 
     def __init__(self):
         self.IsCycle=False;
-        self.ETLSelector = ''
-    def transform(self,data):
+        self.Selector = ''
+
+    def mtransform(self,data,col):
         subetl = __gettask(self, data);
-        if self.IsMultiYield:
-            newdata=data;
-            if self.IsCycle:
-                while newdata[self.Column]!='':
-                    result= extends.first_or_default(generate (subetl.tools, [newdata.copy()]))
-                    if result is None:
-                        break
-                    yield result.copy();
-                    newdata=result;
-            else:
-                doc = data.copy();
-                for r in generate(subetl.tools, [doc]):
-                    yield extends.merge_query(r, doc, self.nCol);
+        newdata = data;
+        if self.IsCycle:
+            while newdata[col] != '':
+                result = extends.first_or_default(generate(subetl.tools, [newdata.copy()]))
+                if result is None:
+                    break
+                yield result.copy();
+                newdata = result;
         else:
-            for r in generate(subetl.tools,[data.copy()]):
-                yield extends.merge(data, r);
-                return
+            doc = data.copy();
+            for r in generate(subetl.tools, [doc]):
+                yield r
+    def transform(self,data,col,ncol):
+        subetl = __gettask(self, data);
+        for r in generate(subetl.tools,[data.copy()]):
+            return extends.merge(data, r);
 
 
 
@@ -863,7 +852,6 @@ class DelayTF(Transformer):
     def __init__(self):
         super(DelayTF, self).__init__();
         self.DelayTime=100;
-        self.OneInput=False;
 
     def transform(self,data):
         import time
@@ -942,7 +930,13 @@ class Project(extends.EObject):
         self.desc="edit project description here";
         self.author='desert';
 
-
+    def clear(self):
+        self.modules.clear()
+        self.connectors.clear()
+        return self;
+    def pop(self,name):
+        self.modules.pop(name)
+        return self;
     def load_xml(self,path):
         tree = ET.parse(path);
 
@@ -1125,35 +1119,25 @@ def convert_dict(obj):
 
 
 def generate(tools, generator=None, execute=False, enabledFilter=True):
+    if tools is None:
+        return generator;
     for tool in tools:
         if tool.Enabled == False and enabledFilter == True:
             continue
-        tool.init();
         if isinstance(tool,Executor) and execute==False:
             continue;
-
         generator = tool.process(generator)
     return generator;
 
-def parallel_map(task, execute=True):
-    tools = task.tools;
-    index = extends.get_index(tools, lambda d: isinstance(d, ToListTF));
-    if index == -1:
-        index = 0;
-        tool = tools[index];
-        generator = tool.process(None);
-    else:
-        generator = generate(tools[:index],None, execute=execute);
-    return generator;
-
-def parallel_reduce(task,generator=None, execute=True,etl_count=100):
-    tools = task.tools;
-    index = extends.get_index(tools, lambda d: isinstance(d, ToListTF));
-    index =0 if index==-1 else index;
-    generator = generate(tools[index + 1:index+etl_count+1], generator, execute);
-    return generator;
 
 
+def parallel_map(tools):
+    index= extends.get_index(tools,lambda x:isinstance(x,ToListTF))
+    if index==-1:
+        return tools,None;
+    first_tools = tools[:index]
+    other_tools=tools[index+1:]
+    return first_tools,other_tools;
 
 
 
@@ -1189,7 +1173,7 @@ class ETLTask(extends.EObject):
         array.append('.clear()')
         for t in self.tools:
             typename = extends.get_type_name(t);
-            s = ".%s('%s'" % (typename, t.Column);
+            s = ".%s(%s" % (typename, conv_value(t.Column));
             attrs = [];
             defaultdict = type(t)().__dict__;
             for att in t.__dict__:
@@ -1208,15 +1192,26 @@ class ETLTask(extends.EObject):
         return '\n'.join(array);
 
     def query(self, etl_count=100, execute=False):
-        return generate((tool for tool in self.tools[:etl_count]), None, execute);
+        tools=self.tools[:etl_count];
+        part1,part2= parallel_map(tools)
+        for tool in tools:
+            tool.init();
+        for r in generate(part1,None,execute=execute):
+            if  isinstance(r,dict):
+                r=[r]
+            for p in  generate(part2, r,execute= execute):
+                yield p;
 
-    def exec(self, etl_count=100, execute=True, notify_count=100):
+
+    def execute(self, etl_count=100, execute=True, notify_count=100):
         c=0;
         for r in self.query(etl_count,execute):
             c+=1;
             if c%notify_count==0:
                 print(c);
         print('task finish');
+
+
 
     def get(self, format='df', etl_count=100, take=10, skip=0):
         datas= extends.get_keys(extends.get_mount(self.query(etl_count), take, skip),cols);

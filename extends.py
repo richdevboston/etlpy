@@ -58,6 +58,8 @@ def merge(d1, d2):
 def merge_query(d1, d2, columns):
     if isinstance(columns, str) and columns.strip() != "":
         columns = columns.split(' ');
+    if columns is None:
+        return d1;
     for r in columns:
         if r in d2:
             d1[r] = d2[r];
@@ -104,17 +106,21 @@ def get_index(iteral, filter):
             return r;
     return -1;
 
+def get_indexs(iteral, filter):
+    res=[]
+    for r in range(len(iteral)):
+        if filter(iteral[r]):
+            res.append(r);
+    return res
+
 def cross(a, genefunc):
     for r1 in a:
         r1=dict.copy(r1);
-        try:
-            for r2 in genefunc(r1):
-                for key in r2:
-                    r1[key] = r2[key]
-                yield dict.copy(r1);
-        except LevelStopIteration as e:
-            if e.level>0:
-                raise LevelStopIteration(e.level-1);
+        for r2 in genefunc(r1):
+            for key in r2:
+                r1[key] = r2[key]
+            yield dict.copy(r1);
+
 
 class LevelStopIteration(Exception):
     def __init__(self,level):
@@ -177,3 +183,17 @@ def dict_copy_poco(obj,dic):
         if key in dic:
             if isinstance(dic[key], (str,int,float)):
                 setattr(obj,key,dic[key])
+
+def gene(x,stop=False):
+    for i in range(12):
+        if stop and i>6:
+            break;
+        yield {x:x+str(i)};
+
+
+if __name__ == '__main__':
+    s1= gene('A')
+    s2= lambda x:gene('B');
+    s3=  lambda  x:gene('C',True)
+    for r in cross(cross(s1,s2),s3):
+        print(r);

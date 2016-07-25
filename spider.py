@@ -1,13 +1,22 @@
 # coding=utf-8
 import etl;
 import copy
-import urllib.request
+import sys;
+PY2 = sys.version_info[0] == 2
+
+if PY2:
+    pass;
+else:
+    import http.cookiejar
+    from urllib.request import quote
+    from urllib.parse import urlparse, urlunparse
+
 from lxml import etree
-from urllib.parse import urlparse,urlunparse
+import urllib.request
+
 import extends;
 import socket
-import http.cookiejar
-from urllib.request import quote
+
 from xspider import *
 import random;
 boxRegex = re.compile(r"\[\d{1,3}\]");
@@ -66,7 +75,8 @@ def get_xpath_data(node, path, ishtml=False):
 
 
 extract = re.compile('\[(\w+)\]');
-charset = re.compile('<meta[^>]*?charset=(\\w+)[\\W]*?>');
+charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
+#charset = re.compile('charset="?(\\w+)[\\W]*?>');
 
 
 class Requests(extends.EObject):
@@ -124,6 +134,7 @@ class Requests(extends.EObject):
             return None;
 
     def get_html(self, url=None):
+        import gzip
         page = self.get_page(url);
         if page is None:
             return "";
@@ -214,7 +225,8 @@ class SmartCrawler(extends.EObject):
         root=self.__root;
         self.__stage=2;
         if self.IsMultiData is not 'List':
-            return
+            print('great hand can only be used in list')
+            return self;
         root_path,xpaths=search_properties(root,self.xpaths,has_attr);
         datas= self._get_datas(root,xpaths, None)
         self.__datas= datas;
@@ -291,7 +303,9 @@ class SmartCrawler(extends.EObject):
         if len(paths)==0:
             print('xpath  is empty')
         buf=[];
-        buf.append('root:'+ (self.RootXPath if not is_test else self.__RootXPath));
+        if self.RootXPath is not None:
+            rpath=self.RootXPath if not is_test else self.__RootXPath;
+            buf.append('root:'+ rpath);
         for r in paths:
             buf.append('%s\t%s\tishtml: %s' % (r.Name, r.XPath, r.IsHtml))
         result= '\n'.join(buf);
@@ -312,7 +326,7 @@ class SmartCrawler(extends.EObject):
         if self.__RootXPath is not None:
             self.RootXPath= self.__RootXPath;
         return self;
-    def get(self,format='df', take=10,skip=0):
+    def get(self,format='df'):
         s=self.__stage;
         if s==0:
             print(self)
@@ -325,7 +339,7 @@ class SmartCrawler(extends.EObject):
         elif s==2:
             print(self.print_xpaths(True))
         else :
-            return extends.get(self.__datas,format,take,skip);
+            return extends.get(self.__datas,format);
 
     def _get_datas(self, root,xpaths,rootpath=None):
         tree = etree.ElementTree(root);

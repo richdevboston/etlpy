@@ -238,7 +238,7 @@ def __is_same_string(t1,t2):
 
 def __search_node_name(node, xpaths):
     if not  hasattr(node,'attrib'):
-        return None;
+        return 'col%s' % (len(xpaths));
     attrkey = ["class","id"];
     for key in attrkey:
         name = node.attrib.get(key, None);
