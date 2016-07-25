@@ -127,7 +127,7 @@ class Slave:
                 config= job.config;
                 if not isinstance(config,list):
                     config=[config];
-                generator= etl.generate(etl.parallel_map(module.tools)[1],execute)
+                generator= etl.generate(etl.parallel_map(module.tools)[1],generator=config,execute= execute)
                 for r in generator:
                     #print(r.keys())
                     count+=1;
@@ -141,7 +141,7 @@ class Slave:
 
 if __name__ == '__main__':
     ip='10.101.167.107'
-    port=8888;
+    port=rpc_port;
     argv=sys.argv;
     if len(argv)>1:
         ip=argv[1];

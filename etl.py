@@ -1118,7 +1118,7 @@ def convert_dict(obj):
 
 
 
-def generate(tools, generator=None, execute=False, enabledFilter=True):
+def generate(tools, generator=None,init=True, execute=False, enabledFilter=True):
     if tools is None:
         return generator;
     for tool in tools:
@@ -1126,6 +1126,8 @@ def generate(tools, generator=None, execute=False, enabledFilter=True):
             continue
         if isinstance(tool,Executor) and execute==False:
             continue;
+        if init:
+            tool.init();
         generator = tool.process(generator)
     return generator;
 
@@ -1196,10 +1198,10 @@ class ETLTask(extends.EObject):
         part1,part2= parallel_map(tools)
         for tool in tools:
             tool.init();
-        for r in generate(part1,None,execute=execute):
+        for r in generate(part1,None,init=False, execute=execute):
             if  isinstance(r,dict):
                 r=[r]
-            for p in  generate(part2, r,execute= execute):
+            for p in  generate(part2, r, init=False,execute= execute):
                 yield p;
 
 
