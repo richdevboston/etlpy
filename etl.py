@@ -156,89 +156,108 @@ class Generator(ETLTool):
                 return extends.cross(generator, self.generate)
 
 
+EXECUTE_INSERT='OnlyInsert'
+EXECUTE_SAVE='Save'
+EXECUTE_UPDATE='Update'
 
-class ConnectorBase(ETLTool):
-    def __init__(self):
-        super(ConnectorBase, self).__init__()
-        self.Connector = '';
-        self.ExecuteType = 'OnlyInsert'
-        self.filetype = '';
+
+class MongoDBConnector(extends.EObject):
+    def __init__(self,connector_str=None,db_name=None):
+        super(MongoDBConnector, self).__init__()
+        self.ConnectString= connector_str;
+        self.DBName=db_name;
+        self.TypeName='MongoDBConnector'
+    def init(self):
+        import pymongo
+        client = pymongo.MongoClient(self.ConnectString);
+        self._db = client[self.DBName];
+
+
+
+class FileConnector(extends.EObject):
+    def __init__(self,path=None,encoding='utf-8',work_type='r'):
+        super(FileConnector, self).__init__()
+        self.path=path;
+        self.encoding= encoding;
+        self.work_type=work_type;
 
     def init(self):
-        self._connector= self._proj.connectors[self.Connector];
-        if self._connector.TypeName=='MongoDBConnector':
-            import pymongo
-            client = pymongo.MongoClient(self._connector.ConnectString);
-            db = client[self._connector.DBName];
-            self._Table = db[self.TableName];
-        else:
-            path = self.TableName;
-            filetype = path.split('.')[-1].lower();
-            encode = 'utf-8';
-            self._file = open(path, type, encoding=encode)
-            self._filetype = filetype;
+        path=self.path;
+        self._file = open(path, self.work_type, encoding=self.encoding)
+
+class CsvConnector(FileConnector):
+    def __init__(self, path=None, encoding='utf-8',sp=','):
+        super(FileConnector, self).__init__()
+        self.sp=sp;
+
+    def write(self, datas):
+        field = extends.get_keys(datas);
+        self._writer = csv.DictWriter(self._file, field, delimiter=self.sp, lineterminator='\n')
+        self._writer.writeheader()
+        for data in datas:
+            self._writer.writerow(data);
+        self._file.close();
+
+    def read(self):
+        reader = csv.DictReader(self._file, delimiter=self.sp)
+        for r in reader:
+            yield r;
+
+class JsonConnector(FileConnector):
+
+    def write(self,datas):
+        self._file.write('[')
+        for data in datas:
+            json.dump(data, self.file, ensure_ascii=False)
+            self._file.write(',');
+            yield data;
+        self._file.write(']');
+        self._file.close()
+
+    def read(self):
+        items = json.load(self._file);
+        for r in items:
+            yield r;
 
 
 
-class DbEX(ConnectorBase):
+class DbEX(Executor):
     def __init__(self):
-        super(DbEX, self).__init__()
-        self.TableName=''
+        super(DbEX, self).__init__();
+        self.Connector = '';
+        self.ExecuteType = EXECUTE_INSERT
+        self.TableName = '';
+
+    def init(self):
+        self._connector = self._proj.connectors[self.Connector];
+        self._connector.init()
+        self._Table = self._connector._db[self.TableName];
+
 
     def process(self,datas):
-        if self._connector.TypeName == 'MongoDBConnector':
-            etype = self.ExecuteType;
-            table = self._Table;
-            work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
-            for data in datas:
-                work[etype](data);
-                yield data;
-        else:
-
-            if self.filetype in ['csv', 'txt']:
-                field = extends.get_keys(datas);
-                self._writer = csv.DictWriter(self.file, field, delimiter=sp, lineterminator='\n')
-                self._writer.writeheader()
-                for data in datas:
-                    self._writer.writerow(data);
-                    yield data;
-            elif self.filetype == 'json':
-                self._file.write('[')
-                for data in datas:
-                    json.dump(data, self.file, ensure_ascii=False)
-                    self._file.write(',');
-                    yield data;
-                self._file.write(']')
-            self._file.close();
+        etype = self.ExecuteType;
+        table = self._Table;
+        work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
+        for data in datas:
+            work[etype](data);
+            yield data;
 
 
-class DBGE(ConnectorBase):
 
+class DbGE(Generator):
+    def __init__(self):
+        super(Generator, self).__init__();
+        self.Connector = '';
+        self.TableName = '';
+
+    def init(self):
+        self._connector = self._proj.connectors[self.Connector];
+        self._connector.init()
+        self._Table = self._connector._db[self.TableName];
     def generate(self,data):
-        if self.Connector=='MongoDBConnector':
-            for data in self._Table.find():
-                yield data;
-        else:
-            if self.filetype in ['csv', 'txt']:
-                sp = ',' if self.filetype == 'csv' else '\t';
-                reader = csv.DictReader(self._file, delimiter=sp)
-                for r in reader:
-                    yield r;
-            elif self.filetype == 'json':
-                items = json.load(self._file);
-                for r in items:
-                    yield r;
+        for data in self._Table.find():
+            yield data;
 
-    def process(self, generator):
-        if generator is None:
-            return self.generate(None);
-        else:
-            if self.MergeType == MERGE_APPEND:
-                return extends.append(generator, self.process(None));
-            elif self.MergeType == MERGE_TYPE_MERGE:
-                return extends.merge(generator, self.process(None));
-            else:
-                return extends.cross(generator, self.generate)
 
 
 def set_value(data, value, col, ncol=None):
@@ -852,12 +871,13 @@ class DelayTF(Transformer):
     def __init__(self):
         super(DelayTF, self).__init__();
         self.DelayTime=100;
+        self.IsMultiYield=True;
 
-    def transform(self,data):
+    def mtransform(self,data):
         import time
         delay = extends.query(data,self.DelayTime);
         time.sleep(int(delay))
-        return data;
+        yield data;
 
 
 class ReadFileTextTF(Transformer):
@@ -937,6 +957,8 @@ class Project(extends.EObject):
     def pop(self,name):
         self.modules.pop(name)
         return self;
+
+
     def load_xml(self,path):
         tree = ET.parse(path);
 
@@ -1037,6 +1059,21 @@ class Project(extends.EObject):
     def dumps_json(self):
         dic = convert_dict(self )
         return json.dumps(dic, ensure_ascii=False, indent=2)
+
+    def dumps_yaml(self):
+        import yaml
+        dic = convert_dict(self)
+        return yaml.dump(dic)
+
+    def dump_yaml(self, path):
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(self.dumps_yaml());
+    def load_yaml(self, path):
+        import yaml
+        with open(path, 'r', encoding='utf-8') as f:
+            d = yaml.load(f);
+            return self.load_dict(d)
+
 
     def loads_json(self, js):
         d = json.loads(js);
@@ -1139,7 +1176,8 @@ def parallel_map(tools):
         return tools,None;
     first_tools = tools[:index]
     other_tools=tools[index+1:]
-    return first_tools,other_tools;
+    tolist_tf= tools[index];
+    return first_tools,other_tools,tolist_tf;
 
 
 

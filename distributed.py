@@ -58,17 +58,23 @@ class Master:
 
         proj=json.loads(self.project.dumps_json() )
         while True:
-            for task in etl.generate(etl.parallel_map(module.tools)[0]):
+            mapper,reducer,tolist=etl.generate(etl.parallel_map(module.tools))
+            count=tolist.MountPerThread;
+            tasks=[];
+            for task in mapper:
+                tasks.append(task)
                 try:
-                    job_id = job_id + 1
-                    if job_id<skip:
-                        continue
-                    if job_id>count:
-                        break;
-                    job = ETLJob(proj, self.jobname, task, job_id);
-                    if job_id%10==0 and job_id >0:
-                        print('Dispatch job: %s - %s' % (str(job.id-10),str(job.id)))
-                    dispatched_jobs.put(job)
+                    if len(tasks)>=count:
+                        job_id = job_id + 1
+                        if job_id<skip:
+                            continue
+                        if job_id>count:
+                            break;
+                        job = ETLJob(proj, self.jobname, tasks, job_id);
+                        if job_id%10==0 and job_id >0:
+                            print('Dispatch job: %s - %s' % (str(job.id-10),str(job.id)))
+                        dispatched_jobs.put(job)
+                        tasks.clear()
                 except Exception as e:
                     print(e);
                     continue;

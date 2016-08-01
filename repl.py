@@ -15,12 +15,15 @@ def new_spider(name='_crawler'):
     setattr(proj,name,sp);
     return sp;
 
+def new_connector(name,connector):
+    proj.connectors[name]=connector;
+    return connector
 
 def new_task(name='etl'):
     import etl;
     import inspect
     import extends;
-    basetype= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer,etl.ConnectorBase];
+    basetype= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer];
     ignoreparas=['OneInput','IsMultiYield','Column','OneOutput'];
     task=etl.ETLTask();
     proj.modules[name]=task;
@@ -71,43 +74,50 @@ def fuck(x):
     print(x['date']);
 
 if __name__ == '__main__':
-    proj.load_xml('../Hawk-Projects/新闻抓取/百度新闻.xml')
-    #print(proj.百度百家)
-    buf=[]
-    t2=new_task();
+    from etl import *
+    c= new_connector('c', MongoDBConnector('mongodb://10.101.167.107',db_name='ant_temp'))
+
+    t = new_task('xx')
+    s = new_spider('sp')
+    t.clear()
+    datas= ('http://www.cnblogs.com/#p%s'%p for p in range(10))
+    t.PythonGE('url',script=datas)
+    t.CrawlerTF('url', selector='sp')
+    t.XPathTF({'Content': 'content'}, gettext=True)
+    t.DeleteTF('Content')
+    t.DbEX(connector='c',tablename='haha')
+    t.execute()
+
+    exit()
+
+    t2=new_task()
     t2.clear() \
         .TextGE('text', content='1 2 3 4 5 6 7 8 9 100 101 102 103 104 105 106 107 108') \
-        .MergeTF('text',
-                 format='http://baijia.baidu.com/ajax/labellatestarticle?page=1&pagesize=20&labelid={0}&prevarticalid=533025',
-                 ncol='url') \
+        .ToListTF('text') \
+        .MergeTF({'text':'url'},format='http://baijia.baidu.com/ajax/labellatestarticle?page=1&pagesize=20&labelid={0}&prevarticalid=533025' ) \
         .CrawlerTF('url', selector='网页采集器') \
-        .JsonTF('Content', scriptworkmode='不进行转换') \
-        .PythonTF('Content', script="value['data']['total']", ncol='total') \
+        .JsonTF('Content', scriptworkmode=etl.GENERATE_NONE) \
+        .PythonTF({'Content':'total'}, script="value['data']['total']" ) \
         .DeleteTF('Content') \
-        .MergeTF('text', format='http://baijia.baidu.com/?tn=listarticle&labelid={0}', ncol='classurl') \
+        .MergeTF({'text':'classurl'}, format='http://baijia.baidu.com/?tn=listarticle&labelid={0}') \
         .CrawlerTF('classurl', selector='网页采集器') \
-        .XPathTF('Content', xpath='//*[@id="page_title"]/h1', ncol='class') \
+        .XPathTF({'Content':'class'}, xpath='//*[@id="page_title"]/h1') \
         .DeleteTF('Content') \
-        .PythonTF('total', script='int(value)/100+1', ncol='p') \
-        .RangeGE('p', minvalue=1.0, mergetype='Cross', maxvalue='[p]', interval=1.0) \
+        .PythonTF({'total':'p'}, script='int(value)/100+1') \
+        .RangeGE('p', mergetype='Cross', maxvalue='[p]') \
         .ToListTF('p') \
-        .MergeTF('p',
-                 format='http://baijia.baidu.com/ajax/labellatestarticle?page={0}&pagesize=100&labelid={1}&prevarticalid=533025',
-                 mergewith='text') \
+        .MergeTF('p',format='http://baijia.baidu.com/ajax/labellatestarticle?page={0}&pagesize=100&labelid={1}&prevarticalid=533025',mergewith='text') \
         .CrawlerTF('p', selector='网页采集器') \
-        .JsonTF('Content', scriptworkmode='不进行转换') \
-        .PythonTF('Content', script="value['data']['list']", scriptworkmode='文档列表', ncol='class') \
-        .TnTF('hotcount',rule= 'integer_int', ncol='like') \
-        .RenameTF('m_summary', ncol='description') \
-        .RenameTF('m_title', ncol='title') \
-        .RenameTF('m_create_time', ncol='date') \
-        .TnTF('date',rule='daterule',ncol='timestamp')\
-        .PythonFT('timestamp',script='get_time(datetime(2016,7,18))>timestamp>get_time(datetime(2016,7,16))',\
-                  stopwhile=True)\
-        .RenameTF('m_writer_name', ncol='source') \
-        .RenameTF('m_display_url', ncol='url') \
+        .JsonTF('Content', scriptworkmode=etl.GENERATE_NONE) \
+        .PythonTF('Content',ncol='class', script="value['data']['list']", scriptworkmode=etl.GENERATE_DOCS ) \
+        .TnTF({'hotcount':'like'},rule= 'integer_int') \
+        .RenameTF({'m_summary':'description','m_title':'title','m_create_time':'date'}) \
+        .TnTF({'date':'timestamp'},rule='daterule')\
+        .PythonFT('timestamp',script='get_time(datetime(2016,7,26,15,15))>timestamp>get_time(datetime(2016,7,20,12,15))',stopwhile=True)\
+        .RenameTF({'m_writer_name': 'source','m_display_url':'url'}) \
         .CrawlerTF('url', selector='百度百家文章') \
-        .TnTF('date', rule='daterule', ncol='timestamp') \
-        .exec()
-
-    print(buf);
+        .TnTF({'date':'timestamp'}, rule='daterule' )
+        #.get(format='key',etl_count=50,take=2)
+    print(proj.dumps_yaml())
+    print(t2)
+    #print(buf);
