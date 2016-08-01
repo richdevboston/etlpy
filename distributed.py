@@ -25,14 +25,14 @@ class JobResult:
 
 class Master:
 
-    def __init__(self,project,jobname):
+    def __init__(self, project, job_name):
         # 派发出去的作业队列
         self.dispatched_job_queue = Queue()
         # 完成的作业队列
         self.finished_job_queue = Queue()
         self.project= project;
-        self.jobname=jobname;
-        self.maxprocess= 10;
+        self.job_name=job_name;
+        self.max_process= 10;
 
     def get_dispatched_job_queue(self):
         return self.dispatched_job_queue
@@ -40,7 +40,7 @@ class Master:
     def get_finished_job_queue(self):
         return self.finished_job_queue
 
-    def start(self,skip=0,count=100000):
+    def start(self,skip=0,take=100000):
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue', callable=self.get_dispatched_job_queue)
         BaseManager.register('get_finished_job_queue', callable=self.get_finished_job_queue)
@@ -54,23 +54,24 @@ class Master:
         finished_jobs = manager.get_finished_job_queue()
 
         job_id = 0
-        module= self.project.modules[self.jobname];
+        module= self.project.modules[self.job_name];
 
         proj=json.loads(self.project.dumps_json() )
         while True:
-            mapper,reducer,tolist=etl.generate(etl.parallel_map(module.tools))
+            mapper, reducer, tolist =etl.parallel_map(module.tools)
+            seeds=etl.generate(mapper)
             count=tolist.MountPerThread;
             tasks=[];
-            for task in mapper:
+            for task in seeds:
                 tasks.append(task)
                 try:
                     if len(tasks)>=count:
                         job_id = job_id + 1
                         if job_id<skip:
                             continue
-                        if job_id>count:
+                        if job_id>take:
                             break;
-                        job = ETLJob(proj, self.jobname, tasks, job_id);
+                        job = ETLJob(proj, self.job_name, tasks, job_id);
                         if job_id%10==0 and job_id >0:
                             print('Dispatch job: %s - %s' % (str(job.id-10),str(job.id)))
                         dispatched_jobs.put(job)
@@ -133,7 +134,8 @@ class Slave:
                 config= job.config;
                 if not isinstance(config,list):
                     config=[config];
-                generator= etl.generate(etl.parallel_map(module.tools)[1],generator=config,execute= execute)
+                mapper,reducer,tool= etl.parallel_map(module.tools);
+                generator= etl.generate( reducer,generator=config,execute= execute)
                 for r in generator:
                     #print(r.keys())
                     count+=1;
@@ -146,7 +148,7 @@ class Slave:
 
 
 if __name__ == '__main__':
-    ip='10.101.167.107'
+    ip= '127.0.0.1' #'10.101.167.107'
     port=rpc_port;
     argv=sys.argv;
     if len(argv)>1:

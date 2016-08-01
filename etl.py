@@ -107,8 +107,8 @@ class Executor(ETLTool):
     def process(self,data):
         for r in data:
             yield self.execute(r);
-
-
+    def init(self):
+        pass
 
 class Filter(ETLTool):
     def __init__(self):
@@ -162,11 +162,11 @@ EXECUTE_UPDATE='Update'
 
 
 class MongoDBConnector(extends.EObject):
-    def __init__(self,connector_str=None,db_name=None):
+    def __init__(self):
         super(MongoDBConnector, self).__init__()
-        self.ConnectString= connector_str;
-        self.DBName=db_name;
-        self.TypeName='MongoDBConnector'
+        self.ConnectString='';
+        self.DBName=''
+
     def init(self):
         import pymongo
         client = pymongo.MongoClient(self.ConnectString);
@@ -239,7 +239,8 @@ class DbEX(Executor):
         table = self._Table;
         work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
         for data in datas:
-            work[etype](data);
+            ndata= data.copy()
+            work[etype](ndata);
             yield data;
 
 
@@ -585,6 +586,8 @@ class CrawlerTF(Transformer):
             dic= self._proj.modules;
             if self.Selector in dic:
                 self._crawler= dic[self.Selector]
+            else:
+                sys.stderr.write('crawler {name} can not be found in proj')
         else:
             self._crawler=self.Selector;
         self.__buff = {};
@@ -1091,13 +1094,16 @@ class Project(extends.EObject):
 
     def load_dict(self,dic):
         connectors =dic.get('connectors',{});
-        for key, connector in connectors.items():
-            self.connectors[key] = extends.dict_to_poco_type(connector);
+        for key, item in connectors.items():
+            conn = eval('%s()' % item['Type']);
+            extends.dict_copy_poco(conn,item);
+            self.connectors[key] = conn
 
         modules =dic.get('modules',{});
         for key, module in modules.items():
-            crawler = None
-            if 'tools' in module:
+            obj_type = module['Type']
+
+            if obj_type=='ETLTask':
                 crawler = ETLTask();
                 for r in module['tools']:
                     etl =eval('%s()'%r['Type']);
@@ -1107,7 +1113,7 @@ class Project(extends.EObject):
                         setattr(etl, attr, value);
                     etl._proj = self;
                     crawler.tools.append(etl)
-            elif 'RootXPath' in module:
+            elif obj_type=='SmartCrawler':
                 crawler = spider.SmartCrawler();
                 extends.dict_copy_poco(crawler, module);
                 paths = module.get('xpaths',{});
@@ -1117,7 +1123,6 @@ class Project(extends.EObject):
                     crawler.xpaths.append(xpath)
                 crawler.requests = spider.Requests()
                 extends.dict_copy_poco(crawler.requests, module['requests'])
-                crawler.requests.Headers = module['requests']["Headers"];
             setattr(self,key,crawler);
             if crawler is not None:
                 self.modules[key] = crawler;
@@ -1132,9 +1137,9 @@ def convert_dict(obj):
         return None
     if isinstance(obj, extends.EObject):
         d={}
-        objtype= type(obj);
+        obj_type= type(obj);
         typename= extends.get_type_name(obj)
-        default= objtype().__dict__;
+        default= obj_type().__dict__;
         for key, value in obj.__dict__.items():
             if value== default.get(key,None):
                     continue;
@@ -1143,7 +1148,7 @@ def convert_dict(obj):
             p =convert_dict(value)
             if p is not None:
                 d[key]=p
-        if isinstance(obj,ETLTool):
+        if isinstance(obj,extends.EObject):
             d['Type']= typename;
         return d;
 
@@ -1186,7 +1191,6 @@ class ETLTask(extends.EObject):
     def __init__(self):
         self.tools = [];
         self.Name=''
-
     def clear(self):
         self.tools.clear();
         return self;
@@ -1195,6 +1199,10 @@ class ETLTask(extends.EObject):
         self.tools.pop(i);
         return self;
 
+    def distribute(self,skip=0,take=90999999):
+        import distributed
+        master= distributed.Master(self._proj,self.name);
+        master.start(skip,take)
 
     def __str__(self):
         def conv_value(value):

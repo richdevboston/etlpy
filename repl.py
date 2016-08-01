@@ -1,5 +1,7 @@
+
 import etl
 import extends;
+from distributed import *
 proj=etl.Project();
 cols=extends.EObject();
 
@@ -15,6 +17,8 @@ def new_spider(name='_crawler'):
     setattr(proj,name,sp);
     return sp;
 
+
+
 def new_connector(name,connector):
     proj.connectors[name]=connector;
     return connector
@@ -26,6 +30,8 @@ def new_task(name='etl'):
     basetype= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer];
     ignoreparas=['OneInput','IsMultiYield','Column','OneOutput'];
     task=etl.ETLTask();
+    task._proj=proj;
+    task.name=name;
     proj.modules[name]=task;
     setattr(proj,name,task);
 
@@ -75,19 +81,22 @@ def fuck(x):
 
 if __name__ == '__main__':
     from etl import *
-    c= new_connector('c', MongoDBConnector('mongodb://10.101.167.107',db_name='ant_temp'))
-
+    c= new_connector('c', MongoDBConnector())
+    c.ConnectString='mongodb://10.101.167.107'
+    c.DBName='ant_temp';
     t = new_task('xx')
     s = new_spider('sp')
     t.clear()
-    datas= ('http://www.cnblogs.com/#p%s'%p for p in range(10))
+    datas= ('http://www.cnblogs.com/#p%s'%p for p in range(20))
     t.PythonGE('url',script=datas)
+    t.ToListTF()
     t.CrawlerTF('url', selector='sp')
     t.XPathTF({'Content': 'content'}, gettext=True)
     t.DeleteTF('Content')
     t.DbEX(connector='c',tablename='haha')
-    t.execute()
+    #t.execute()
 
+    t.distribute()
     exit()
 
     t2=new_task()
