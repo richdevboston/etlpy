@@ -1241,13 +1241,13 @@ class ETLTask(extends.EObject):
 
     def query(self, etl_count=100, execute=False):
         tools=self.tools[:etl_count];
-        part1,part2= parallel_map(tools)
+        mapper,reducer,tolist= parallel_map(tools)
         for tool in tools:
             tool.init();
-        for r in generate(part1,None,init=False, execute=execute):
+        for r in generate(mapper,None,init=False, execute=execute):
             if  isinstance(r,dict):
                 r=[r]
-            for p in  generate(part2, r, init=False,execute= execute):
+            for p in  generate(reducer, r, init=False,execute= execute):
                 yield p;
 
 
