@@ -76,7 +76,7 @@ def get_xpath_data(node, path, ishtml=False):
 
 extract = re.compile('\[(\w+)\]');
 charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
-#charset = re.compile('charset="?(\\w+)[\\W]*?>');
+charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
 
 
 class Requests(extends.EObject):
@@ -90,7 +90,7 @@ class Requests(extends.EObject):
         self.Timeout = 30;
         self.opener = "";
         self.postdata=''
-        self.bestencoding='utf-8'
+        self.best_encoding= 'utf-8'
 
     def parse_url(self, url):
         u = para_to_dict(urlparse(self.Url).query, '&', '=');
@@ -145,15 +145,15 @@ class Requests(extends.EObject):
         if encoding is not None:
             encoding = encoding.group(1);
         if encoding is None:
-            encoding = self.bestencoding
+            encoding = self.best_encoding
         try:
-            html=html.decode(encoding)
+            html=html.decode(encoding,errors='ignore')
         except UnicodeDecodeError as e:
             sys.stderr.write(str(e));
-            sys.stdout.write('try to auto recognize encode')
+            sys.stdout.write('try to auto recognize encode:%s \n'%(url))
             import chardet
-            self.bestencoding= chardet.detect(html)['encoding']
-            html=html.decode(self.bestencoding,errors='ignore');
+            self.best_encoding= chardet.detect(html)['encoding']
+            html=html.decode(self.best_encoding, errors='ignore');
         return html;
 
 
@@ -229,8 +229,8 @@ class SmartCrawler(extends.EObject):
             return self;
         root_path,xpaths=search_properties(root,self.xpaths,has_attr);
         datas= self._get_datas(root,xpaths, None)
-        self.__datas= datas;
-        self.__xpaths= xpaths;
+        self._datas= datas;
+        self._xpaths= xpaths;
         return self;
 
     def set_paras(self,is_list=True,rootxpath=None):
@@ -241,10 +241,10 @@ class SmartCrawler(extends.EObject):
 
 
     def test(self):
-        paths= self.xpaths if  self.__stage==1 else self.__xpaths;
+        paths= self.xpaths if  self.__stage==1 else self._xpaths;
         rootpath= self.RootXPath if  self.__stage==1 else self.__RootXPath;
         self.__stage = 3;
-        self.__datas=self.__get_data_from_html(self.__html,paths,rootpath)
+        self._datas=self.__get_data_from_html(self.__html, paths, rootpath)
         return self;
 
     def crawl(self,url):
@@ -288,14 +288,14 @@ class SmartCrawler(extends.EObject):
     def clear(self):
         self.__stage=0;
         self.xpaths=[];
-        self.__xpaths=[];
+        self._xpaths=[];
         self.RootXPath=None;
-        self.__datas=None;
+        self._datas=None;
         self.__RootXPath=None;
         return self;
     def print_xpaths(self,is_test=True):
         if is_test:
-            paths=self.__xpaths;
+            paths=self._xpaths;
         else:
             paths= self.xpaths;
         if paths is None:
@@ -316,22 +316,22 @@ class SmartCrawler(extends.EObject):
 
     def accept(self,set_root_xpath=False):
         self.__stage=4;
-        if any(self.__xpaths):
-            self.xpaths=self.__xpaths;
+        if any(self._xpaths):
+            self.xpaths=self._xpaths;
         if set_root_xpath:
-            self.RootXPath= get_common_xpath(self.__xpaths)
+            self.RootXPath= get_common_xpath(self._xpaths)
             for path in self.xpaths:
                 mpath = path.XPath.split('/');
                 path.XPath = '/'.join(mpath[len(self.RootXPath.split('/')):len(mpath)]);
         if self.__RootXPath is not None:
             self.RootXPath= self.__RootXPath;
         return self;
-    def get(self,format='df'):
+    def get(self):
         s=self.__stage;
         if s==0:
             print(self)
         elif s==1:
-            if format=='web':
+            if extends.is_ipynb:
                 from IPython.core.display import HTML,display
                 display(HTML(self.__html));
             else:
@@ -339,9 +339,9 @@ class SmartCrawler(extends.EObject):
         elif s==2:
             print(self.print_xpaths(True))
         else :
-            return extends.get(self.__datas,format);
+            return extends.get(self._datas);
 
-    def _get_datas(self, root,xpaths,rootpath=None):
+    def _get_datas(self, root, xpaths, root_path=None):
         tree = etree.ElementTree(root);
         documents = [];
         if self.IsMultiData =='One':
@@ -354,17 +354,17 @@ class SmartCrawler(extends.EObject):
                     doc[r.Name] = "";
             return doc;
         else:
-            if is_none(rootpath):
+            if is_none(root_path):
                 root_path = get_common_xpath(xpaths);
             else:
-                root_path=rootpath;
+                root_path=root_path;
             nodes = tree.xpath(root_path)
             if nodes is not None:
                 for node in nodes:
                     doc = {};
                     for r in xpaths:
                         path=r.XPath;
-                        if is_none(rootpath):
+                        if is_none(root_path):
                             paths=r.XPath.split('/');
                             path='/'.join(paths[len(root_path.split('/')):len(paths)]);
                         else:

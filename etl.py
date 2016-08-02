@@ -587,7 +587,7 @@ class CrawlerTF(Transformer):
             if self.Selector in dic:
                 self._crawler= dic[self.Selector]
             else:
-                sys.stderr.write('crawler {name} can not be found in proj')
+                sys.stderr.write('crawler {name} can not be found in project'.format(name=self.Selector))
         else:
             self._crawler=self.Selector;
         self.__buff = {};
@@ -1148,8 +1148,7 @@ def convert_dict(obj):
             p =convert_dict(value)
             if p is not None:
                 d[key]=p
-        if isinstance(obj,extends.EObject):
-            d['Type']= typename;
+        d['Type']= typename;
         return d;
 
     elif isinstance(obj, list):
@@ -1179,10 +1178,10 @@ def parallel_map(tools):
     index= extends.get_index(tools,lambda x:isinstance(x,ToListTF))
     if index==-1:
         return tools,None;
-    first_tools = tools[:index]
-    other_tools=tools[index+1:]
-    tolist_tf= tools[index];
-    return first_tools,other_tools,tolist_tf;
+    mapper = tools[:index]
+    reducer=tools[index+1:]
+    parameter= tools[index];
+    return mapper,reducer,parameter;
 
 
 
@@ -1199,10 +1198,10 @@ class ETLTask(extends.EObject):
         self.tools.pop(i);
         return self;
 
-    def distribute(self,skip=0,take=90999999):
+    def distribute(self ,take=90999999,skip=0,port= None):
         import distributed
         master= distributed.Master(self._proj,self.name);
-        master.start(skip,take)
+        master.start(take,skip,port)
 
     def __str__(self):
         def conv_value(value):
@@ -1265,17 +1264,17 @@ class ETLTask(extends.EObject):
         datas= extends.get_keys(extends.get_mount(self.query(etl_count), take, skip),cols);
         return extends.get(datas,format);
 
-    def m_exec(self, thread_count=10, can_execute=True):
+    def m_exec(self, thread_count=10, can_execute=True,take=999999,skip=0):
         import threadpool
         pool = threadpool.ThreadPool(thread_count)
 
-        seed= parallel_map(self, can_execute);
-        def Funcs(item):
-            task= parallel_reduce(self, [item], can_execute);
-            print('totalcount: %d'%len([r for r in task]));
+        mapper,reducer,parameter= parallel_map(self.tools, can_execute);
+        def funcs(item):
+            task= generate(reducer, item, can_execute);
+            print('total_count: %d'%len([r for r in task]));
             print('finish' + str(item));
 
-        requests = threadpool.makeRequests(Funcs, seed);
+        requests = threadpool.makeRequests(funcs, extends.group_by_mount(mapper,parameter.MountPerThread,group_skip=skip,group_take=take));
         [pool.putRequest(req) for req in requests]
         pool.wait()
 

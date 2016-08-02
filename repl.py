@@ -81,20 +81,26 @@ def fuck(x):
 
 if __name__ == '__main__':
     from etl import *
-    c= new_connector('c', MongoDBConnector())
+
+    datas = open('/Users/zhaoyiming/Documents/stock.news').read().split('\001')
+    datas = [json.loads(r) for r in datas if len(r) > 10]
+    for r in datas:
+        r['url'] = r['text'].split('"')[1]
+        del r['text']
+    c = new_connector('cc', MongoDBConnector())
     c.ConnectString='mongodb://10.101.167.107'
     c.DBName='ant_temp';
+
+    s=new_spider('sp')
     t = new_task('xx')
-    s = new_spider('sp')
     t.clear()
-    datas= ('http://www.cnblogs.com/#p%s'%p for p in range(20))
-    t.PythonGE('url',script=datas)
-    t.ToListTF()
+    t.PythonGE(script=datas)
+    t.ToListTF(mountperthread=5)
     t.CrawlerTF('url', selector='sp')
     t.XPathTF({'Content': 'content'}, gettext=True)
     t.DeleteTF('Content')
-    t.DbEX(connector='c',tablename='haha')
-    #t.execute()
+    t.DbEX(connector='cc', tablename='news')
+
 
     t.distribute()
     exit()

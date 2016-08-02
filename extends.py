@@ -1,8 +1,13 @@
 # encoding: UTF-8
 import re;
+def is_in_ipynb():
+    try:
+        cfg = get_ipython()
+        return True
+    except NameError:
+        return False
 
-STOP_ITER_FLAG='STOP';
-
+is_ipynb=is_in_ipynb();
 def get_mount(generator,take,skip=0):
     i=0;
     for r in generator:
@@ -11,11 +16,13 @@ def get_mount(generator,take,skip=0):
             continue;
         if i>take+skip:
             break;
-
         yield r;
 
 
-def get(datas,format='df'):
+def get(datas,format='print'):
+    if is_ipynb or format == 'df':
+        from  pandas import DataFrame
+        return DataFrame(datas);
     if format == 'print':
         import pprint
         for d in datas:
@@ -24,9 +31,6 @@ def get(datas,format='df'):
         import pprint
         for d in datas:
             pprint.pprint(d.keys())
-    elif format == 'df':
-        from  pandas import DataFrame
-        return DataFrame(datas);
     else:
         return list(datas);
 
@@ -81,50 +85,47 @@ def query(data, key):
 
 
 
-def variance(nlist):
+def variance(n_list):
     sum1=0.0
     sum2=0.0
-    N=len(nlist);
+    N=len(n_list);
     for i in range(N):
-        sum1+=nlist[i]
-        sum2+=nlist[i]**2
+        sum1+=n_list[i]
+        sum2+= n_list[i] ** 2
     mean=sum1/N
     var=sum2/N-mean**2
     return var;
 
 
-def find_any(iteral, filter):
-    for r in iteral:
+def find_any(iter, filter):
+    for r in iter:
         if filter(r):
             return True;
     return False;
 
 
-def get_index(iteral, filter):
-    for r in range(len(iteral)):
-        if filter(iteral[r]):
+def get_index(iter, filter):
+    for r in range(len(iter)):
+        if filter(iter[r]):
             return r;
     return -1;
 
-def get_indexs(iteral, filter):
+def get_indexs(iter, filter):
     res=[]
-    for r in range(len(iteral)):
-        if filter(iteral[r]):
+    for r in range(len(iter)):
+        if filter(iter[r]):
             res.append(r);
     return res
 
-def cross(a, genefunc):
+def cross(a, gene_func):
     for r1 in a:
         r1=dict.copy(r1);
-        for r2 in genefunc(r1):
+        for r2 in gene_func(r1):
             for key in r2:
                 r1[key] = r2[key]
             yield dict.copy(r1);
 
 
-class LevelStopIteration(Exception):
-    def __init__(self,level):
-        self.level=level;
 
 def merge_all(a, b):
     while True:
@@ -184,16 +185,27 @@ def dict_copy_poco(obj,dic):
             if isinstance(dic[key], (str,int,float)):
                 setattr(obj,key,dic[key])
 
-def gene(x,stop=False):
-    for i in range(12):
-        if stop and i>6:
-            break;
-        yield {x:x+str(i)};
 
+
+def group_by_mount(generator, group_count=10, take=9999999, skip=0):
+    tasks = [];
+    task_id=0
+
+    while True:
+        task = next(generator, None);
+        if task is None:
+            yield tasks[:]
+            return
+        tasks.append(task)
+        if len(tasks) >= group_count:
+            yield tasks[:];
+            task_id = task_id + 1
+            tasks.clear()
+        if task_id < skip:
+            continue
+        if task_id > take:
+            break;
 
 if __name__ == '__main__':
-    s1= gene('A')
-    s2= lambda x:gene('B');
-    s3=  lambda  x:gene('C',True)
-    for r in cross(cross(s1,s2),s3):
-        print(r);
+    res= is_in_ipynb();
+    print(res)

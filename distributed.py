@@ -9,6 +9,7 @@ import time;
 authkey= "etlpy".encode('utf-8')
 timeout=1;
 rpc_port=8998
+from progressive import *
 
 class ETLJob:
     def __init__(self,project,jobname,config,id):
@@ -40,58 +41,58 @@ class Master:
     def get_finished_job_queue(self):
         return self.finished_job_queue
 
-    def start(self,skip=0,take=100000):
+    def start(self,take=100000,skip=0,port=rpc_port):
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue', callable=self.get_dispatched_job_queue)
         BaseManager.register('get_finished_job_queue', callable=self.get_finished_job_queue)
-
+        print('current port is %d'%rpc_port)
         # 监听端口和启动服务
         manager = BaseManager(address=('0.0.0.0', rpc_port), authkey=authkey)
         manager.start()
-
+        dispatched_count=10;
         # 使用上面注册的方法获取队列
         dispatched_jobs = manager.get_dispatched_job_queue()
         finished_jobs = manager.get_finished_job_queue()
 
         job_id = 0
         module= self.project.modules[self.job_name];
-
-        proj=json.loads(self.project.dumps_json() )
-        while True:
-            mapper, reducer, tolist =etl.parallel_map(module.tools)
-            seeds=etl.generate(mapper)
-            count=tolist.MountPerThread;
-            tasks=[];
-            for task in seeds:
-                tasks.append(task)
-                try:
-                    if len(tasks)>=count:
+        proj= etl.convert_dict(self.project);
+        mapper, reducer, tolist = etl.parallel_map(module.tools)
+        count_per_group = tolist.MountPerThread;
+        task_generator=extends.group_by_mount(etl.generate(mapper),count_per_group, take,skip);
+        from ipy_progressbar import ProgressBar
+        task_generator = ProgressBar(task_generator, title='Task Dispatcher')
+        task_generator.max=100;
+        task_customer = ProgressBar(dispatched_count,title='Task Customer  ')
+        task_customer.start()
+        try:
+            while True:
+                while True:
+                    i=0;
+                    for task in task_generator:
+                        i+=1;
                         job_id = job_id + 1
-                        if job_id<skip:
-                            continue
-                        if job_id>take:
-                            break;
-                        job = ETLJob(proj, self.job_name, tasks, job_id);
-                        if job_id%10==0 and job_id >0:
-                            print('Dispatch job: %s - %s' % (str(job.id-10),str(job.id)))
+                        job = ETLJob(proj, self.job_name, task, job_id);
+                        if not extends.is_ipynb:
+                            pass;
+                            #print('dispatch job: {id}, count : {count} '.format (id=job.id,count=count_per_group))
                         dispatched_jobs.put(job)
-                        tasks.clear()
-                except Exception as e:
-                    print(e);
-                    continue;
-            print('all task dispatched...')
-            while not dispatched_jobs.empty():
-                job = finished_jobs.get(60)
-                print('Finished Job: %s, Count: %s' % (job.id, job.count))
+                        if i%dispatched_count==0:
+                            task_customer.start()
+                            while not dispatched_jobs.empty():
+                                job = finished_jobs.get(60)
+                                task_customer.advance()
+                                if not extends.is_ipynb:
+                                    pass;
+                                    #print('finish job: {id}, count : {count} '.format(id=job.id, count=job.count))
 
-            key=input('press any key to repeat,c to cancel')
-            if key=='c':
-                manager.shutdown()
-                break
-
-        #manager.shutdown()
-
-
+                key=input('press any key to repeat,c to cancel')
+                if key=='c':
+                    break;
+                    manager.shutdown()
+        except Exception as e:
+            print('manager has shutdown')
+            manager.shutdown();
 
 
 
@@ -103,7 +104,7 @@ class Slave:
         self.dispatched_job_queue = Queue()
         # 完成的作业队列
         self.finished_job_queue = Queue()
-    def start(self,execute= True,serverip='127.0.0.1',port=8888):
+    def start(self,execute= True,serverip='127.0.0.1',port=rpc_port):
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue')
         BaseManager.register('get_finished_job_queue')
@@ -142,9 +143,8 @@ class Slave:
             except Exception as e:
                 print(e)
             print('finish job,id %s, count %s'%(job.id,count))
-            resultjob= JobResult(job.jobname,count,job.id)
-
-            finished_jobs.put(resultjob)
+            job_result= JobResult(job.jobname,count,job.id)
+            finished_jobs.put(job_result)
 
 
 if __name__ == '__main__':
