@@ -1260,7 +1260,7 @@ class ETLTask(extends.EObject):
 
 
 
-    def get(self, format='df', etl_count=100, take=10, skip=0):
+    def get(self, format='print', etl_count=100, take=10, skip=0):
         datas= extends.get_keys(extends.get_mount(self.query(etl_count), take, skip),cols);
         return extends.get(datas,format);
 

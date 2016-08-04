@@ -79,7 +79,7 @@ charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
 charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
 
 
-default_encodings=['utf-8','ascii','gbk'];
+default_encodings=['utf-8','gbk'];
 
 class Requests(extends.EObject):
     '''
@@ -171,7 +171,7 @@ class Requests(extends.EObject):
         if encoding is None:
             encoding = self.best_encoding
 
-        return self._decoding(html,ex);
+        return self._decoding(html,encoding);
 
 
 def is_none(data):
