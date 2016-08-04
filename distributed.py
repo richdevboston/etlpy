@@ -9,7 +9,6 @@ import time;
 authkey= "etlpy".encode('utf-8')
 timeout=1;
 rpc_port=8998
-from progressive import *
 
 class ETLJob:
     def __init__(self,project,jobname,config,id):

@@ -79,6 +79,8 @@ charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
 charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
 
 
+default_encodings=['utf-8','ascii','gbk'];
+
 class Requests(extends.EObject):
     '''
     save request parameters and can query html from certain url
@@ -133,6 +135,28 @@ class Requests(extends.EObject):
             sys.stderr.write(str(e));
             return None;
 
+    def _decoding(self,html,except_encoding):
+        try:
+            result = html.decode(except_encoding)
+            return result;
+        except UnicodeDecodeError as e:
+            pass;
+
+        for en in default_encodings:
+            if en== except_encoding:
+                continue;
+            try:
+                result = html.decode(en)
+                return result;
+            except UnicodeDecodeError as e:
+                continue;
+        sys.stderr.write(str(e) + '\n');
+        import chardet
+        en = chardet.detect(html)['encoding']
+        result = html.decode(en, errors='ignore');
+        return result
+
+
     def get_html(self, url=None):
         import gzip
         page = self.get_page(url);
@@ -146,15 +170,8 @@ class Requests(extends.EObject):
             encoding = encoding.group(1);
         if encoding is None:
             encoding = self.best_encoding
-        try:
-            html=html.decode(encoding,errors='ignore')
-        except UnicodeDecodeError as e:
-            sys.stderr.write(str(e));
-            sys.stdout.write('try to auto recognize encode:%s \n'%(url))
-            import chardet
-            self.best_encoding= chardet.detect(html)['encoding']
-            html=html.decode(self.best_encoding, errors='ignore');
-        return html;
+
+        return self._decoding(html,ex);
 
 
 def is_none(data):
