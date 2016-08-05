@@ -39,6 +39,13 @@ def new_task(name='etl'):
         for k in val.__dict__:
             if k.lower() in dic:
                 setattr(val, k, dic[k.lower()])
+    def _rename(module):
+        repl={'TF':'','Python':'py'}
+        for k,v in repl.items():
+            module= module.replace(k,v)
+        return module.lower();
+
+
     def set_cols(datas):
         keys= extends.get_keys(datas)
         for key in keys:
@@ -46,38 +53,37 @@ def new_task(name='etl'):
 
     dynaimc_method = '''def __%s(column='',%s):
         import etl
-        newtool=etl.%s();
-        newtool._proj=proj
-        set_attrs(newtool,locals())
-        task.tools.append(newtool);
+        new_tool=etl.%s();
+        new_tool._proj=proj
+        set_attrs(new_tool,locals())
+        task.tools.append(new_tool);
         return task;
     '''
 
     def mergefunc(k, v):
-        if isinstance(v, str):
+        if extends.is_str(v ):
             v = "'%s'" % (v);
         return '%s=%s' % (k.lower(), v);
-    for name,tooltype in etl.__dict__.items():
-        if not inspect.isclass(tooltype):
+    for name,tool_type in etl.__dict__.items():
+        if not inspect.isclass(tool_type):
             continue;
-        if  not issubclass(tooltype,etl.ETLTool) :
+        if  not issubclass(tool_type,etl.ETLTool) :
             continue
-        if tooltype in basetype:
+        if tool_type in basetype:
             continue;
-        tool=tooltype();
+        tool=tool_type();
         paras=[mergefunc(k,v) for k,v in tool.__dict__.items() if not k.startswith('_')  and k not in ignoreparas]
         paras.sort()
         paras=','.join(paras);
-        method_str= dynaimc_method%(name,paras,name);
+        new_name=_rename(name)
+        method_str= dynaimc_method%(new_name,paras,name);
         locals()['proj']=proj
         locals()['cols']=cols;
         exec(method_str,locals());
-        func= locals()['__'+name];
-        setattr(task,name,func);
+        func= locals()['__'+ new_name];
+        setattr(task,new_name,func);
     return task;
 
-def fuck(x):
-    print(x['date']);
 
 if __name__ == '__main__':
     from etl import *
@@ -94,44 +100,46 @@ if __name__ == '__main__':
     s=new_spider('sp')
     t = new_task('xx')
     t.clear()
-    t.PythonGE(script=datas)
-    t.ToListTF(mountperthread=5)
-    t.CrawlerTF('url', selector='sp')
-    t.XPathTF({'Content': 'content'}, gettext=True)
-    t.DeleteTF('Content')
-    t.DbEX(connector='cc', tablename='news')
+    t.pyge(script=datas)
+    t.tolist(mountperthread=5)
+    t.crawler('url', selector='sp')
+    t.xpath({'Content': 'content'}, gettext=True)
+    t.delete('Content')
+    t.dbex(connector='cc', tablename='news')
 
+    t.get();
+    exit()
 
     t.distribute()
     exit()
 
     t2=new_task()
     t2.clear() \
-        .TextGE('text', content='1 2 3 4 5 6 7 8 9 100 101 102 103 104 105 106 107 108') \
-        .ToListTF('text') \
-        .MergeTF({'text':'url'},format='http://baijia.baidu.com/ajax/labellatestarticle?page=1&pagesize=20&labelid={0}&prevarticalid=533025' ) \
-        .CrawlerTF('url', selector='网页采集器') \
-        .JsonTF('Content', scriptworkmode=etl.GENERATE_NONE) \
-        .PythonTF({'Content':'total'}, script="value['data']['total']" ) \
-        .DeleteTF('Content') \
-        .MergeTF({'text':'classurl'}, format='http://baijia.baidu.com/?tn=listarticle&labelid={0}') \
-        .CrawlerTF('classurl', selector='网页采集器') \
-        .XPathTF({'Content':'class'}, xpath='//*[@id="page_title"]/h1') \
-        .DeleteTF('Content') \
-        .PythonTF({'total':'p'}, script='int(value)/100+1') \
-        .RangeGE('p', mergetype='Cross', maxvalue='[p]') \
-        .ToListTF('p') \
-        .MergeTF('p',format='http://baijia.baidu.com/ajax/labellatestarticle?page={0}&pagesize=100&labelid={1}&prevarticalid=533025',mergewith='text') \
-        .CrawlerTF('p', selector='网页采集器') \
-        .JsonTF('Content', scriptworkmode=etl.GENERATE_NONE) \
-        .PythonTF('Content',ncol='class', script="value['data']['list']", scriptworkmode=etl.GENERATE_DOCS ) \
-        .TnTF({'hotcount':'like'},rule= 'integer_int') \
-        .RenameTF({'m_summary':'description','m_title':'title','m_create_time':'date'}) \
-        .TnTF({'date':'timestamp'},rule='daterule')\
-        .PythonFT('timestamp',script='get_time(datetime(2016,7,26,15,15))>timestamp>get_time(datetime(2016,7,20,12,15))',stopwhile=True)\
-        .RenameTF({'m_writer_name': 'source','m_display_url':'url'}) \
-        .CrawlerTF('url', selector='百度百家文章') \
-        .TnTF({'date':'timestamp'}, rule='daterule' )
+        .textge('text', content='1 2 3 4 5 6 7 8 9 100 101 102 103 104 105 106 107 108') \
+        .tolist('text') \
+        .merge({'text':'url'},format='http://baijia.baidu.com/ajax/labellatestarticle?page=1&pagesize=20&labelid={0}&prevarticalid=533025' ) \
+        .crawler('url', selector='spider') \
+        .json('Content', scriptworkmode=etl.GENERATE_NONE) \
+        .py({'Content':'total'}, script="value['data']['total']" ) \
+        .delete('Content') \
+        .merge({'text':'classurl'}, format='http://baijia.baidu.com/?tn=listarticle&labelid={0}') \
+        .crawler('classurl', selector='spider') \
+        .xpath({'Content':'class'}, xpath='//*[@id="page_title"]/h1') \
+        .delete('Content') \
+        .py({'total':'p'}, script='int(value)/100+1') \
+        .rangege('p', mergetype='Cross', maxvalue='[p]') \
+        .tolist('p') \
+        .merge('p',format='http://baijia.baidu.com/ajax/labellatestarticle?page={0}&pagesize=100&labelid={1}&prevarticalid=533025',mergewith='text') \
+        .crawler('p', selector='spider') \
+        .json('Content', scriptworkmode=etl.GENERATE_NONE) \
+        .py('Content',ncol='class', script="value['data']['list']", scriptworkmode=etl.GENERATE_DOCS ) \
+        .tn({'hotcount':'like'},rule= 'integer_int') \
+        .rename({'m_summary':'description','m_title':'title','m_create_time':'date'}) \
+        .tn({'date':'timestamp'},rule='daterule')\
+        .pyft('timestamp',script='get_time(datetime(2016,7,26,15,15))>timestamp>get_time(datetime(2016,7,20,12,15))',stopwhile=True)\
+        .rename({'m_writer_name': 'source','m_display_url':'url'}) \
+        .crawler('url', selector=u'baidubaijia') \
+        .tn({'date':'timestamp'}, rule='daterule' )
         #.get(format='key',etl_count=50,take=2)
     print(proj.dumps_yaml())
     print(t2)

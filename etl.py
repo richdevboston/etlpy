@@ -5,22 +5,26 @@ import extends
 import urllib
 import spider;
 import json;
-import html
+
 import xml.etree.ElementTree as ET
 import csv
 import xspider;
 import os;
 import  sys;
+import traceback
 
-
+if extends.PY2:
+    pass;
+else:
+    import html
 
 MERGE_APPEND= 'Append';
 MERGE_TYPE_CROSS='Cross'
 MERGE_TYPE_MERGE='Merge'
 
-GENERATE_DOCS='文档列表'
-GENERATE_DOC= '单文档'
-GENERATE_NONE='不进行转换';
+GENERATE_DOCS=u'文档列表'
+GENERATE_DOC= u'单文档'
+GENERATE_NONE=u'不进行转换';
 cols=extends.EObject()
 
 
@@ -40,7 +44,7 @@ class ETLTool(extends.EObject):
     def _eval_script(self, global_para=None, local_para=None):
         if self.Script == '':
             return True
-        if not isinstance(self.Script,str):
+        if not extends.is_str(self.Script):
             return self.Script(self)
         import time;
         from pytz import utc, timezone
@@ -57,7 +61,7 @@ class ETLTool(extends.EObject):
             else:
                 result=eval(self.Script);
         except Exception as e:
-            sys.stderr.write(str(e))
+            traceback.print_exc()
         return result
 
 class Transformer(ETLTool):
@@ -77,8 +81,7 @@ class Transformer(ETLTool):
                         my=extends.merge_query(p, r, self.nCol);
                         yield my;
                 except Exception as e:
-                    sys.stderr.write(str(e));
-
+                    traceback.print_exc()
             return;
         for d in data:
             def edit_data(col, ncol=None):
@@ -309,7 +312,7 @@ class NullFT(Filter):
     def filter(self,data):
         if data is None:
             return False;
-        if isinstance(data, str):
+        if extends.is_str(data):
             return data.strip() != '';
         return True;
 
@@ -392,11 +395,11 @@ class MergeTF(Transformer):
         if self.MergeWith == '':
             columns = [];
         else:
-            columns = [str(data[r]) for r in self.MergeWith.split(' ')]
+            columns = [extends.to_str(data[r]) for r in self.MergeWith.split(' ')]
         columns.insert(0, data[col] if col in data else '');
         res = self.Format;
         for i in range(len(columns)):
-            res = res.replace('{' + str(i) + '}', str(columns[i]))
+            res = res.replace('{' +str(i) + '}', extends.to_str(columns[i]))
         col = ncol if ncol is not None else col;
         data[col]=res;
 
@@ -411,14 +414,14 @@ class RegexTF(Transformer):
     def init(self):
         self.Regex = re.compile(self.Script);
     def transform(self, data):
-        item = re.findall(self.Regex, str(data));
+        item = re.findall(self.Regex, extends.to_str(data));
         if self.Index < 0:
             return '';
         if len(item) <= self.Index:
             return '';
         else:
             r = item[self.Index];
-            return r if isinstance(r, str) else r[0];
+            return r if extends.is_str(r) else r[0];
 
 class ReReplaceTF(RegexTF):
 
@@ -434,14 +437,14 @@ class NumberTF(Transformer):
         self.Regex=  re.compile('\d+');
         self.Index=int(self.Index)
     def transform(self, data):
-        item = re.findall(self.Regex, str(data));
+        item = re.findall(self.Regex, extends.to_str(data));
         if self.Index < 0:
             return '';
         if len(item) <= self.Index:
             return '';
         else:
             r = item[self.Index];
-            return r if isinstance(r, str) else r[0];
+            return r if extends.is_str(r) else r[0];
 
 class SplitTF(Transformer):
     def __init__(self):
@@ -456,11 +459,10 @@ class SplitTF(Transformer):
         self.splits = self.SplitChar.split(' ');
         if '' in self.splits:
             self.splits.remove('')
-        if str(self.SplitPause)=='True':
+        if self.SplitPause==True:
             self.splits.append(' ');
-        if str(self.SplitNull)=='True':
+        if self.SplitNull==True:
             self.splits.append('\n')
-        self.FromBack=str(self.FromBack)=='True'
         self.Index = int(self.Index)
     def transform(self, data):
         if len(self.splits)==0:
@@ -514,7 +516,7 @@ class PythonTF(Transformer):
 
     def _get_data(self, data, col):
         value = data[col] if col in data else '';
-        if isinstance(self.Script, str):
+        if extends.is_str(self.Script ):
             result = self._eval_script({'value': value}, data);
         else:
             result = self.Script(data);
@@ -537,10 +539,10 @@ class PythonGE(Generator):
         super(PythonGE, self).__init__()
         self.Script='xrange(1,20,1)'
     def can_dump(self):
-        return  isinstance(self.Script,str);
+        return  extends.is_str(self.Script);
     def generate(self,generator):
         import inspect;
-        if isinstance(self.Script,str):
+        if extends.is_str(self.Script):
             result = self._eval_script();
         elif inspect.isfunction(self.Script):
             result= self.Script()
@@ -560,11 +562,11 @@ class PythonFT(Filter):
         self.Script='True';
         self.OneInput=False;
     def can_dump(self):
-        return  isinstance(self.Script,str);
+        return  extends.is_str(self.Script);
     def filter(self, data):
         import inspect
         data=data.copy();
-        if isinstance(self.Script, str):
+        if extends.is_str(self.Script):
             result = self._eval_script(data);
         elif inspect.isfunction(self.Script):
             result = self.Script(data)
@@ -582,7 +584,7 @@ class CrawlerTF(Transformer):
 
 
     def init(self):
-        if isinstance(self.Selector,str):
+        if extends.is_str(self.Selector):
             dic= self._proj.modules;
             if self.Selector in dic:
                 self._crawler= dic[self.Selector]
@@ -665,7 +667,7 @@ class XPathTF(Transformer):
             if hasattr(node,'text'):
                 res =spider.get_node_text(node);
             else:
-                res= str(node)
+                res= extends.to_str(node)
         data[ncol]=res;
 
 class TnTF(Transformer):
@@ -769,7 +771,7 @@ class EtlEX(Executor):
         count=0;
         for r in result:
             count+=1;
-        print('subtask:'+str(count))
+        print('subtask:'+extends.to_str(count))
         return data;
 
 class EtlTF(Transformer):
@@ -855,7 +857,7 @@ class FileExistFT(Transformer):
         self.OneInput = True;
     def transform(self,data):
         import os;
-        return str(os.path.exists(data));
+        return extends.to_str(os.path.exists(data));
 
 class MergeRepeatTF(Transformer):
     pass;
@@ -1133,7 +1135,7 @@ class Project(extends.EObject):
 
 
 def convert_dict(obj):
-    if not isinstance(obj, (str, int, float, list, dict, tuple, extends.EObject)):
+    if not isinstance(obj, (str,unicode, int, float, list, dict, tuple, extends.EObject)):
         return None
     if isinstance(obj, extends.EObject):
         d={}
@@ -1191,7 +1193,7 @@ class ETLTask(extends.EObject):
         self.tools = [];
         self.Name=''
     def clear(self):
-        self.tools.clear();
+        self.tools=[]
         return self;
 
     def pop(self,i):
@@ -1205,7 +1207,7 @@ class ETLTask(extends.EObject):
 
     def __str__(self):
         def conv_value(value):
-            if isinstance(value,str):
+            if extends.is_str(value):
                 value= value.replace('\n',' ').replace('\r','');
                 sp="'"
                 if value.find("'")>=0:
@@ -1227,7 +1229,7 @@ class ETLTask(extends.EObject):
                 value = t.__dict__[att];
                 if att in ['OneInput','OneOutput', 'Column', 'IsMultiYield']:
                     continue
-                if not isinstance(value, (str, int, bool, float)):
+                if not isinstance(value, (str,unicode, int, bool, float)):
                     continue;
                 if value is None or att not in defaultdict or defaultdict[att] == value:
                     continue;
@@ -1272,7 +1274,7 @@ class ETLTask(extends.EObject):
         def funcs(item):
             task= generate(reducer, item, can_execute);
             print('total_count: %d'%len([r for r in task]));
-            print('finish' + str(item));
+            print('finish' + extends.to_str(item));
 
         requests = threadpool.makeRequests(funcs, extends.group_by_mount(mapper,parameter.MountPerThread,group_skip=skip,group_take=take));
         [pool.putRequest(req) for req in requests]

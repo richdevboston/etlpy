@@ -1,15 +1,22 @@
 import sys
 from itertools import groupby
-import html.parser as h
-import importlib
+
 import extends
 import etl
 import re
 import spider
 from lxml import etree
-importlib.reload(sys)
+import importlib
+if extends.PY2:
+    pass;
+else:
+    import html.parser as h
+    html_parser = h.HTMLParser()
+
+
+
 PM25 = 2.4;
-html_parser = h.HTMLParser()
+
 ignoretag = re.compile('script|style');
 boxRegex = re.compile(r"\[\d{1,3}\]");
 

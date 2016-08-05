@@ -1,6 +1,5 @@
 # coding=utf-8
 import  sys;
-from queue import Queue
 from multiprocessing.managers import BaseManager
 import etl;
 import json
@@ -10,6 +9,10 @@ authkey= "etlpy".encode('utf-8')
 timeout=1;
 rpc_port=8998
 
+if extends.PY2:
+    from Queue import Queue
+else:
+    from queue import Queue
 class ETLJob:
     def __init__(self,project,jobname,config,id):
         self.project= project;
@@ -84,11 +87,11 @@ class Master:
                                 if not extends.is_ipynb:
                                     pass;
                                     #print('finish job: {id}, count : {count} '.format(id=job.id, count=job.count))
-
-                key=input('press any key to repeat,c to cancel')
-                if key=='c':
-                    break;
-                    manager.shutdown()
+                if not  extends.is_ipynb:
+                    key=input('press any key to repeat,c to cancel')
+                    if key=='c':
+                        break;
+            manager.shutdown()
         except Exception as e:
             print('manager has shutdown')
             manager.shutdown();

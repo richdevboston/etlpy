@@ -2,19 +2,22 @@
 import etl;
 import copy
 import sys;
-PY2 = sys.version_info[0] == 2
 
-if PY2:
-    pass;
+import extends;
+if extends.PY2:
+    import urllib2
+    from urlparse import urlparse
+    from urlparse import urlunparse
+    import cookielib
 else:
     import http.cookiejar
     from urllib.request import quote
     from urllib.parse import urlparse, urlunparse
+    import urllib.request
 
 from lxml import etree
-import urllib.request
 
-import extends;
+
 import socket
 
 from xspider import *
@@ -112,11 +115,18 @@ class Requests(extends.EObject):
         if url is None:
             url = self.Url;
         url = self.parse_url(url);
+        self.Headers['User-Agent'] = random.choice(agent_list)
         socket.setdefaulttimeout(self.Timeout);
-        cj = http.cookiejar.CookieJar()
-        pro = urllib.request.HTTPCookieProcessor(cj)
-        opener = urllib.request.build_opener(pro)
-        self.Headers['User-Agent']=random.choice(agent_list)
+        if extends.PY2:
+            cookie_support = urllib2.HTTPCookieProcessor(cookielib.CookieJar())
+            opener = urllib2.build_opener(cookie_support, urllib2.HTTPHandler)
+            urllib2.install_opener(opener)
+        else:
+
+            cj = http.cookiejar.CookieJar()
+            pro = urllib.request.HTTPCookieProcessor(cj)
+            opener = urllib.request.build_opener(pro)
+
         t = [(r.strip(), self.Headers[r]) for r in self.Headers];
         opener.addheaders = t;
         binary_data = self.postdata.encode('utf-8')
@@ -205,9 +215,8 @@ def _get_etree( html):
     if html != '':
         try:
             root = etree.HTML(html);
-
         except Exception as e:
-            sys.stderr.write(str(e))
+            sys.stderr.write('html format error'+str(e))
     return root;
 
 class SmartCrawler(extends.EObject):
@@ -272,7 +281,7 @@ class SmartCrawler(extends.EObject):
         try:
             html = self.requests.get_html(url);
         except Exception as e:
-            sys.stderr.write(str(e));
+            sys.stderr.write('url %s get error, %s'%(url,str(e)));
         return self.__get_data_from_html(html,self.xpaths,self.RootXPath);
 
     def __get_data_from_html(self, html, xpaths, rootpath):
@@ -285,7 +294,7 @@ class SmartCrawler(extends.EObject):
 
     def add_xpath(self, name, xpath, ishtml=False):
         xpath = XPath(name, xpath, ishtml);
-        self.xpaths.append(xpath);
+        self.xpaths.append(xpath);''
         return self;
 
     def search(self, tree, keyword, has_attr=False):

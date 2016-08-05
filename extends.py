@@ -1,5 +1,8 @@
 # encoding: UTF-8
 import re;
+import sys;
+PY2 = sys.version_info[0] == 2
+
 def is_in_ipynb():
     try:
         cfg = get_ipython()
@@ -8,6 +11,25 @@ def is_in_ipynb():
         return False
 
 is_ipynb=is_in_ipynb();
+
+
+def is_str(s):
+    if PY2:
+        if isinstance(s, (str, unicode)):
+            return True
+    else:
+        if isinstance(s, (str)):
+            return True;
+    return False;
+
+def to_str(s):
+    if PY2:
+        return unicode(s);
+    else:
+        return str(s);
+
+
+
 def get_mount(generator,take,skip=0):
     i=0;
     for r in generator:
@@ -17,6 +39,8 @@ def get_mount(generator,take,skip=0):
         if i>take+skip:
             break;
         yield r;
+
+
 
 
 def get(datas,format='print'):
