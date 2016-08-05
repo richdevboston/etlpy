@@ -35,7 +35,7 @@ if __name__ == '__main__':
         print('task name %s not in project'%(name));
         exit();
     task=proj.modules[name];
-    #task.AllETLTools[0].Enabled=True;
+    #task.AllETLTools[0].enabled=True;
     if mode=='master':
         from  distributed import *
         master = Master(proj, name);

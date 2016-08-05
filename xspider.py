@@ -1,17 +1,21 @@
 import sys
 from itertools import groupby
-
+import spider
+import random
 import extends
 import etl
 import re
-import spider
 from lxml import etree
 import importlib
 if extends.PY2:
-    pass;
+    import urllib2
+    from urllib import urlencode
+    from urlparse import urlparse
+    from urlparse import urlunparse
 else:
     import html.parser as h
     html_parser = h.HTMLParser()
+
 
 
 
@@ -67,9 +71,9 @@ def search_text_root(tree, node):
 
 def __search_text_root(tree, node, para):
     if  hasattr(node,'tag')  and  isinstance(node.tag,str) and node.tag.lower() not in ['script','style','comment']:
-        childnodes=[n for n in node.iterchildren()];
-        if len(childnodes)>0:
-            for child in childnodes:
+        child_nodes=[n for n in node.iterchildren()];
+        if len(child_nodes)>0:
+            for child in child_nodes:
                 __search_text_root(tree, child, para);
         else:
             text = node.text;
@@ -177,7 +181,7 @@ def __get_nearest_node(targets, node):
     return selectnode;
 
 def __get_diff_nodes(tree, nodes, xpaths, has_attr):
-    ischildcontailInfo = False;
+    is_child_contain_info = False;
     node1 = nodes[0]
     tree1 = etree.ElementTree(node1);
     node1path = tree.getpath(node1);
@@ -191,19 +195,19 @@ def __get_diff_nodes(tree, nodes, xpaths, has_attr):
             nodechild2.append(targets[0]);
         if len(nodechild2) <= 1:
             continue;
-        ischildcontailInfo |= __get_diff_nodes(tree, nodechild2, xpaths, has_attr);
-    if ischildcontailInfo == False:
+        is_child_contain_info |= __get_diff_nodes(tree, nodechild2, xpaths, has_attr);
+    if is_child_contain_info == False:
         for r in nodes:
             if not  __is_same_string(r.text,node1.text):
-                propname = __search_node_name(r, xpaths);
-                xpath = spider.XPath(propname)
-                xpath.Sample = node1.text;
-                xpath.XPath = node1path if len(xpaths) % 2 == 0 else tree.getpath(r);
+                prop_name = __search_node_name(r, xpaths);
+                xpath = spider.XPath(prop_name)
+                xpath.sample = node1.text;
+                xpath.path = node1path if len(xpaths) % 2 == 0 else tree.getpath(r);
                 xpaths.append(xpath);
-                ischildcontailInfo = True;
+                is_child_contain_info = True;
                 break;
     if not has_attr:
-        return ischildcontailInfo;
+        return is_child_contain_info;
     for r in node1.attrib:
         v = node1.attrib[r];
         for node in nodes:
@@ -212,26 +216,26 @@ def __get_diff_nodes(tree, nodes, xpaths, has_attr):
                 break;
             if node.attrib[r] != v:
                 xpath = spider.XPath(__search_node_name(r, xpaths) + "_" + r);
-                xpath.XPath = node1path if len(xpaths) % 2 == 0 else tree.getpath(node);
-                xpath.XPath += '/@' + r;
-                xpath.Sample = v;
+                xpath.path = node1path if len(xpaths) % 2 == 0 else tree.getpath(node);
+                xpath.path += '/@' + r;
+                xpath.sample = v;
                 xpaths.append(xpath);
                 break;
-    return ischildcontailInfo;
+    return is_child_contain_info;
 
 
-def get_diff_nodes(tree, root, rootpath, has_attr, exists=None):
+def get_diff_nodes(tree, root, root_path, has_attr, exists=None):
     xpaths = [];
-    nodes = [r for r in root.xpath(rootpath)]
+    nodes = [r for r in root.xpath(root_path)]
     count = len(nodes);
     if count > 1:
         __get_diff_nodes(tree, nodes, xpaths, has_attr);
     if exists is not None:
         for r in exists:
             for p in xpaths:
-                shortpath = spider.XPath(p.XPath).takeoff(rootpath);
-                if r.XPath == str(shortpath):
-                    p.Name = r.Name;
+                short_path =spider. XPath(p.path).takeoff(root_path);
+                if r.path == extends.to_str(short_path):
+                    p.name = r.name;
                     break;
     return xpaths;
 
@@ -246,15 +250,15 @@ def __is_same_string(t1,t2):
 def __search_node_name(node, xpaths):
     if not  hasattr(node,'attrib'):
         return 'col%s' % (len(xpaths));
-    attrkey = ["class","id"];
-    for key in attrkey:
+    attr_key = ["class","id"];
+    for key in attr_key:
         name = node.attrib.get(key, None);
         if name is not None:
             break;
     if name is None:
         return  'col%s'%(len(xpaths));
     for c in xpaths:
-        if c.Name == name:
+        if c.name == name:
             name2 = node.getparent().attrib.get(name, None);
             if name2 is None:
                 return 'col%s' % (len(xpaths));
@@ -267,36 +271,61 @@ def __search_node_name(node, xpaths):
 def search_properties(root, exist_xpaths=None, is_attr=False):
     if exist_xpaths == None: exist_xpaths = [];
     tree = etree.ElementTree(root);
-    existLen = len(exist_xpaths);
-    if existLen > 1:
-        rootxpath = spider.get_common_xpath(exist_xpaths);
-        return get_diff_nodes(tree, root, rootxpath, is_attr, exist_xpaths);
+    exist_len = len(exist_xpaths);
+    if exist_len > 1:
+        root = get_common_xpath(exist_xpaths);
+        return get_diff_nodes(tree, root, root, is_attr, exist_xpaths);
 
-    elif existLen == 1:
-        realPath =spider.XPath(exist_xpaths[0].XPath);
+    elif exist_len == 1:
+        real_path =spider.XPath(exist_xpaths[0].path);
         path_dict = {};
-        for r in realPath.itersub():
+        for r in real_path.itersub():
             __search_table_root(root.xpath(str(r)), path_dict, False);
-        maxp = 0;
+        max_p = 0;
         path = None;
         for r in path_dict:
-            if path_dict[r] > maxp:
+            if path_dict[r] > max_p:
                 path = r;
-            maxp = path_dict[r];
+            max_p = path_dict[r];
         if path is not None:
             return get_diff_nodes(tree, root, path, is_attr, exist_xpaths);
     else:
         path_dict = {};
         __search_table_root(tree, [root], path_dict, True);
         path_dict = sorted(path_dict, key=lambda d: path_dict[d], reverse=True);
-        for rootpath in path_dict:
-            items = get_diff_nodes(tree, root, rootpath, is_attr, exist_xpaths);
+        for root_path in path_dict:
+            items = get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
             if len(items) > 1:
-                return rootpath,items;
+                return root_path,items;
 
 
+def get_html(url):
+    headers = {'User-Agent': random.choice(spider.agent_list)}
+    req = urllib2.Request(url, None, headers)
+    response = urllib2.urlopen(req)
+    html = response.read()
+    return html;
 
+def get_list(html,xpaths=None, has_attr=False):
+    root=spider._get_etree(html);
+    if xpaths is None:
+        root_path, xpaths = search_properties(root, None,has_attr );
+    datas = spider._get_datas(root, xpaths,True,None)
+    return datas,xpaths;
 
-
-
-
+def get_main(html,is_html=False):
+    root=spider._get_etree(html);
+    tree = etree.ElementTree(root);
+    node_path = search_text_root(tree, root);
+    nodes = tree.xpath(node_path);
+    if len(nodes)==0:
+        return ''
+    node=nodes[0]
+    if is_html:
+        res = etree.tostring(node).decode('utf-8');
+    else:
+        if hasattr(node, 'text'):
+            res = spider.get_node_text(node);
+        else:
+            res = extends.to_str(node)
+    return res;

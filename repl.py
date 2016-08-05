@@ -27,15 +27,15 @@ def new_task(name='etl'):
     import etl;
     import inspect
     import extends;
-    basetype= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer];
-    ignoreparas=['OneInput','IsMultiYield','Column','OneOutput'];
+    base_type= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer];
+    ignore_paras=['OneInput','IsMultiYield','column','OneOutput'];
     task=etl.ETLTask();
     task._proj=proj;
     task.name=name;
     proj.modules[name]=task;
     setattr(proj,name,task);
 
-    def set_attrs(val, dic):
+    def set_attr(val, dic):
         for k in val.__dict__:
             if k.lower() in dic:
                 setattr(val, k, dic[k.lower()])
@@ -55,12 +55,12 @@ def new_task(name='etl'):
         import etl
         new_tool=etl.%s();
         new_tool._proj=proj
-        set_attrs(new_tool,locals())
+        set_attr(new_tool,locals())
         task.tools.append(new_tool);
         return task;
     '''
 
-    def mergefunc(k, v):
+    def merge_func(k, v):
         if extends.is_str(v ):
             v = "'%s'" % (v);
         return '%s=%s' % (k.lower(), v);
@@ -69,10 +69,10 @@ def new_task(name='etl'):
             continue;
         if  not issubclass(tool_type,etl.ETLTool) :
             continue
-        if tool_type in basetype:
+        if tool_type in base_type:
             continue;
         tool=tool_type();
-        paras=[mergefunc(k,v) for k,v in tool.__dict__.items() if not k.startswith('_')  and k not in ignoreparas]
+        paras=[merge_func(k,v) for k,v in tool.__dict__.items() if not k.startswith('_')  and k not in ignore_paras]
         paras.sort()
         paras=','.join(paras);
         new_name=_rename(name)
@@ -87,6 +87,13 @@ def new_task(name='etl'):
 
 if __name__ == '__main__':
     from etl import *
+    import xspider
+    html=xspider.get_html('http://wallstreetcn.com/news?cid=6');
+    data=xspider.get_list(html)[0];
+
+    #or 如果多次调用这种效率更高,第二行代码就不用执行搜索了
+    data,xpaths= xspider.get_list(html);
+    data= xspider.get_list(html,xpaths)[0];
 
     datas = open('/Users/zhaoyiming/Documents/stock.news').read().split('\001')
     datas = [json.loads(r) for r in datas if len(r) > 10]
@@ -94,18 +101,17 @@ if __name__ == '__main__':
         r['url'] = r['text'].split('"')[1]
         del r['text']
     c = new_connector('cc', MongoDBConnector())
-    c.ConnectString='mongodb://10.101.167.107'
-    c.DBName='ant_temp';
-
+    c.connect_str='mongodb://10.101.167.107'
+    c.db='ant_temp';
     s=new_spider('sp')
     t = new_task('xx')
     t.clear()
     t.pyge(script=datas)
-    t.tolist(mountperthread=5)
+    t.tolist(count_per_thread=5)
     t.crawler('url', selector='sp')
     t.xpath({'Content': 'content'}, gettext=True)
     t.delete('Content')
-    t.dbex(connector='cc', tablename='news')
+    t.dbex(connector='cc', table='news')
 
     t.get();
     exit()
