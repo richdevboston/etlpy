@@ -59,6 +59,8 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
     s=new_spider('sp')
     t.dbex(connector='cc', table='news')
 ```
+
+
  
  **内置丰富方便的多种数据抓取函数**
  
