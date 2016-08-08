@@ -6,6 +6,7 @@ a smart stream-like crawler &amp; etl python library
 
 ##1.简介
 
+
 etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减少数据抓取所需的资源，能在尽量短的代码内实现以下功能：
 
 ###基础目标：
@@ -22,7 +23,8 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
  - 对网站改版有充分的鲁棒性，能自动调整搜索算法
 
 
-##2.原理
+
+##2.基本原理
 
 模块分为 生成，过滤，排序，转换，执行四种。  
 
@@ -44,6 +46,7 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
 
 **支持良好的语法**
     能够在尽可能短的语法结构内描述抓取流程：
+
     下面描述了从8万个新闻url中获取新闻正文，并保存到数据库的**全部代码**：
 ```
     datas = open('/Users/zhaoyiming/Documents/stock.news').read().split('\001')
@@ -54,20 +57,16 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
     c.connect_str='mongodb://10.101.167.107'
     c.db='ant_temp';
     s=new_spider('sp')
-    s=new_spider('sp')
-    t = new_task('xx')
-    t.clear()
-    t.pyge(script=datas)
-    t.tolist(count_per_thread=5)
-    t.crawler('url', selector='sp')
-    t.xpath({'Content': 'content'}, gettext=True)
-    t.delete('Content')
     t.dbex(connector='cc', table='news')
 ```
  
  **内置丰富方便的多种数据抓取函数**
  
  支持XPath,pyquery，还能通过关键词和tn规则搜索关键信息。例如
+
+`s.search(rule='datetime')`即可搜索到网页中表达时间的节点xpath。
+
+**可视化支持**
 
 `s.search(rule='datetime')`即可搜索到网页中表达时间的节点xpath。
 
