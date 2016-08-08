@@ -44,7 +44,16 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
 
 **支持良好的语法**
     能够在尽可能短的语法结构内描述抓取流程：
+    下面描述了从8万个新闻url中获取新闻正文，并保存到数据库的**全部代码**：
 ```
+    datas = open('/Users/zhaoyiming/Documents/stock.news').read().split('\001')
+    datas = [json.loads(r) for r in datas if len(r) > 10]
+    for r in datas:
+        r['url'] = r['text'].split('"')[1]
+    c = new_connector('cc', MongoDBConnector())
+    c.connect_str='mongodb://10.101.167.107'
+    c.db='ant_temp';
+    s=new_spider('sp')
     s=new_spider('sp')
     t = new_task('xx')
     t.clear()
@@ -59,9 +68,11 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
  **内置丰富方便的多种数据抓取函数**
  
  支持XPath,pyquery，还能通过关键词和tn规则搜索关键信息。例如
+
 `s.search(rule='datetime')`即可搜索到网页中表达时间的节点xpath。
 
 **可视化支持**
+
 借助于IPython Notebook，能提供可视化配置的ETL流和搜索逻辑，从而进一步降低工作量。
 
 
