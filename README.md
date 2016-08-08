@@ -57,10 +57,15 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
     c.connect_str='mongodb://10.101.167.107'
     c.db='ant_temp';
     s=new_spider('sp')
+    t = new_task('xx')
+    t.clear()
+    t.pyge(script=datas)
+    t.tolist(count_per_thread=5)
+    t.crawler('url', selector='sp')
+    t.xpath({'Content': 'content'}, gettext=True)
+    t.delete('Content')
     t.dbex(connector='cc', table='news')
 ```
-
-
  
  **内置丰富方便的多种数据抓取函数**
  
@@ -73,7 +78,6 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
 `s.search(rule='datetime')`即可搜索到网页中表达时间的节点xpath。
 
 **可视化支持**
-
 借助于IPython Notebook，能提供可视化配置的ETL流和搜索逻辑，从而进一步降低工作量。
 
 
