@@ -1,10 +1,10 @@
-
+# coding=utf-8
 import etl
 import extends;
 from distributed import *
+from etl import cols
 proj=etl.Project();
-cols=extends.EObject();
-
+import urllib
 def html(text):
     from IPython.core.display import HTML, display
     display(HTML(text));
@@ -28,7 +28,7 @@ def new_task(name='etl'):
     import inspect
     import extends;
     base_type= [etl.Filter,etl.Generator,etl.Executor,etl.Transformer];
-    ignore_paras=['OneInput','IsMultiYield','column','OneOutput'];
+    ignore_paras=['one_input','multi','column'];
     task=etl.ETLTask();
     task._proj=proj;
     task.name=name;
@@ -45,11 +45,6 @@ def new_task(name='etl'):
             module= module.replace(k,v)
         return module.lower();
 
-
-    def set_cols(datas):
-        keys= extends.get_keys(datas)
-        for key in keys:
-            setattr(cols,key,key)
 
     dynaimc_method = '''def __%s(column='',%s):
         import etl
@@ -88,8 +83,71 @@ def new_task(name='etl'):
 if __name__ == '__main__':
     from etl import *
     import xspider
-    html=xspider.get_html('http://wallstreetcn.com/news?cid=6');
-    data=xspider.get_list(html)[0];
+    s=new_spider('list')
+    headers='''
+    Host: browse.renren.com
+Connection: keep-alive
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Referer: http://www.renren.com/296695625/profile
+Accept-Encoding: gzip, deflate, sdch
+Accept-Language: zh-CN,zh;q=0.8,en;q=0.6
+Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0; depovince=GW; jebecookies=c4bc4880-d117-40a7-94cc-3dd2d21391b4|||||; ick_login=c8df8dbb-c2ca-42a2-b20e-f2b27e06683d; jebe_key=b3f7048e-7d42-4f18-a23e-03d274b01a39%7Cd1c91d21c23af205fbde41b372732601%7C1469193870662%7C1%7C1470913691096; _de=B4F0273EEBE5D47A32E0B9ADC37B4602; p=106e8e0309b73b46a189dac5990846e02; first_login_flag=1; ln_uact=zym_by@126.com; ln_hurl=http://hdn.xnimg.cn/photos/hdn421/20120822/2245/h_main_1Hbx_528700010b791376.jpg; t=3b336ee1a515e4b6c3863e19f56b3bfb2; societyguester=3b336ee1a515e4b6c3863e19f56b3bfb2; id=230246512; xnsid=86b63f6a; ver=7.0; loginfrom=null; JSESSIONID=1D8D98426C02643F07F39F2B8D9B46B3; wp_fold=0
+    '''
+    s.requests.set_headers(headers)
+    url = '''http://browse.renren.com/sAjax.do?ajax=1&q=%20&p=%5B%7B%22t%22%3A%22birt%22%2C%22astr%22%3A%22%E6%91%A9%E7%BE%AF%22%7D%5D&s=0&u=230246512&act=search&offset=90&sort=0'''
+
+
+    ct=new_spider('ct')
+    ct.requests.set_headers(headers)
+
+    #datas=s.visit(url).great_hand(True).test().accept()
+
+    peo = new_spider('people')
+    peo.requests.set_headers(headers)
+
+    peo.visit('http://www.renren.com/262894094/profile')
+    peo.set_paras(False)
+    peo.xpath('女生', '性别').xpath('忻州市', '家乡').xpath('西安市', '现居').xpath('10-18', '生日')
+    peo.accept().test().get()
+    format = '''http://browse.renren.com/sAjax.do?ajax=1&q=&p={0}&s=0&u=230246512&act=search&offset={1}&sort=0'''
+    l = new_task('renrenlist')
+    star = ['天蝎', '水瓶', '巨蟹', '摩羯', '双鱼', '白羊', '天秤', '处女', '射手', '双子', '金牛', '狮子']
+
+    mongo = etl.MongoDBConnector();
+    mongo.connect_str = 'mongodb://10.101.167.107'
+    mongo.db = 'ant_temp'
+    con = new_connector('mongo', mongo)
+
+    l.clear()
+    l.pyge('star', script=star)
+    l.merge({'star': 'js'}, script='[{"t":"birt","astr":"{0}"}]')
+    l.py('js', script=lambda x: urllib.request.quote(str(x['js'])))
+    l.merge({'js': 'url'}, script=format, merge_with='20')
+    l.crawler('url', selector='ct')
+    l.xpath('Content', mode=etl.GET_HTML, xpath='//*[@id="resultNum"]')
+    l.number('Content')
+    l.rangege('p', max='[Content]', mode=etl.MERGE_TYPE_CROSS)
+    l.tolist(count_per_thread=50)
+    l.merge({'js': 'url'}, script=format, merge_with='p')
+    l.crawler('url', selector='list', new_col='star')
+    l.json('col5_popval', mode=etl.GENERATE_DOC)
+    l.number({'col7': 'common_friends'})
+    l.number({'col1_href': 'id'}, index=1)
+    l.delete(['col1_href', 'col3_href', 'col5_popval', 'col7', 'col9_data-id', 'col10_data.name', 'col8_data-common'])
+    l.number('user_lively')
+    l.rename({'col6': 'expr', 'col0_data-src': 'head', 'col2': 'name'})
+    # l.merge({'id':'url'},script='http://www.renren.com/{0}/profile')
+    # l.crawler('url',selector='people')
+    # l.replace('home',script='来自')
+    # l.replace('now_live',script='现居')
+    l.replace('expr', script='经历 : ')
+    l.dbex('id', connector='mongo', table='renren')
+    # l.delete('url')
+    l.distribute()
+    exit()
 
     #or 如果多次调用这种效率更高,第二行代码就不用执行搜索了
     data,xpaths= xspider.get_list(html);
@@ -146,7 +204,7 @@ if __name__ == '__main__':
         .rename({'m_writer_name': 'source','m_display_url':'url'}) \
         .crawler('url', selector=u'baidubaijia') \
         .tn({'date':'timestamp'}, rule='daterule' )
-        #.get(format='key',etl_count=50,take=2)
+        #.get(script='key',etl_count=50,take=2)
     print(proj.dumps_yaml())
     print(t2)
     #print(buf);

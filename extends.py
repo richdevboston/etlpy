@@ -44,7 +44,7 @@ def get_mount(generator,take,skip=0):
 
 
 def get(datas,format='print'):
-    if is_ipynb or format == 'df':
+    if is_ipynb or format == 'df'  and isinstance(datas,list):
         from  pandas import DataFrame
         return DataFrame(datas);
     if format == 'print':

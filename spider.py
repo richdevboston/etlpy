@@ -6,11 +6,14 @@ if extends.PY2:
     from urlparse import urlparse
     from urlparse import urlunparse
     import cookielib
+    from urllib import quote,unquote
 else:
     import http.cookiejar
     from urllib.request import quote
     from urllib.parse import urlparse, urlunparse
     import urllib.request
+
+
 
 from lxml import etree
 
@@ -65,8 +68,8 @@ def get_xpath_data(node, path, is_html=False):
         return None;
     paths = path.split('/');
     last = paths[-1];
-    if last.find('@')>=0 and last.find('[1]')>=0:
-        return p[0];
+    if last.find('@')>=0 : #and last.find('[1]')>=0:
+        return extends.to_str(p[0]);
     if is_html:
         return etree.tostring(p[0]).decode('utf-8');
     return  get_node_text(p[0]);
@@ -90,7 +93,7 @@ class Requests(extends.EObject):
     save request parameters and can query html from certain url
     '''
     def __init__(self):
-        self.Url = ''
+        self.url = ''
         self.cookie = '';
         self.headers = {};
         self.timeout = 30;
@@ -98,21 +101,26 @@ class Requests(extends.EObject):
         self.post_data= ''
         self.best_encoding= 'utf-8'
 
+    def set_headers(self, headers):
+        dic = para_to_dict(headers, '\n', ':')
+        extends.merge(self.headers, dic);
 
+        return self;
 
     def get_page(self, url=None):
         def irl_to_url(iri):
+            import string
+            #iri= quote(iri, safe=string.printable)
             parts = urlparse(iri)
             pp = [(i, part) for i, part in enumerate(parts)]
             res = [];
             for p in pp:
                 res.append(p[1] if p[0] != 4 else quote(p[1]))
             return urlunparse(res);
-
         if url is None:
-            url = self.Url;
-        url = parse_url(self.Url,url);
-        self.headers['User-Agent'] = random.choice(agent_list)
+            url = self.url;
+        url = parse_url(self.url, url);
+        #self.headers['User-Agent'] = random.choice(agent_list)
         socket.setdefaulttimeout(self.timeout);
         if extends.PY2:
             cookie_support = urllib2.HTTPCookieProcessor(cookielib.CookieJar())
@@ -129,7 +137,7 @@ class Requests(extends.EObject):
         binary_data = self.post_data.encode('utf-8')
         try:
             url.encode('ascii')
-        except UnicodeEncodeError:
+        except Exception as e:
             url =  irl_to_url(url)
 
         try:
@@ -219,7 +227,7 @@ def _get_etree( html):
         try:
             root = etree.HTML(html);
         except Exception as e:
-            sys.stderr.write('html format error'+str(e))
+            sys.stderr.write('html script error'+str(e))
     return root;
 
 
@@ -286,17 +294,17 @@ class SmartCrawler(extends.EObject):
         op = opener.open(login.Url, binary_data)
         data = op.read().decode('utf-8')
         print(data)
-        self.requests.Url = op.url;
+        self.requests.url = op.url;
         return opener;
 
     def great_hand(self,has_attr=False):
-        root=self._root;
+        tree=self._tree;
         self._stage=2;
         if not self.multi :
             print('great hand can only be used in list')
             return self;
-        root_path,xpaths=search_properties(root,self.xpaths,has_attr);
-        datas= _get_datas(root,xpaths,self.multi, None)
+        root_path,xpaths=search_properties(tree,self.xpaths,has_attr);
+        datas= _get_datas(tree,xpaths,self.multi, None)
         self._datas= datas;
         self._xpaths= xpaths;
         return self;
@@ -309,10 +317,12 @@ class SmartCrawler(extends.EObject):
 
 
     def test(self):
-        paths= self.xpaths if self._stage == 1 else self._xpaths;
-        root= self.root if self._stage == 1 else self._root;
+        paths= self.xpaths if self._stage > 3 else self._xpaths;
+        root= self.root if self._stage >3  else self._root;
         self._stage = 3;
         self._datas=self.__get_data_from_html(self._html, paths, root)
+        if isinstance(self._datas,dict):
+            self._datas=[self._datas]
         return self;
 
     def crawl(self,url):
@@ -332,15 +342,27 @@ class SmartCrawler(extends.EObject):
         tree = _get_etree(html);
         if tree is None:
             return {} if self.multi == False else [];
-        return self._get_datas(tree, xpaths, root);
+        return _get_datas(tree, xpaths, self.multi, root);
 
     def add_xpath(self, name, xpath, is_html=False):
+        for r in self.xpaths:
+            if r.name==name:
+                return ;
         xpath = XPath(name, xpath, is_html);
         self.xpaths.append(xpath);''
         return self;
 
-    def search(self, tree, keyword, has_attr=False):
-        return search_xpath(tree , keyword, has_attr);
+    def xpath(self,  keyword, name=None, has_attr=False,is_html=False):
+        if self._stage<1:
+            return 'please visit one url first';
+        result= search_xpath(self._tree , keyword, has_attr);
+        key=name if name is not  None else 'unknown';
+
+        print('%s  : %s'%(key,result))
+        if result is not None and name is not None:
+            self.add_xpath(name,result,is_html)
+        return self;
+
 
     def visit(self, url=None):
         if url is not None:
@@ -350,15 +372,17 @@ class SmartCrawler(extends.EObject):
         self._stage=1;
         html = self.requests.get_html(url);
         self._html= html;
-        self._root= _get_etree(html);
+        self._tree= _get_etree(html);
         return self;
 
     def clear(self):
         self._stage=0;
         self.xpaths=[];
         self._xpaths=[];
-        self.root=None;
+        self.tree=None;
         self._datas=None;
+        self._tree=None;
+        self.root=None;
         self._root=None;
         return self;
     def print_xpaths(self,is_test=True):
@@ -389,12 +413,12 @@ class SmartCrawler(extends.EObject):
         if set_root_xpath:
             self.root= get_common_xpath(self._xpaths)
             for path in self.xpaths:
-                m_path = path.XPath.split('/');
+                m_path = path.path.split('/');
                 path.XPath = '/'.join(m_path[len(self.root.split('/')):len(m_path)]);
-        if self._root is not None:
-            self.root= self._root;
+        if self._tree is not None:
+            self.tree= self._tree;
         return self;
-    def get(self):
+    def get(self,format='print'):
         s=self._stage;
         if s==0:
             print(self)
@@ -407,18 +431,19 @@ class SmartCrawler(extends.EObject):
         elif s==2:
             print(self.print_xpaths(True))
         else :
-            return extends.get(self._datas);
+            return extends.get(self._datas,format);
 
 
 
 def para_to_dict(para, split1, split2):
     r = {};
     for s in para.split(split1):
+        s=s.strip();
         rs = s.split(split2);
         if len(rs) < 2:
             continue;
-        key = rs[0];
-        value = s[len(key) + 1:];
+        key = rs[0].strip();
+        value = s[len(key) + 1:].strip();
         r[rs[0]] = value;
     return r;
 

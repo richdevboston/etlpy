@@ -26,6 +26,9 @@ GENERATE_DOC= u'单文档'
 GENERATE_NONE=u'不进行转换';
 cols=extends.EObject()
 
+GET_HTML=0
+GET_TEXT=1
+GET_COUNT=2
 
 
 def __get_match_counts(mat):
@@ -141,7 +144,7 @@ class Filter(ETLTool):
 class Generator(ETLTool):
     def __init__(self):
         super(Generator, self).__init__()
-        self.merge_type='Append'
+        self.mode= 'Append'
         self.pos= 0;
     def generate(self,generator):
         pass;
@@ -150,9 +153,9 @@ class Generator(ETLTool):
         if generator is None:
             return  self.generate(None);
         else:
-            if self.merge_type== MERGE_APPEND:
+            if self.mode== MERGE_APPEND:
                 return extends.append(generator, self.process(None));
-            elif self.merge_type==MERGE_TYPE_MERGE:
+            elif self.mode==MERGE_TYPE_MERGE:
                 return extends.merge(generator, self.process(None));
             else:
                 return extends.cross(generator, self.generate)
@@ -227,7 +230,7 @@ class DbEX(Executor):
     def __init__(self):
         super(DbEX, self).__init__();
         self.connector = '';
-        self.execute_type = EXECUTE_INSERT
+        self.mode = EXECUTE_INSERT
         self.table = '';
 
     def init(self):
@@ -237,7 +240,7 @@ class DbEX(Executor):
 
 
     def process(self,datas):
-        etype = self.execute_type;
+        etype = self.mode;
         table = self._table;
         work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
         for data in datas:
@@ -319,22 +322,21 @@ class NullFT(Filter):
 class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
-        self.NewValue=''
+        self.value=''
 
     def transform(self,data):
-        data[self.new_col]=self.NewValue;
+        return self.value;
 
 class AutoIndexTF(Transformer):
     def init(self):
         super(AutoIndexTF, self).__init__()
-        self.currindex = 0;
+        self._index = 0;
     def transform(self, data):
-        self.currindex += 1;
-        return self.currindex;
+        self._index += 1;
+        return self._index;
 
 
 class RenameTF(Transformer):
-
     def __init__(self):
         super(RenameTF, self).__init__()
         self.script=None;
@@ -388,15 +390,20 @@ class RegexSplitTF(Transformer):
 class MergeTF(Transformer):
     def __init__(self):
         super(MergeTF, self).__init__()
-        self.format='{0}'
+        self.script= '{0}'
         self.merge_with=''
     def transform(self, data, col, ncol=None):
+        def get_value(data,r):
+            if r in data:
+                return data[r]
+            else:
+                return r;
         if self.merge_with == '':
             columns = [];
         else:
-            columns = [extends.to_str(data[r]) for r in self.merge_with.split(' ')]
+            columns = [extends.to_str(get_value(data,r)) for r in self.merge_with.split(' ')]
         columns.insert(0, data[col] if col in data else '');
-        res = self.format;
+        res = self.script;
         for i in range(len(columns)):
             res = res.replace('{' +str(i) + '}', extends.to_str(columns[i]))
         col = ncol if ncol is not None else col;
@@ -422,11 +429,18 @@ class RegexTF(Transformer):
             r = item[self.index];
             return r if extends.is_str(r) else r[0];
 
-class ReReplaceTF(RegexTF):
+class ReplaceTF(RegexTF):
+    def __init__(self):
+        super(ReplaceTF, self).__init__()
+        self.new_value = '';
+        self.one_input=True
+        self.re=False;
 
     def transform(self, data):
-        return re.sub(self.regex, self.ReplaceText, data);
-
+        if self.re:
+            return re.sub(self.regex, self.new_value, data);
+        else:
+            return data.replace(self.script,self.new_value);
 class NumberTF(Transformer):
     def __init__(self):
         super(NumberTF, self).__init__()
@@ -508,10 +522,10 @@ class PythonTF(Transformer):
     def __init__(self):
         super(PythonTF, self).__init__()
         self.script='value'
-        self.script_type=GENERATE_NONE;
+        self.mode=GENERATE_NONE;
 
     def init(self):
-        self._m_yield=self.script_type==GENERATE_DOCS;
+        self._m_yield= self.mode == GENERATE_DOCS;
 
     def _get_data(self, data, col):
         value = data[col] if col in data else '';
@@ -526,7 +540,7 @@ class PythonTF(Transformer):
             yield j;
     def transform(self, data,col,ncol):
         js = self._get_data( data,col)
-        if self.script_type == GENERATE_DOC:
+        if self.mode == GENERATE_DOC:
             extends.merge(data, js);
         else:
             col= ncol if ncol is not None else col;
@@ -579,7 +593,6 @@ class CrawlerTF(Transformer):
         self.selector='';
         self.max_try=1;
         self.is_regex=False
-        self.new_col=None;
 
 
     def init(self):
@@ -592,7 +605,7 @@ class CrawlerTF(Transformer):
         else:
             self._crawler=self.selector;
         self.__buff = {};
-        self._m_yield = self._crawler.multi   and any(self._crawler.xpaths);
+        self._m_yield = self._crawler.multi   and len(self._crawler.xpaths)>0;
     def _get_data(self,url):
         crawler = self._crawler;
         buff = self.__buff;
@@ -608,7 +621,6 @@ class CrawlerTF(Transformer):
         datas = self._get_data(url)
         for d in datas:
             yield d;
-
     def transform(self, data, col,ncol):
         ndata=self._get_data(data[col])
         for k,v in ndata.items():
@@ -620,13 +632,11 @@ class XPathTF(Transformer):
         super(XPathTF, self).__init__()
         self.xpath=''
         self._m_yield = True;
-        self.GetTextHtml=False;
-        self.GetText=False;
-        self.GetCount=False;
-        self.IsManyData=False;
+        self.mode=False;
+        self.m_yield=False;
 
     def init(self):
-        self._m_yield=self.IsManyData;
+        self._m_yield=self.m_yield;
 
     def m_transform(self,data,col):
         from lxml import etree
@@ -639,9 +649,7 @@ class XPathTF(Transformer):
         for node in nodes:
             html = etree.tostring(node).decode('utf-8');
             ext = {'Text': spider.get_node_text(node), 'HTML': html};
-            ext['OHTML'] = ext['HTML']
-            yield extends.merge_query(ext, data, self.new_col);
-
+            yield ext;
 
     def transform(self, data,col,ncol):
         from lxml import etree
@@ -649,23 +657,27 @@ class XPathTF(Transformer):
         tree = etree.ElementTree(root)
         if tree is None:
             return ;
-        if self.GetTextHtml or self.GetText:
-            node_path=xspider.search_text_root(tree, root);
+        mode=self.mode;
+        if self.xpath=='' or self.xpath is None:
+            node_path = xspider.search_text_root(tree, root);
         else:
             node_path=self.xpath;
         if node_path is None:
-            return
+            return;
         nodes = tree.xpath(node_path);
-        if len(nodes)<1:
+        if len(nodes) < 1:
             return
-        node=nodes[0]
-        if self.GetTextHtml:
-            res= self, etree.tostring(node).decode('utf-8');
-        else:
-            if hasattr(node,'text'):
-                res =spider.get_node_text(node);
+        node = nodes[0]
+        if mode== GET_TEXT:
+            if hasattr(node, 'text'):
+                res = spider.get_node_text(node);
             else:
-                res= extends.to_str(node)
+                res = extends.to_str(node)
+        elif mode==GET_HTML:
+            res =  etree.tostring(node).decode('utf-8');
+        else:
+            res=len(nodes);
+
         data[ncol]=res;
 
 class TnTF(Transformer):
@@ -698,10 +710,10 @@ class ToListTF(Transformer):
 class JsonTF(Transformer):
     def __init__(self):
         super(JsonTF, self).__init__()
-        self.script_type=GENERATE_DOCS
+        self.mode=GENERATE_DOCS
 
     def init(self):
-        self._m_yield= self.script_type==GENERATE_DOC;
+        self._m_yield= self.mode == GENERATE_DOCS;
 
     def m_transform(self,data,col):
         js=json.loads(data[col]);
@@ -710,7 +722,7 @@ class JsonTF(Transformer):
 
     def transform(self, data,col,ncol):
         js = json.loads(data[col]);
-        if self.script_type==GENERATE_DOC:
+        if self.mode==GENERATE_DOC:
             extends.merge(data, js);
         else:
             data[ncol]=js
@@ -1120,7 +1132,7 @@ class Project(extends.EObject):
                 extends.dict_copy_poco(crawler, module);
                 paths = module.get('xpaths',{});
                 for r in paths:
-                    xpath = spider.xpath()
+                    xpath = spider.XPath()
                     extends.dict_copy_poco(xpath, r);
                     crawler.xpaths.append(xpath)
                 crawler.requests = spider.Requests()
@@ -1135,7 +1147,7 @@ class Project(extends.EObject):
 
 
 def convert_dict(obj):
-    if not isinstance(obj, (str,unicode, int, float, list, dict, tuple, extends.EObject)):
+    if not isinstance(obj, ( int, float, list, dict, tuple, extends.EObject)) and not extends.is_str(obj):
         return None
     if isinstance(obj, extends.EObject):
         d={}
@@ -1179,7 +1191,7 @@ def generate(tools, generator=None, init=True, execute=False, enabled=True):
 def parallel_map(tools):
     index= extends.get_index(tools,lambda x:isinstance(x,ToListTF))
     if index==-1:
-        return tools,None;
+        return tools,None,None;
     mapper = tools[:index]
     reducer=tools[index+1:]
     parameter= tools[index];

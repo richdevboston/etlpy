@@ -60,7 +60,7 @@ class Master:
         module= self.project.modules[self.job_name];
         proj= etl.convert_dict(self.project);
         mapper, reducer, tolist = etl.parallel_map(module.tools)
-        count_per_group = tolist.MountPerThread;
+        count_per_group = tolist.count_per_thread;
         task_generator=extends.group_by_mount(etl.generate(mapper),count_per_group, take,skip);
         from ipy_progressbar import ProgressBar
         task_generator = ProgressBar(task_generator, title='Task Dispatcher')
@@ -77,7 +77,7 @@ class Master:
                         job = ETLJob(proj, self.job_name, task, job_id);
                         if not extends.is_ipynb:
                             pass;
-                            #print('dispatch job: {id}, count : {count} '.format (id=job.id,count=count_per_group))
+                            #print('dispatch job: {id}, count : {count} '.script (id=job.id,count=count_per_group))
                         dispatched_jobs.put(job)
                         if i%dispatched_count==0:
                             task_customer.start()
@@ -86,7 +86,7 @@ class Master:
                                 task_customer.advance()
                                 if not extends.is_ipynb:
                                     pass;
-                                    #print('finish job: {id}, count : {count} '.format(id=job.id, count=job.count))
+                                    #print('finish job: {id}, count : {count} '.script(id=job.id, count=job.count))
                 if not  extends.is_ipynb:
                     key=input('press any key to repeat,c to cancel')
                     if key=='c':
