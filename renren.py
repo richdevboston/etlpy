@@ -1,12 +1,12 @@
 
 # coding: utf-8
 
-# In[3]:
+# In[1]:
 
 from repl import *
 
 
-# In[4]:
+# In[2]:
 
 headers='''
 Host: browse.renren.com
@@ -22,75 +22,75 @@ Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0
 '''
 
 
-# In[5]:
+# In[3]:
 
 t=new_spider('list')
 
 
-# In[6]:
+# In[4]:
 
 t.requests.set_headers(headers)
 
 
-# In[7]:
+# In[5]:
 
 ct=new_spider('ct')
 ct.requests.set_headers(headers)
 
 
-# In[8]:
+# In[6]:
 
 url='''http://browse.renren.com/sAjax.do?ajax=1&q=%20&p=%5B%7B%22t%22%3A%22birt%22%2C%22astr%22%3A%22%E6%91%A9%E7%BE%AF%22%7D%5D&s=0&u=230246512&act=search&offset=90&sort=0'''
   
 
 
-# In[9]:
+# In[7]:
 
 d=t.visit(url).great_hand(True).test().accept().get()
 
 
-# In[10]:
+# In[8]:
 
 format = '''http://browse.renren.com/sAjax.do?ajax=1&q=&p={0}&s=0&u=230246512&act=search&offset={1}&sort=0'''
 
 
-# In[11]:
+# In[9]:
 
 l=new_task('renrenlist')
 
 
-# In[12]:
+# In[10]:
 
 import urllib
 
 
-# In[13]:
+# In[11]:
 
 peo= new_spider('people')
 peo.requests.set_headers(headers)
 
 
-# In[14]:
+# In[12]:
 
 peo.visit('http://www.renren.com/262894094/profile')
 
 
-# In[15]:
+# In[13]:
 
 peo.set_paras(False)
 
 
-# In[16]:
+# In[14]:
 
 peo.xpath('女生','gender').xpath('忻州市','home').xpath('西安市','now_live').xpath('10-18','birth')
 
 
-# In[17]:
+# In[15]:
 
 peo.accept().test().get()
 
 
-# In[18]:
+# In[16]:
 
 mongo =etl.MongoDBConnector();
 mongo.connect_str='mongodb://10.101.167.107'
@@ -98,23 +98,23 @@ mongo.db='ant_temp'
 con=new_connector('mongo',mongo)
 
 
-# In[19]:
+# In[17]:
 
 peo.visit('http://browse.renren.com/s/all?from=opensearch&q=#qt=/tindex=2').xpath('河北')
 
 
-# In[20]:
+# In[18]:
 
 province='北京 上海 天津 重庆 黑龙江 吉林 辽宁 山东 山西 陕西 河北 河南 湖北 湖南 海南 江苏 江西 广东 广西 云南 贵州 四川 内蒙古 宁夏 甘肃 青海 西藏 新疆 安徽 浙江 福建 台湾 香港 澳门'
 
 
-# In[39]:
+# In[19]:
 
 tp= province.split(' ')
 query_format='[{"t":"birt","month":"{1}","year":"{0}","day":"{2}"},{"prov":"{3}","gend":"{5}","city":"{4}","t":"base"}]'
 
 
-# In[22]:
+# In[20]:
 
 cities='''var _city_1=["110101:东城区","110102:西城区","110103:崇文区","110104:宣武区","110105:朝阳区","110106:丰台区","110107:石景山区","110108:海淀区","110109:门头沟区","110111:房山区","110112:通州区","110113:顺义区","110114:昌平区","110115:大兴区","110116:怀柔区","110117:平谷区","110228:密云县","110229:延庆县"];
 var _city_2=["310101:黄浦区","310103:卢湾区","310104:徐汇区","310105:长宁区","310106:静安区","310107:普陀区","310108:闸北区","310109:虹口区","310110:杨浦区","310112:闵行区","310113:宝山区","310114:嘉定区","310115:浦东新区","310116:金山区","310117:松江区","310118:青浦区","310119:南汇区","310120:奉贤区","310230:崇明县"];
@@ -151,7 +151,7 @@ var _city_32=["7101:台北市","7102:高雄市","7103:基隆市","7104:台中市
 var _city_33=["8101:中西区","8102:湾仔区","8103:东区","8104:南区","8105:油尖旺区","8106:深水埗区","8107:九龙城区","8108:黄大仙区","8109:观塘区","8110:荃湾区","8111:葵青区","8112:沙田区","8113:西贡区","8114:大埔区","8115:北区","8116:元朗区","8117:屯门区","8118:离岛区"];'''
 
 
-# In[23]:
+# In[21]:
 
 p=0;
 pro_cities={}
@@ -168,7 +168,7 @@ for r in cities.split('\n'):
     p+=1
 
 
-# In[33]:
+# In[22]:
 
 def pro_cities_generator():
     for p,c in pro_cities.items():
@@ -177,14 +177,12 @@ def pro_cities_generator():
             yield {'city':s,'pro':p,'gend':'女生'}
 
 
-# In[34]:
+# In[23]:
 
-def sex():
-    yield '男生'
-    yield '女生'
+b=new_task('birth')
 
 
-# In[49]:
+# In[24]:
 
 b.clear();
 b.pyge(script=pro_cities_generator)
@@ -196,18 +194,17 @@ b.delete(['city','day','pro','year','month','gend'])
 b.get().ix[0]['query']
 
 
-# In[50]:
+# In[25]:
 
 l.clear()
 l.etlge(selector='birth')
 l.py({'query':'js'}, script=lambda x:urllib.request.quote(str(x['query'])))
 l.merge({'js':'url'},script=format,merge_with='0')
-l.tolist(count_per_thread=10)
+l.tolist(count_per_thread=200)
 l.crawler('url',selector='ct')
 l.xpath('Content',mode=etl.GET_HTML, xpath='//*[@id="resultNum"]')
 l.number('Content')
 l.rangege('p',max='[Content]',mode=etl.MERGE_TYPE_CROSS,interval=10)
-
 l.merge({'js':'url'}, script=format, merge_with='p')
 l.crawler('url',selector='list',new_col='query')
 l.json('col5_popval',mode=etl.GENERATE_DOC)
@@ -225,27 +222,27 @@ l.dbex('id',connector='mongo',table='renren')
 # l.delete('url')
 
 
-# In[53]:
+# In[26]:
 
 l.get(etl_count=20).ix[0]['query']
 
 
-# In[40]:
+# In[27]:
 
 #%mkdir ../Hawk-Projects/人人网
 
 
-# In[41]:
+# In[28]:
 
 #proj.dump_json('../Hawk-Projects/人人网/列表.json')
 
 
-# In[42]:
+# In[29]:
 
 l.distribute()
 
 
-# In[43]:
+# In[ ]:
 
 l.stop_server()
 
