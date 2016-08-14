@@ -653,10 +653,13 @@ class XPathTF(Transformer):
 
     def transform(self, data,col,ncol):
         from lxml import etree
+        d= data[col]
+        if d is None or d=='':
+            return None
         root = spider._get_etree(data[col]);
         tree = etree.ElementTree(root)
         if tree is None:
-            return ;
+            return None;
         mode=self.mode;
         if self.xpath=='' or self.xpath is None:
             node_path = xspider.search_text_root(tree, root);
@@ -734,9 +737,14 @@ class RangeGE(Generator):
         self.max='1'
         self.min='1'
     def generate(self,generator):
-        interval= int(extends.query(generator, self.interval))
-        max_value= int(extends.query(generator, self.max))
-        min_value= int(extends.query(generator, self.min))
+        def get_int(x,default=0):
+            try:
+                return int(x)
+            except:
+                return default;
+        interval= get_int(extends.query(generator, self.interval),1)
+        max_value= get_int(extends.query(generator, self.max),1)
+        min_value= get_int(extends.query(generator, self.min),1)
         if interval>0:
             values=range(min_value,max_value,interval);
         else:
@@ -1070,7 +1078,7 @@ class Project(extends.EObject):
                             set_attr(connector, key, tool.attrib[key]);
                         self.connectors[connector.name] = connector;
 
-        print('load project success')
+        #print('load project success')
         return self;
 
     def dumps_json(self):
@@ -1140,7 +1148,7 @@ class Project(extends.EObject):
             setattr(self,key,crawler);
             if crawler is not None:
                 self.modules[key] = crawler;
-        print('load project success')
+        #print('load project success')
         return self;
 
 
@@ -1204,6 +1212,7 @@ class ETLTask(extends.EObject):
     def __init__(self):
         self.tools = [];
         self.name=''
+        self._master=None;
     def clear(self):
         self.tools=[]
         return self;
@@ -1214,9 +1223,12 @@ class ETLTask(extends.EObject):
 
     def distribute(self ,take=90999999,skip=0,port= None):
         import distributed
-        master= distributed.Master(self._proj,self.name);
-        master.start(take,skip,port)
-
+        self._master= distributed.Master(self._proj,self.name);
+        self._master.start(take,skip,port)
+    def stop_server(self):
+        if self._master is None:
+            return 'server is not exist';
+        self._master.manager.shutdown();
     def __str__(self):
         def conv_value(value):
             if extends.is_str(value):
@@ -1241,7 +1253,7 @@ class ETLTask(extends.EObject):
                 value = t.__dict__[att];
                 if att in ['one_input','OneOutput', 'column', '_m_yield']:
                     continue
-                if not isinstance(value, (str,unicode, int, bool, float)):
+                if not isinstance(value, ( int, bool, float)) and not extends.is_str(value):
                     continue;
                 if value is None or att not in defaultdict or defaultdict[att] == value:
                     continue;

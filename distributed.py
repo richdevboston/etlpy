@@ -43,19 +43,24 @@ class Master:
     def get_finished_job_queue(self):
         return self.finished_job_queue
 
-    def start(self,take=100000,skip=0,port=rpc_port):
+    def start(self,take=100000,skip=0,port=None):
+        if port is None:
+            port=rpc_port;
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue', callable=self.get_dispatched_job_queue)
         BaseManager.register('get_finished_job_queue', callable=self.get_finished_job_queue)
-        print('current port is %d'%rpc_port)
+        print('current port is %d'%port)
         # 监听端口和启动服务
-        manager = BaseManager(address=('0.0.0.0', rpc_port), authkey=authkey)
+        manager = BaseManager(address=('0.0.0.0', port), authkey=authkey)
+        self.manager=manager;
         manager.start()
+        print('server started');
+        if extends.is_ipynb:
+            print('exec in ipython notebook')
         dispatched_count=10;
         # 使用上面注册的方法获取队列
         dispatched_jobs = manager.get_dispatched_job_queue()
         finished_jobs = manager.get_finished_job_queue()
-
         job_id = 0
         module= self.project.modules[self.job_name];
         proj= etl.convert_dict(self.project);
@@ -93,6 +98,8 @@ class Master:
                         break;
             manager.shutdown()
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print('manager has shutdown')
             manager.shutdown();
 

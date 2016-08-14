@@ -121,6 +121,8 @@ Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0
     mongo.db = 'ant_temp'
     con = new_connector('mongo', mongo)
 
+
+
     l.clear()
     l.pyge('star', script=star)
     l.merge({'star': 'js'}, script='[{"t":"birt","astr":"{0}"}]')
