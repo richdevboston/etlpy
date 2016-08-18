@@ -1,15 +1,15 @@
 # etlpy
 
-##designed by desert
+## designed by desert
 
-a smart stream-like crawler &amp; etl python library
+a smart stream-like crawler & etl python library
 
-##1.简介
+## 1.简介
 
 
 etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减少数据抓取所需的资源，能在尽量短的代码内实现以下功能：
 
-###基础目标：
+### 基础目标：
  - 自动提取新闻正文和表格内容
  - 能够快速发现并模拟翻页逻辑
  - 能尽量高效地实现增量更新
@@ -17,14 +17,14 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
  - 提供BFS的访问方式
  - 分布式抓取
 
-###高级目标：
+### 高级目标：
  - 实现网站信息**动态查询**,即可输入类似SQL的代码，实时查询网站数据
  - 多数据源快速集成，如能实现多个新闻网站的统一聚合器，实时获取其增量数据内容
  - 对网站改版有充分的鲁棒性，能自动调整搜索算法
 
 
 
-##2.基本原理
+## 2.基本原理
 
 模块分为 生成，过滤，排序，转换，执行四种。  
 
@@ -34,7 +34,7 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
 
 
  
-##3. 核心技术
+## 3. 核心技术
 
 **对DOM树的搜索和分析**
 
@@ -54,7 +54,7 @@ etlpy是基于流和函数式范式的数据采集和清洗工具。能大大减
     for r in datas:
         r['url'] = r['text'].split('"')[1]
     c = new_connector('cc', MongoDBConnector())
-    c.connect_str='mongodb://10.101.167.107'
+    c.connect_str='mongodb://ip'
     c.db='ant_temp';
     s=new_spider('sp')
     t = new_task('xx')
