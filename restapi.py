@@ -40,10 +40,13 @@ def _get_html(request):
 
 @app.route('/extract/list', methods=['POST'])
 def extract_list():
-    html,params= _get_html(request)
-    if html is None:
-        return params;
-    data,xpaths= get_list(html,has_attr=params)
+    try:
+        html,params= _get_html(request)
+        if html is None:
+            return params;
+        data,xpaths= get_list(html,has_attr=params)
+    except Exception as e:
+          return jsonify({'error':str(e)})
     if data is None:
         return jsonify({'error':'extract list empty'})
     else:
@@ -52,11 +55,14 @@ def extract_list():
 
 @app.route('/extract/content', methods=['POST'])
 def extract_content():
-    html,params= _get_html(request)
-    if html is None:
-        return params;
+    try:
+        html,params= _get_html(request)
+        if html is None:
+            return jsonify(**params);
+    except Exception as e:
+        return jsonify(**{'error':str(e)})
     content= get_main(html,params);
-    return jsonify({'result':content})
+    return jsonify(**{'result':content})
 
 
 if __name__ == '__main__':
