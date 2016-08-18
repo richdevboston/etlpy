@@ -129,8 +129,8 @@ class Slave:
         # 运行作业并返回结果，这里只是模拟作业运行，所以返回的是接收到的作业
         while True:
             if dispatched_jobs.empty():
-                time.sleep(1)
-                print('queue is empty,wait 1 sec...')
+                time.sleep(5)
+                print('queue is empty,wait 5 sec...')
                 continue;
 
             job = dispatched_jobs.get(timeout=timeout)

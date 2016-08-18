@@ -17,18 +17,19 @@ if extends.PY2:
 else:
     import html
 
-MERGE_APPEND= 'Append';
-MERGE_TYPE_CROSS='Cross'
-MERGE_TYPE_MERGE='Merge'
+MERGE_APPEND= 'append';
+MERGE_TYPE_CROSS='cross'
+MERGE_TYPE_MERGE='merge'
 
-GENERATE_DOCS=u'文档列表'
-GENERATE_DOC= u'单文档'
-GENERATE_NONE=u'不进行转换';
+GENERATE_DOCS='docs'
+GENERATE_DOC= 'doc'
+GENERATE_NONE='none';
 cols=extends.EObject()
 
-GET_HTML=0
-GET_TEXT=1
-GET_COUNT=2
+GET_HTML='html'
+GET_TEXT='text'
+GET_COUNT='count'
+GET_ARRAY='array'
 
 
 def __get_match_counts(mat):
@@ -96,14 +97,20 @@ class Transformer(ETLTool):
                 else:
                     ncol = ncol if ncol != '' and  ncol is  not None else col;
                     self.transform(d,col,ncol);
-            if isinstance(self.column, dict):
-                for k,v in self.column.items():
+            column=self.column;
+            if extends.is_str(self.column):
+                if self.column.find(':')>0:
+                    column=extends.para_to_dict(self.column,',',':')
+                elif self.column.find(' ')>0:
+                    column=[r.strip() for r in self.column.split(' ')]
+            if isinstance(column, dict):
+                for k,v in column.items():
                     edit_data(k,v);
-            elif isinstance(self.column, (list, set)):
-                for k in self.column:
+            elif isinstance(column, (list, set)):
+                for k in column:
                     edit_data(k)
             else:
-                edit_data(self.column, self.new_col)
+                edit_data(column, self.new_col)
             yield d;
 
 class Executor(ETLTool):
@@ -226,6 +233,7 @@ class JsonConnector(FileConnector):
 
 
 
+
 class DbEX(Executor):
     def __init__(self):
         super(DbEX, self).__init__();
@@ -323,9 +331,12 @@ class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
         self.value=''
+        self._m_yield=True
+    def m_transform(self, data, col):
+        data[col] = self.value;
+        yield data;
 
-    def transform(self,data):
-        return self.value;
+
 
 class AutoIndexTF(Transformer):
     def init(self):
@@ -355,17 +366,18 @@ class HtmlTF(Transformer):
     def __init__(self):
         super(HtmlTF, self).__init__()
         self.one_input=True;
-
+        self.mode='decode'
     def transform(self, data):
-        return html.escape(data) if self.ConvertType == 'Encode' else html.unescape(data);
+        return html.escape(data) if self.mode == 'encode' else html.unescape(data);
 
 
 class UrlTF(Transformer):
     def __init__(self):
         super(UrlTF, self).__init__()
         self.one_input = True;
+        self.mode = 'decode'
     def transform(self, data):
-        if self.ConvertType == 'Encode':
+        if self.mode == 'encode':
             url = data.encode('utf-8');
             return urllib.parse.quote(url);
         else:
@@ -387,6 +399,7 @@ class RegexSplitTF(Transformer):
                 return items[index];
         return items[index];
 
+
 class MergeTF(Transformer):
     def __init__(self):
         super(MergeTF, self).__init__()
@@ -404,12 +417,9 @@ class MergeTF(Transformer):
             columns = [extends.to_str(get_value(data,r)) for r in self.merge_with.split(' ')]
         columns.insert(0, data[col] if col in data else '');
         res = self.script;
-        for i in range(len(columns)):
-            res = res.replace('{' +str(i) + '}', extends.to_str(columns[i]))
+        res= extends.format(res,columns)
         col = ncol if ncol is not None else col;
         data[col]=res;
-
-
 
 class RegexTF(Transformer):
     def __init__(self):
@@ -593,7 +603,7 @@ class CrawlerTF(Transformer):
         self.selector='';
         self.max_try=1;
         self.is_regex=False
-
+        self.post_data=''
 
     def init(self):
         if extends.is_str(self.selector):
@@ -606,33 +616,81 @@ class CrawlerTF(Transformer):
             self._crawler=self.selector;
         self.__buff = {};
         self._m_yield = self._crawler.multi   and len(self._crawler.xpaths)>0;
-    def _get_data(self,url):
+    def _get_data(self,url,post_data=''):
         crawler = self._crawler;
         buff = self.__buff;
-        if url in buff:
-            data = buff[url];
+        if post_data is None:
+            post_data=''
+        key=url+post_data;
+        if key in buff:
+            data = buff[key];
         else:
-            data = crawler.crawl(url);
+            data = crawler.crawl(url,post_data);
             if len(buff) < 100:
                 buff[url] = data;
         return data;
     def m_transform(self,data,col):
         url = data[col];
-        datas = self._get_data(url)
+        post_data= extends.query(data,self.post_data);
+        datas = self._get_data(url,post_data)
         for d in datas:
             yield d;
     def transform(self, data, col,ncol):
-        ndata=self._get_data(data[col])
+
+        post_data= extends.query(data,self.post_data);
+        ndata=self._get_data(data[col],post_data)
         for k,v in ndata.items():
             data[k]=v;
+
+class PyQueryTF(Transformer):
+    def __init__(self):
+        super(PyQueryTF, self).__init__()
+        self.script = ''
+        self._m_yield = True;
+        self.mode = GET_TEXT
+        self.m_yield = False;
+
+    def m_transform(self, data, col):
+        from pyquery import PyQuery as pyq
+        root = pyq(data[col]);
+        if root is None:
+            yield data;
+            return;
+        nodes =  root(self.script);
+        for node in nodes:
+            ext = {'text': node.text() , 'html': extends.to_str(node)};
+            yield ext;
+
+    def transform(self, data, col, ncol):
+        d = data[col]
+        if d is None or d == '':
+            return None
+        from pyquery import PyQuery as pyq
+        root = pyq(data[col]);
+        if root is None:
+            return None;
+        mode = self.mode;
+        nodes = root(self.script);
+        if len(nodes) < 1:
+            return
+        node = nodes[0]
+        if mode == GET_TEXT:
+            res= node.text()
+        elif mode == GET_HTML:
+            res=extends.to_str(node);
+        elif mode== GET_COUNT:
+            res = len(nodes);
+        else:
+            res= nodes;
+        data[ncol] = res;
 
 
 class XPathTF(Transformer):
     def __init__(self):
         super(XPathTF, self).__init__()
-        self.xpath=''
+        self.script= ''
         self._m_yield = True;
-        self.mode=False;
+        self.mode= GET_TEXT
         self.m_yield=False;
 
     def init(self):
@@ -645,7 +703,7 @@ class XPathTF(Transformer):
         if tree is None:
             yield data;
             return;
-        nodes = tree.xpath(self.xpath);
+        nodes = tree.search_xpath(self.script);
         for node in nodes:
             html = etree.tostring(node).decode('utf-8');
             ext = {'Text': spider.get_node_text(node), 'HTML': html};
@@ -661,10 +719,10 @@ class XPathTF(Transformer):
         if tree is None:
             return None;
         mode=self.mode;
-        if self.xpath=='' or self.xpath is None:
+        if self.script== '' or self.script is None:
             node_path = xspider.search_text_root(tree, root);
         else:
-            node_path=self.xpath;
+            node_path=self.script;
         if node_path is None:
             return;
         nodes = tree.xpath(node_path);
@@ -1064,7 +1122,7 @@ class Project(extends.EObject):
                         if child.tag == 'children':
                             xpath = spider.xpath();
                             xpath.name = child.attrib['name'];
-                            xpath.xpath = child.attrib['xpath'];
+                            xpath.search_xpath = child.attrib['script'];
                             xpath.IsHtml = child.attrib['IsHtml'] == 'True'
                             tool.xpaths.append(xpath);
 

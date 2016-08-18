@@ -25,12 +25,12 @@ ignoretag = re.compile('script|style');
 boxRegex = re.compile(r"\[\d{1,3}\]");
 
 
-def is_contain_kw(text, keyword):
+def str_match(text, keyword, match_func):
     if text is None: return 0;
     keyword = keyword.strip();
     items = [r.strip() for r in re.split('\t|\r|\n', text)];
     for r in items:
-        if r.find(keyword) >= 0:
+        if match_func(r,keyword):
             return 1;
     return 0;
 
@@ -85,14 +85,7 @@ def __search_text_root(tree, node, para):
                 para.path = tree.getpath(node);
 
 
-def remove_last_xpath_num(paths):
-    v = paths[-1];
-    m = boxRegex.search(v);
-    if m is None:
-        return paths;
-    s = m.group(0);
-    paths[-1] = v.replace(s, "");
-    return '/'.join(paths);
+
 
 
 
@@ -130,7 +123,7 @@ def __search_table_root(tree, nodes, path_dict, has_child):
     if leafCount<2:
         return ;
     value = childCount * PM25 + leafCount;
-    xpath = remove_last_xpath_num(tree.getpath(node).split('/'));
+    xpath = spider.remove_last_xpath_num(tree.getpath(node).split('/'));
     path_dict[xpath] = value;
 
 
@@ -140,24 +133,40 @@ def search_table_root(root, has_child=True):
     __search_table_root(tree, root, d, has_child);
     return d;
 
+def _str_find(string,word):
+    return string.find(word)>=0;
 
-def search_xpath(node, keyword, has_attr=False):
+def _regex_find(string,regex):
+     res=re.match(regex,string);
+     if res:
+         return res;
+     return res;
+
+def _tn_find(string,rule):
+    from tn import core
+    return core.match(string,rule) is not None;
+
+
+def search_xpath(node, keyword, match_func='str',has_attr=False):
     tree = etree.ElementTree(node);
-    return __search_xpath(tree,node,keyword,has_attr);
-def __search_xpath(tree, node, keyword, has_attr=False):
+    dics={'str':_str_find,'tn':_tn_find,'re':_regex_find};
+    return __search_xpath(tree,node,keyword,dics[match_func] ,has_attr);
+
+
+def __search_xpath(tree, node, keyword,match_func, has_attr=False):
     if node is None or keyword is None: return;
     nodes = node.iterchildren();
     for node in nodes:
         if str(node.__class__).find("Element") > 0:
-            path = __search_xpath(tree, node, keyword, has_attr);
+            path = __search_xpath(tree, node, keyword, match_func, has_attr);
             if path is not None:
                 return path;
-            if node.text is not None and is_contain_kw(node.text, keyword):
+            if node.text is not None and str_match(node.text, keyword,match_func):
                 xpath = tree.getpath(node)
                 return xpath;
             if has_attr:
                 for r in node.attrib:
-                    if is_contain_kw(node.attrib[r], keyword):
+                    if str_match(node.attrib[r], keyword,match_func):
                         xpath = tree.getpath(node);
                         return xpath;
     return None;
@@ -298,13 +307,6 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
             if len(items) > 1:
                 return root_path,items;
 
-
-def get_html(url):
-    headers = {'User-Agent': random.choice(spider.agent_list)}
-    req = urllib2.Request(url, None, headers)
-    response = urllib2.urlopen(req)
-    html = response.read()
-    return html;
 
 def get_list(html,xpaths=None, has_attr=False):
     root=spider._get_etree(html);

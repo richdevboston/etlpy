@@ -58,7 +58,11 @@ def get(datas,format='print'):
     else:
         return list(datas);
 
-
+def format(form,keys):
+    res=form;
+    for i in range(len(keys)):
+        res = res.replace('{' + to_str(i) + '}', to_str(keys[i]))
+    return res;
 def get_keys(generator,s):
     count=0;
     for r in generator:
@@ -81,6 +85,19 @@ def merge(d1, d2):
     for r in d2:
         d1[r] = d2[r];
     return d1;
+
+
+def para_to_dict(para, split1, split2):
+    r = {};
+    for s in para.split(split1):
+        s=s.strip();
+        rs = s.split(split2);
+        if len(rs) < 2:
+            continue;
+        key = rs[0].strip();
+        value = s[len(key) + 1:].strip();
+        r[rs[0]] = value;
+    return r;
 
 
 def merge_query(d1, d2, columns):

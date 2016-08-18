@@ -17,7 +17,12 @@ def new_spider(name='_crawler'):
     setattr(proj,name,sp);
     return sp;
 
-
+def get_default_connector():
+    mongo = etl.MongoDBConnector();
+    mongo.connect_str = 'mongodb://10.101.167.107'
+    mongo.db = 'ant_temp'
+    con = new_connector('mongo', mongo)
+    return con
 
 def new_connector(name,connector):
     proj.connectors[name]=connector;
@@ -83,6 +88,39 @@ def new_task(name='etl'):
 if __name__ == '__main__':
     from etl import *
     import xspider
+
+    city = 'guangzhou'
+    url = 'http://apply.gzjt.gov.cn/apply/norm/personQuery.html'
+    post_format = 'pageNo={1}&issueNumber={0}&applyCode='
+    post_example = 'pageNo=8&issueNumber=201607&applyCode='
+    issue = new_spider('issue')
+    _issues = issue.visit(url, post_data=post_example).py_query()('#issueNumber')
+    issues = [r.text for r in _issues.children()]
+
+    s = new_spider('list')
+
+    s.visit(url, post_data=post_example) \
+        .search_xpath('\d{13}', 'id', mode='re') \
+        .search_xpath('^杨[\u4e00-\u9fa5]{2}$', 'name', mode='re').accept().test().get()
+
+
+
+    t=new_task('main')
+
+    t.clear()
+    t.pyge('issue', script=issues)
+    t.merge('issue:post', script=post_format, merge_with='2')
+    t.addnew('url', value=url)
+    t.crawler('url', selector='issue', post_data='[post]')
+    t.xpath('Content:page', script='/html/head/script[2]', mode='html')
+    t.html('page', mode='decode')
+    t.regex('page', script="'\d+'", index=2)
+    t.number('page')
+    t.delete('Content post')
+    t.rangege('p', max='[page]', mode='cross')
+    t.get(etl_count=10)
+    exit()
+
     s=new_spider('list')
     headers='''
     Host: browse.renren.com
@@ -104,22 +142,29 @@ Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0
     ct.requests.set_headers(headers)
 
     #datas=s.visit(url).great_hand(True).test().accept()
+    pro_cities={'北京':['昌平','顺义']}
+    def pro_cities_generator():
+        for p, c in pro_cities.items():
+            for s in c:
+                yield {'city': s, 'pro': p, 'gend': '男生'}
+                yield {'city': s, 'pro': p, 'gend': '女生'}
 
-    peo = new_spider('people')
-    peo.requests.set_headers(headers)
 
-    peo.visit('http://www.renren.com/262894094/profile')
-    peo.set_paras(False)
-    peo.xpath('女生', '性别').xpath('忻州市', '家乡').xpath('西安市', '现居').xpath('10-18', '生日')
-    peo.accept().test().get()
-    format = '''http://browse.renren.com/sAjax.do?ajax=1&q=&p={0}&s=0&u=230246512&act=search&offset={1}&sort=0'''
-    l = new_task('renrenlist')
-    star = ['天蝎', '水瓶', '巨蟹', '摩羯', '双鱼', '白羊', '天秤', '处女', '射手', '双子', '金牛', '狮子']
+    query_format = '[{"t":"birt","month":"{1}","year":"{0}","day":"{2}"},{"prov":"{3}","gend":"{5}","city":"{4}","t":"base"}]'
 
-    mongo = etl.MongoDBConnector();
-    mongo.connect_str = 'mongodb://10.101.167.107'
-    mongo.db = 'ant_temp'
-    con = new_connector('mongo', mongo)
+    b = new_task('birth')
+
+    b.clear();
+    b.pyge(script=pro_cities_generator)
+    b.rangege('year', max=2005, min=1980, mode='cross')
+    b.rangege('month', max=13, min=1, mode='cross')
+    b.rangege('day', max=32, min=1, mode='cross')
+    b.merge('year:query_xpath', script=query_format, merge_with='month day pro city gend')
+    b.delete('city day pro year month gend')
+    b.get()
+    exit()
+
+
 
 
 
@@ -129,7 +174,7 @@ Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0
     l.py('js', script=lambda x: urllib.request.quote(str(x['js'])))
     l.merge({'js': 'url'}, script=format, merge_with='20')
     l.crawler('url', selector='ct')
-    l.xpath('Content', mode=etl.GET_HTML, xpath='//*[@id="resultNum"]')
+    l.search_xpath('Content', mode=etl.GET_HTML, xpath='//*[@id="resultNum"]')
     l.number('Content')
     l.rangege('p', max='[Content]', mode=etl.MERGE_TYPE_CROSS)
     l.tolist(count_per_thread=50)
@@ -147,6 +192,7 @@ Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0
     # l.replace('now_live',script='现居')
     l.replace('expr', script='经历 : ')
     l.dbex('id', connector='mongo', table='renren')
+    l.get()
     # l.delete('url')
     l.distribute()
     exit()
@@ -190,7 +236,7 @@ Cookie: anonymid=iqxs3arh-hus2ah; _r01_=1; XNESSESSIONID=ee0362aff077; l4pager=0
         .delete('Content') \
         .merge({'text':'classurl'}, format='http://baijia.baidu.com/?tn=listarticle&labelid={0}') \
         .crawler('classurl', selector='spider') \
-        .xpath({'Content':'class'}, xpath='//*[@id="page_title"]/h1') \
+        .search_xpath({'Content': 'class'}, xpath='//*[@id="page_title"]/h1') \
         .delete('Content') \
         .py({'total':'p'}, script='int(value)/100+1') \
         .rangege('p', mergetype='Cross', maxvalue='[p]') \

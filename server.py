@@ -45,7 +45,7 @@ if __name__ == '__main__':
     elif mode in ['pprint','print','keys','exec']:
         resultcount=0;
 
-        for r in task.query(etl_count=count, execute=mode== 'exec'):
+        for r in task.query_xpath(etl_count=count, execute=mode== 'exec'):
             if mode =='pprint':
                 pprint.pprint(r);
             elif mode=='print':

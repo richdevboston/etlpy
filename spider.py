@@ -1,5 +1,5 @@
 # coding=utf-8
-
+import re
 import extends;
 if extends.PY2:
     import urllib2
@@ -22,7 +22,7 @@ import socket
 
 from xspider import *
 import random;
-boxRegex = re.compile(r"\[\d{1,3}\]");
+box_regex = re.compile(r"\[\d{1,3}\]");
 
 agent_list = []
 with open('agent.list.d') as f:
@@ -42,7 +42,14 @@ class XPath(extends.EObject):
     def __str__(self):
         return "%s %s %s" % (self.name, self.path, self.sample);
 
-
+def remove_last_xpath_num(paths):
+    v = paths[-1];
+    m = box_regex.search(v);
+    if m is None:
+        return paths;
+    s = m.group(0);
+    paths[-1] = v.replace(s, "");
+    return '/'.join(paths);
 
 def get_common_xpath(xpaths):
     paths = [r.path.split('/') for r in xpaths];
@@ -55,12 +62,13 @@ def get_common_xpath(xpaths):
                 c = path[i];
             elif c != path[i]:
                 first = path[0:i + 1];
-                return remove_last_xpath_num(first);
+                return  remove_last_xpath_num(first);
 
 
 attrsplit=re.compile('@|\[');
 
-def get_xpath_data(node, path, is_html=False):
+
+def get_xpath_data(node, path, is_html=False,only_one=True):
     p = node.xpath(path);
     if p is None:
         return None;
@@ -68,12 +76,23 @@ def get_xpath_data(node, path, is_html=False):
         return None;
     paths = path.split('/');
     last = paths[-1];
+    attr=False;
     if last.find('@')>=0 : #and last.find('[1]')>=0:
-        return extends.to_str(p[0]);
-    if is_html:
-        return etree.tostring(p[0]).decode('utf-8');
-    return  get_node_text(p[0]);
-
+        attr=True;
+    results=[];
+    def get(x):
+        if attr:
+            return extends.to_str(x)
+        elif is_html:
+            return etree.tostring(x).decode('utf-8')
+        else:
+            return get_node_text(x);
+    for n in p:
+        result=get(n)
+        if only_one:
+            return result;
+        results.append(result);
+    return results;
 
 extract = re.compile('\[(\w+)\]');
 charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
@@ -81,16 +100,29 @@ charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
 
 
 def parse_url(r_url, url):
-    u = para_to_dict(urlparse(r_url).query, '&', '=');
+    u = extends.para_to_dict(urlparse(r_url).query, '&', '=');
     for r in extract.findall(url):
         url = url.replace('[' + r + ']', u[r])
     return url;
 
 
+def _build_opener():
+    if extends.PY2:
+        cookie_support = urllib2.HTTPCookieProcessor(cookielib.CookieJar())
+        opener = urllib2.build_opener(cookie_support, urllib2.HTTPHandler)
+        urllib2.install_opener(opener)
+    else:
+
+        cj = http.cookiejar.CookieJar()
+        pro = urllib.request.HTTPCookieProcessor(cj)
+        opener = urllib.request.build_opener(pro)
+    return opener;
+
+
 default_encodings=['utf-8','gbk'];
 class Requests(extends.EObject):
     '''
-    save request parameters and can query html from certain url
+    save request parameters and can query_xpath html from certain url
     '''
     def __init__(self):
         self.url = ''
@@ -100,100 +132,130 @@ class Requests(extends.EObject):
         self.opener = "";
         self.post_data= ''
         self.best_encoding= 'utf-8'
+        self.method='GET'
 
     def set_headers(self, headers):
-        dic = para_to_dict(headers, '\n', ':')
+        dic = extends.para_to_dict(headers, '\n', ':')
         extends.merge(self.headers, dic);
-
         return self;
 
-    def get_page(self, url=None):
-        def irl_to_url(iri):
-            import string
-            #iri= quote(iri, safe=string.printable)
-            parts = urlparse(iri)
-            pp = [(i, part) for i, part in enumerate(parts)]
-            res = [];
-            for p in pp:
-                res.append(p[1] if p[0] != 4 else quote(p[1]))
-            return urlunparse(res);
+    def add_proxy(self, address, proxy_type='all',
+                  user=None, password=None):
+        if proxy_type == 'all':
+            self.proxies = {'http': address, 'https': address, 'ftp': address}
+        else:
+            self.proxies[proxy_type] = address
+        proxy_handler = urllib2.ProxyHandler(self.proxies)
+        self._build_opener()
+        self.opener.add_handler(proxy_handler)
+
+        if user and password:
+            pwd_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            pwd_manager.add_password(None, address, user, password)
+            proxy_auth_handler = urllib2.ProxyBasicAuthHandler(pwd_manager)
+            self.opener.add_handler(proxy_auth_handler)
+        urllib2.install_opener(self.opener)
+
+
+    def remove_proxy(self):
+        self._build_opener()
+        urllib2.install_opener(self.opener)
+
+
+
+    def get_page(self, url=None,post_data=''):
         if url is None:
             url = self.url;
-        url = parse_url(self.url, url);
-        #self.headers['User-Agent'] = random.choice(agent_list)
-        socket.setdefaulttimeout(self.timeout);
-        if extends.PY2:
-            cookie_support = urllib2.HTTPCookieProcessor(cookielib.CookieJar())
-            opener = urllib2.build_opener(cookie_support, urllib2.HTTPHandler)
-            urllib2.install_opener(opener)
+        if post_data is None:
+            post_data=self.post_data;
+        return _get_page(url,self.headers,post_data,self.timeout);
+
+
+
+    def get_html(self, url=None,post_data=''):
+        page = self.get_page(url,post_data)
+        return _get_page_html(page,self.best_encoding)
+
+def _get_page(url=None, headers=None, post_data='', timeout=30):
+    def irl_to_url(iri):
+        parts = urlparse(iri)
+        pp = [(i, part) for i, part in enumerate(parts)]
+        res = [];
+        for p in pp:
+            res.append(p[1] if p[0] != 4 else quote(p[1]))
+        return urlunparse(res);
+
+    opener= _build_opener();
+    if headers is None:
+        headers={};
+    headers['User-Agent'] = random.choice(agent_list)
+    socket.setdefaulttimeout(timeout);
+    t = [(r.strip(), headers[r]) for r in headers];
+    opener.addheaders = t;
+    binary_data = post_data.encode('utf-8')
+    try:
+        url.encode('ascii')
+    except Exception as e:
+        url = irl_to_url(url)
+
+    try:
+        if post_data == '':
+            page = opener.open(url);
         else:
+            page = opener.open(url, binary_data)
+        return page;
+    except Exception as e:
+        sys.stderr.write(str(e));
+        return None;
 
-            cj = http.cookiejar.CookieJar()
-            pro = urllib.request.HTTPCookieProcessor(cj)
-            opener = urllib.request.build_opener(pro)
 
-        t = [(r.strip(), self.headers[r]) for r in self.headers];
-        opener.addheaders = t;
-        binary_data = self.post_data.encode('utf-8')
+def _decoding( html, except_encoding):
+    try:
+        result = html.decode(except_encoding)
+        return result;
+    except UnicodeDecodeError as e:
+        pass;
+
+    for en in default_encodings:
+        if en == except_encoding:
+            continue;
         try:
-            url.encode('ascii')
-        except Exception as e:
-            url =  irl_to_url(url)
-
-        try:
-            if self.post_data== '':
-                page=opener.open(url);
-            else:
-                page =opener.open(url, binary_data)
-            return  page;
-        except Exception as e:
-            sys.stderr.write(str(e));
-            return None;
-
-    def _decoding(self,html,except_encoding):
-        try:
-            result = html.decode(except_encoding)
+            result = html.decode(en)
             return result;
         except UnicodeDecodeError as e:
-            pass;
+            continue;
+    sys.stderr.write(str(e) + '\n');
+    import chardet
+    en = chardet.detect(html)['encoding']
+    result = html.decode(en, errors='ignore');
+    return result
 
-        for en in default_encodings:
-            if en== except_encoding:
-                continue;
-            try:
-                result = html.decode(en)
-                return result;
-            except UnicodeDecodeError as e:
-                continue;
-        sys.stderr.write(str(e) + '\n');
-        import chardet
-        en = chardet.detect(html)['encoding']
-        result = html.decode(en, errors='ignore');
-        return result
+def _get_page_html(page,best_encoding):
+    if page is None:
+        return "";
+    html = page.read();
+    if page.info().get('Content-Encoding') == 'gzip':
+        if extends.PY2:
+            import StringIO
+            import gzip
+            compressed_stream = StringIO.StringIO(html)
+            gzipper = gzip.GzipFile(fileobj=compressed_stream)
+            html = gzipper.read()  # data就是解压后的数据
+        else:
+            import gzip
+            html = gzip.decompress(html)
+    encoding = charset.search(str(html))
+    if encoding is not None:
+        encoding = encoding.group(1);
+    if encoding is None:
+        encoding = best_encoding
+    return _decoding(html, encoding);
 
 
-    def get_html(self, url=None):
-        page = self.get_page(url);
-        if page is None:
-            return "";
-        html=page.read();
-        if page.info().get('Content-Encoding') == 'gzip':
-            if extends.PY2:
-                import StringIO
-                import gzip
-                compressed_stream = StringIO.StringIO(html)
-                gzipper = gzip.GzipFile(fileobj=compressed_stream)
-                html = gzipper.read()  # data就是解压后的数据
-            else:
-                import gzip
-                html = gzip.decompress(html)
-        encoding = charset.search(str(html))
-        if encoding is not None:
-            encoding = encoding.group(1);
-        if encoding is None:
-            encoding = self.best_encoding
-        return self._decoding(html,encoding);
-
+def get_html(url):
+    page=_get_page(url);
+    html=_get_page_html(page,'utf-8')
+    return html;
 
 def is_none(data):
     return  data is  None or data=='';
@@ -271,7 +333,7 @@ def _get_datas( root, xpaths, multi=True, root_path=None):
 
 class SmartCrawler(extends.EObject):
     '''
-    A _crawler with httpitem and parse html to structured data by search & xpath
+    A _crawler with httpitem and parse html to structured data by search & script
     '''
     def __init__(self):
         self.multi = True;
@@ -309,10 +371,11 @@ class SmartCrawler(extends.EObject):
         self._xpaths= xpaths;
         return self;
 
-    def set_paras(self, is_list=True, root=None):
+    def set_paras(self, is_list=True,post_data='', root=None):
         self.multi=is_list;
         if root is not None:
             self.root=root;
+        self.requests.post_data=post_data;
         return self;
 
 
@@ -325,13 +388,13 @@ class SmartCrawler(extends.EObject):
             self._datas=[self._datas]
         return self;
 
-    def crawl(self,url):
+    def crawl(self,url,post_data=''):
         if   self.login != "" and  self._has_login == False:
             self.requests.opener = self.auto_login(self.login);
             self._has_login = True;
         html='';
         try:
-            html = self.requests.get_html(url);
+            html = self.requests.get_html(url,post_data);
         except Exception as e:
             sys.stderr.write('url %s get error, %s'%(url,str(e)));
         return self.__get_data_from_html(html, self.xpaths, self.root);
@@ -352,25 +415,35 @@ class SmartCrawler(extends.EObject):
         self.xpaths.append(xpath);''
         return self;
 
-    def xpath(self,  keyword, name=None, has_attr=False,is_html=False):
+    def query_xpath(self, xpath, is_html=False):
+        if self._stage < 1:
+            return 'please visit one url first';
+        datas= get_xpath_data(self._tree,xpath,is_html,False);
+        return datas;
+
+    def py_query(self):
+        from pyquery import PyQuery as pyq
+        root = pyq(self._html);
+        return root;
+
+    def search_xpath(self, keyword,  name=None,has_attr=False, is_html=False,mode='str'):
         if self._stage<1:
             return 'please visit one url first';
-        result= search_xpath(self._tree , keyword, has_attr);
+        result= search_xpath(self._tree , keyword, mode,has_attr);
         key=name if name is not  None else 'unknown';
-
         print('%s  : %s'%(key,result))
         if result is not None and name is not None:
             self.add_xpath(name,result,is_html)
         return self;
 
 
-    def visit(self, url=None):
+    def visit(self, url=None,post_data=''):
         if url is not None:
            self.url=url;
         else:
             url= self.url;
         self._stage=1;
-        html = self.requests.get_html(url);
+        html = self.requests.get_html(url,post_data);
         self._html= html;
         self._tree= _get_etree(html);
         return self;
@@ -393,7 +466,7 @@ class SmartCrawler(extends.EObject):
         if paths is None:
             print( 'xpaths is None');
         if len(paths)==0:
-            print('xpath  is empty')
+            print('script  is empty')
         buf=[];
         if self.root is not None:
             rpath=self.root if not is_test else self._root;
@@ -435,17 +508,7 @@ class SmartCrawler(extends.EObject):
 
 
 
-def para_to_dict(para, split1, split2):
-    r = {};
-    for s in para.split(split1):
-        s=s.strip();
-        rs = s.split(split2);
-        if len(rs) < 2:
-            continue;
-        key = rs[0].strip();
-        value = s[len(key) + 1:].strip();
-        r[rs[0]] = value;
-    return r;
+
 
 
 def get_web_file(url, code=None):
