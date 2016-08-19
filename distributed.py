@@ -65,11 +65,10 @@ class Master:
         module= self.project.modules[self.job_name];
         proj= etl.convert_dict(self.project);
         mapper, reducer, tolist = etl.parallel_map(module.tools)
-        count_per_group = tolist.count_per_thread;
+        count_per_group = tolist.count_per_thread if tolist is not None else 1;
         task_generator=extends.group_by_mount(etl.generate(mapper),count_per_group, take,skip);
         from ipy_progressbar import ProgressBar
-        task_generator = ProgressBar(task_generator, title='Task Dispatcher')
-        task_generator.max=100;
+        task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher',etl.get_generator_count(mapper))
         task_customer = ProgressBar(dispatched_count,title='Task Customer  ')
         task_customer.start()
         try:

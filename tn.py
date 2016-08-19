@@ -4,7 +4,7 @@ from datetime import datetime
 from time import mktime
 sys.path.append('../tnpy/src');
 
-from tnpy import RegexCore, BuffHelper, StringEntity as SE, RegexEntity as RE, TableEntity as TE, SequenceEntity as SQE, \
+from tnpy import tn, buff_helper, StringEntity as SE, RegexEntity as RE, TableEntity as TE, SequenceEntity as SQE, \
     NoSequenceEntity as NSE, ScriptEntity as SCE;
 
 import time;
@@ -48,5 +48,5 @@ def date_translate(entity,ms):
 
 daterule = SQE(['datetime'], [SCE(date_translate)]);
 
-core= RegexCore();
-core.InitTNRule('../tnpy/rules/cnext');
+core= tn();
+core.init_tn_rule('../tnpy/rules/cnext');

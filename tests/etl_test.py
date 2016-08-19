@@ -1,6 +1,6 @@
 import unittest
 import pickle
 
-from etl import *
+from etl_test import *
 class Test(unittest.TestCase):
     pass;

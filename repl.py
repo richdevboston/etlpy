@@ -3,13 +3,14 @@ import etl
 import extends;
 from distributed import *
 from etl import cols
+from spider import quote
 proj=etl.Project();
 import urllib
 def html(text):
     from IPython.core.display import HTML, display
     display(HTML(text));
 
-def new_spider(name='_crawler'):
+def spider(name='_crawler'):
     import spider;
     sp=spider.SmartCrawler();
     proj.modules[name]=sp;
@@ -17,18 +18,27 @@ def new_spider(name='_crawler'):
     setattr(proj,name,sp);
     return sp;
 
+
+def quote(string):
+    if extends.PY2:
+        s= urllib.quote(string.encode('utf-8'))
+        s=str (s);
+        return s;
+    else:
+        return urllib.request.quote(string);
+
 def get_default_connector():
     mongo = etl.MongoDBConnector();
     mongo.connect_str = 'mongodb://10.101.167.107'
     mongo.db = 'ant_temp'
-    con = new_connector('mongo', mongo)
+    con = connector('mongo', mongo)
     return con
 
-def new_connector(name,connector):
+def connector(name,connector):
     proj.connectors[name]=connector;
     return connector
 
-def new_task(name='etl'):
+def task(name='etl'):
     import etl;
     import inspect
     import extends;
@@ -45,7 +55,7 @@ def new_task(name='etl'):
             if k.lower() in dic:
                 setattr(val, k, dic[k.lower()])
     def _rename(module):
-        repl={'TF':'','Python':'py'}
+        repl={'TF':'','Python':'py','Parallel':'pl'}
         for k,v in repl.items():
             module= module.replace(k,v)
         return module.lower();
@@ -93,11 +103,11 @@ if __name__ == '__main__':
     url = 'http://apply.gzjt.gov.cn/apply/norm/personQuery.html'
     post_format = 'pageNo={1}&issueNumber={0}&applyCode='
     post_example = 'pageNo=8&issueNumber=201607&applyCode='
-    issue = new_spider('issue')
+    issue = spider('issue')
     _issues = issue.visit(url, post_data=post_example).py_query()('#issueNumber')
     issues = [r.text for r in _issues.children()]
 
-    s = new_spider('list')
+    s = spider('list')
 
     s.visit(url, post_data=post_example) \
         .search_xpath('\d{13}', 'id', mode='re') \
@@ -105,7 +115,7 @@ if __name__ == '__main__':
 
 
 
-    t=new_task('main')
+    t=task('main')
 
     t.clear()
     t.pyge('issue', script=issues)

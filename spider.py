@@ -25,9 +25,9 @@ import random;
 box_regex = re.compile(r"\[\d{1,3}\]");
 
 agent_list = []
-with open('agent.list.d') as f:
-    for line_data in f:
-        agent_list.append(line_data.strip())
+# with open('agent.list.d') as f:
+#     for line_data in f:
+#         agent_list.append(line_data.strip())
 
 
 class XPath(extends.EObject):
@@ -104,6 +104,7 @@ def parse_url(r_url, url):
     for r in extract.findall(url):
         url = url.replace('[' + r + ']', u[r])
     return url;
+
 
 
 def _build_opener():
@@ -188,7 +189,7 @@ def _get_page(url=None, headers=None, post_data='', timeout=30):
     opener= _build_opener();
     if headers is None:
         headers={};
-    headers['User-Agent'] = random.choice(agent_list)
+    headers['User-Agent'] = random.choice(agent_list) if len(agent_list)>0 else 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0'
     socket.setdefaulttimeout(timeout);
     t = [(r.strip(), headers[r]) for r in headers];
     opener.addheaders = t;
@@ -481,7 +482,7 @@ class SmartCrawler(extends.EObject):
 
     def accept(self,set_root_xpath=False):
         self._stage=4;
-        if any(self._xpaths):
+        if len(self._xpaths)>0:
             self.xpaths=self._xpaths;
         if set_root_xpath:
             self.root= get_common_xpath(self._xpaths)

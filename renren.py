@@ -82,7 +82,7 @@ peo.set_paras(False)
 
 # In[14]:
 
-peo.xpath('女生','gender').xpath('忻州市','home').xpath('西安市','now_live').xpath('10-18','birth')
+peo.search_xpath('女生', 'gender').search_xpath('忻州市', 'home').search_xpath('西安市', 'now_live').search_xpath('10-18', 'birth')
 
 
 # In[15]:
@@ -100,7 +100,7 @@ con=new_connector('mongo',mongo)
 
 # In[17]:
 
-peo.visit('http://browse.renren.com/s/all?from=opensearch&q=#qt=/tindex=2').xpath('河北')
+peo.visit('http://browse.renren.com/s/all?from=opensearch&q=#qt=/tindex=2').search_xpath('河北')
 
 
 # In[18]:
@@ -189,24 +189,24 @@ b.pyge(script=pro_cities_generator)
 b.rangege('year',max=2005,min=1980,mode=etl.MERGE_TYPE_CROSS)
 b.rangege('month',max=13,min=1,mode=etl.MERGE_TYPE_CROSS)
 b.rangege('day',max=32,min=1,mode=etl.MERGE_TYPE_CROSS)
-b.merge({'year':'query'},script=query_format,merge_with='month day pro city gend')
+b.merge({'year':'query_xpath'},script=query_format,merge_with='month day pro city gend')
 b.delete(['city','day','pro','year','month','gend'])
-b.get().ix[0]['query']
+b.get().ix[0]['query_xpath']
 
 
 # In[25]:
 
 l.clear()
 l.etlge(selector='birth')
-l.py({'query':'js'}, script=lambda x:urllib.request.quote(str(x['query'])))
+l.py({'query_xpath':'js'}, script=lambda x:urllib.request.quote(str(x['query_xpath'])))
 l.merge({'js':'url'},script=format,merge_with='0')
 l.tolist(count_per_thread=200)
 l.crawler('url',selector='ct')
-l.xpath('Content',mode=etl.GET_HTML, xpath='//*[@id="resultNum"]')
+l.search_xpath('Content', mode=etl.GET_HTML, xpath='//*[@id="resultNum"]')
 l.number('Content')
 l.rangege('p',max='[Content]',mode=etl.MERGE_TYPE_CROSS,interval=10)
 l.merge({'js':'url'}, script=format, merge_with='p')
-l.crawler('url',selector='list',new_col='query')
+l.crawler('url',selector='list',new_col='query_xpath')
 l.json('col5_popval',mode=etl.GENERATE_DOC)
 l.number({'col7':'common_friends'})
 l.number({'col1_href':'id'},index=1)
@@ -224,7 +224,7 @@ l.dbex('id',connector='mongo',table='renren')
 
 # In[26]:
 
-l.get(etl_count=20).ix[0]['query']
+l.get(etl_count=20).ix[0]['query_xpath']
 
 
 # In[27]:

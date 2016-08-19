@@ -1,7 +1,7 @@
 # coding=utf-8
 import time;
 import re;
-import extends
+from extends import *
 import urllib
 import spider;
 import json;
@@ -12,7 +12,7 @@ import os;
 import  sys;
 import traceback
 
-if extends.PY2:
+if PY2:
     pass;
 else:
     import html
@@ -24,7 +24,7 @@ MERGE_TYPE_MERGE='merge'
 GENERATE_DOCS='docs'
 GENERATE_DOC= 'doc'
 GENERATE_NONE='none';
-cols=extends.EObject()
+cols=EObject()
 
 GET_HTML='html'
 GET_TEXT='text'
@@ -35,7 +35,7 @@ GET_ARRAY='array'
 def __get_match_counts(mat):
     return mat.lastindex if mat.lastindex is not None else 1;
 
-class ETLTool(extends.EObject):
+class ETLTool(EObject):
     def __init__(self):
         self.enabled=True;
         self.column = ''
@@ -47,7 +47,7 @@ class ETLTool(extends.EObject):
     def _eval_script(self, global_para=None, local_para=None):
         if self.script == '':
             return True
-        if not extends.is_str(self.script):
+        if not is_str(self.script):
             return self.script(self)
         import time;
         from pytz import utc, timezone
@@ -81,7 +81,7 @@ class Transformer(ETLTool):
                 try:
                     datas=self.m_transform(r, self.column);
                     for p in datas:
-                        my=extends.merge_query(p, r, self.new_col);
+                        my=merge_query(p, r, self.new_col);
                         yield my;
                 except Exception as e:
                     traceback.print_exc()
@@ -98,9 +98,9 @@ class Transformer(ETLTool):
                     ncol = ncol if ncol != '' and  ncol is  not None else col;
                     self.transform(d,col,ncol);
             column=self.column;
-            if extends.is_str(self.column):
+            if is_str(self.column):
                 if self.column.find(':')>0:
-                    column=extends.para_to_dict(self.column,',',':')
+                    column=para_to_dict(self.column,',',':')
                 elif self.column.find(' ')>0:
                     column=[r.strip() for r in self.column.split(' ')]
             if isinstance(column, dict):
@@ -161,11 +161,11 @@ class Generator(ETLTool):
             return  self.generate(None);
         else:
             if self.mode== MERGE_APPEND:
-                return extends.append(generator, self.process(None));
+                return append(generator, self.process(None));
             elif self.mode==MERGE_TYPE_MERGE:
-                return extends.merge(generator, self.process(None));
+                return merge(generator, self.process(None));
             else:
-                return extends.cross(generator, self.generate)
+                return cross(generator, self.generate)
 
 
 EXECUTE_INSERT='OnlyInsert'
@@ -173,7 +173,7 @@ EXECUTE_SAVE='Save'
 EXECUTE_UPDATE='Update'
 
 
-class MongoDBConnector(extends.EObject):
+class MongoDBConnector(EObject):
     def __init__(self):
         super(MongoDBConnector, self).__init__()
         self.connect_str='';
@@ -186,7 +186,7 @@ class MongoDBConnector(extends.EObject):
 
 
 
-class FileConnector(extends.EObject):
+class FileConnector(EObject):
     def __init__(self,path=None,encoding='utf-8',work_type='r'):
         super(FileConnector, self).__init__()
         self.path=path;
@@ -203,7 +203,7 @@ class CsvConnector(FileConnector):
         self.sp=sp;
 
     def write(self, datas):
-        field = extends.get_keys(datas);
+        field = get_keys(datas);
         self._writer = csv.DictWriter(self._file, field, delimiter=self.sp, lineterminator='\n')
         self._writer.writeheader()
         for data in datas:
@@ -322,7 +322,7 @@ class NullFT(Filter):
     def filter(self,data):
         if data is None:
             return False;
-        if extends.is_str(data):
+        if is_str(data):
             return data.strip() != '';
         return True;
 
@@ -414,10 +414,10 @@ class MergeTF(Transformer):
         if self.merge_with == '':
             columns = [];
         else:
-            columns = [extends.to_str(get_value(data,r)) for r in self.merge_with.split(' ')]
+            columns = [to_str(get_value(data,r)) for r in self.merge_with.split(' ')]
         columns.insert(0, data[col] if col in data else '');
         res = self.script;
-        res= extends.format(res,columns)
+        res= format(res,columns)
         col = ncol if ncol is not None else col;
         data[col]=res;
 
@@ -430,14 +430,14 @@ class RegexTF(Transformer):
     def init(self):
         self.regex = re.compile(self.script);
     def transform(self, data):
-        item = re.findall(self.regex, extends.to_str(data));
+        item = re.findall(self.regex, to_str(data));
         if self.index < 0:
             return '';
         if len(item) <= self.index:
             return '';
         else:
             r = item[self.index];
-            return r if extends.is_str(r) else r[0];
+            return r if is_str(r) else r[0];
 
 class ReplaceTF(RegexTF):
     def __init__(self):
@@ -460,14 +460,14 @@ class NumberTF(Transformer):
         self.regex=  re.compile('\d+');
         self.index=int(self.index)
     def transform(self, data):
-        item = re.findall(self.regex, extends.to_str(data));
+        item = re.findall(self.regex, to_str(data));
         if self.index < 0:
             return '';
         if len(item) <= self.index:
             return '';
         else:
             r = item[self.index];
-            return r if extends.is_str(r) else r[0];
+            return r if is_str(r) else r[0];
 
 class SplitTF(Transformer):
     def __init__(self):
@@ -539,7 +539,7 @@ class PythonTF(Transformer):
 
     def _get_data(self, data, col):
         value = data[col] if col in data else '';
-        if extends.is_str(self.script ):
+        if is_str(self.script ):
             result = self._eval_script({'value': value}, data);
         else:
             result = self.script(data);
@@ -551,7 +551,7 @@ class PythonTF(Transformer):
     def transform(self, data,col,ncol):
         js = self._get_data( data,col)
         if self.mode == GENERATE_DOC:
-            extends.merge(data, js);
+            merge(data, js);
         else:
             col= ncol if ncol is not None else col;
             data[col]=js;
@@ -562,10 +562,10 @@ class PythonGE(Generator):
         super(PythonGE, self).__init__()
         self.script='xrange(1,20,1)'
     def can_dump(self):
-        return  extends.is_str(self.script);
+        return  is_str(self.script);
     def generate(self,generator):
         import inspect;
-        if extends.is_str(self.script):
+        if is_str(self.script):
             result = self._eval_script();
         elif inspect.isfunction(self.script):
             result= self.script()
@@ -585,11 +585,11 @@ class PythonFT(Filter):
         self.script='True';
         self.one_input=False;
     def can_dump(self):
-        return  extends.is_str(self.script);
+        return  is_str(self.script);
     def filter(self, data):
         import inspect
         data=data.copy();
-        if extends.is_str(self.script):
+        if is_str(self.script):
             result = self._eval_script(data);
         elif inspect.isfunction(self.script):
             result = self.script(data)
@@ -606,7 +606,7 @@ class CrawlerTF(Transformer):
         self.post_data=''
 
     def init(self):
-        if extends.is_str(self.selector):
+        if is_str(self.selector):
             dic= self._proj.modules;
             if self.selector in dic:
                 self._crawler= dic[self.selector]
@@ -627,17 +627,17 @@ class CrawlerTF(Transformer):
         else:
             data = crawler.crawl(url,post_data);
             if len(buff) < 100:
-                buff[url] = data;
+                buff[key] = data;
         return data;
     def m_transform(self,data,col):
         url = data[col];
-        post_data= extends.query(data,self.post_data);
+        post_data= query(data,self.post_data);
         datas = self._get_data(url,post_data)
         for d in datas:
             yield d;
     def transform(self, data, col,ncol):
 
-        post_data= extends.query(data,self.post_data);
+        post_data= query(data,self.post_data);
         ndata=self._get_data(data[col],post_data)
         for k,v in ndata.items():
             data[k]=v;
@@ -658,7 +658,7 @@ class PyQueryTF(Transformer):
             return;
         nodes =  root(self.script);
         for node in nodes:
-            ext = {'text': node.text() , 'html': extends.to_str(node)};
+            ext = {'text': node.text() , 'html': to_str(node)};
             yield ext;
 
     def transform(self, data, col, ncol):
@@ -677,7 +677,7 @@ class PyQueryTF(Transformer):
         if mode == GET_TEXT:
             res= node.text()
         elif mode == GET_HTML:
-            res=extends.to_str(node);
+            res=to_str(node);
         elif mode== GET_COUNT:
             res = len(nodes);
         else:
@@ -733,7 +733,7 @@ class XPathTF(Transformer):
             if hasattr(node, 'text'):
                 res = spider.get_node_text(node);
             else:
-                res = extends.to_str(node)
+                res = to_str(node)
         elif mode==GET_HTML:
             res =  etree.tostring(node).decode('utf-8');
         else:
@@ -759,12 +759,11 @@ class TnTF(Transformer):
         return '';
 
 
-class ToListTF(Transformer):
+class ParallelTF(Transformer):
     def __init__(self):
-        super(ToListTF, self).__init__()
+        super(ParallelTF, self).__init__()
         self.count_per_thread=1;
         self._m_yield=True;
-
     def m_transform(self, data,col):
         yield data;
 
@@ -784,7 +783,7 @@ class JsonTF(Transformer):
     def transform(self, data,col,ncol):
         js = json.loads(data[col]);
         if self.mode==GENERATE_DOC:
-            extends.merge(data, js);
+            merge(data, js);
         else:
             data[ncol]=js
 
@@ -794,15 +793,16 @@ class RangeGE(Generator):
         self.interval='1'
         self.max='1'
         self.min='1'
+
     def generate(self,generator):
         def get_int(x,default=0):
             try:
                 return int(x)
             except:
                 return default;
-        interval= get_int(extends.query(generator, self.interval),1)
-        max_value= get_int(extends.query(generator, self.max),1)
-        min_value= get_int(extends.query(generator, self.min),1)
+        interval= get_int(query(generator, self.interval),1)
+        max_value= get_int(query(generator, self.max),1)
+        min_value= get_int(query(generator, self.min),1)
         if interval>0:
             values=range(min_value,max_value,interval);
         else:
@@ -815,7 +815,7 @@ class RangeGE(Generator):
 
 
 def _get_task(task, data):
-    selector = extends.query(data, task.selector);
+    selector = query(data, task.selector);
     if selector not in task._proj.modules:
         sys.stderr.write('sub task %s  not in current project' % selector);
     sub_etl = task._proj.modules[selector];
@@ -842,12 +842,12 @@ class EtlEX(Executor):
             doc = data.copy();
         else:
             doc = {};
-            extends.merge_query(doc, data, self.new_col + " " + self.column);
+            merge_query(doc, data, self.new_col + " " + self.column);
         result=(r for r in generate(sub_etl.tools, [doc]))
         count=0;
         for r in result:
             count+=1;
-        print('subtask:'+extends.to_str(count))
+        print('subtask:'+to_str(count))
         return data;
 
 class EtlTF(Transformer):
@@ -861,7 +861,7 @@ class EtlTF(Transformer):
         newdata = data;
         if self.cycle:
             while newdata[col] != '':
-                result = extends.first_or_default(generate(sub_etl.tools, [newdata.copy()]))
+                result = first_or_default(generate(sub_etl.tools, [newdata.copy()]))
                 if result is None:
                     break
                 yield result.copy();
@@ -873,7 +873,7 @@ class EtlTF(Transformer):
     def transform(self,data,col,ncol):
         sub_etl = _get_task(self, data);
         for r in generate(sub_etl.tools,[data.copy()]):
-            return extends.merge(data, r);
+            return merge(data, r);
 
 
 
@@ -933,7 +933,7 @@ class FileExistFT(Transformer):
         self.one_input = True;
     def transform(self,data):
         import os;
-        return extends.to_str(os.path.exists(data));
+        return to_str(os.path.exists(data));
 
 class MergeRepeatTF(Transformer):
     pass;
@@ -944,7 +944,7 @@ class NumRangeFT(Transformer):
         self.skip=0;
         self.take=1;
     def process(self,data):
-        for r in extends.get_mount(data,self.take,self.skip):
+        for r in get_mount(data,self.take,self.skip):
             yield r;
 
 
@@ -954,10 +954,10 @@ class DelayTF(Transformer):
         self.delay=100;
         self._m_yield=True;
 
-    def m_transform(self,data):
+    def m_transform(self, data, col):
         import time
-        delay = extends.query(data, self.delay);
-        time.sleep(int(delay))
+        delay = query(data, self.delay);
+        time.sleep(float(delay)/1000.0)
         yield data;
 
 
@@ -1006,7 +1006,7 @@ class SaveFileEX(Executor):
 
 
     def execute(self,data):
-        save_path = extends.query(data, self.SavePath);
+        save_path = query(data, self.SavePath);
         (folder,file)=os.path.split(save_path);
         if not os.path.exists(folder):
             os.makedirs(folder);
@@ -1023,7 +1023,7 @@ class SaveFileEX(Executor):
 
 
 
-class Project(extends.EObject):
+class Project(EObject):
     def __init__(self):
         self.modules={};
         self.connectors={};
@@ -1131,7 +1131,7 @@ class Project(extends.EObject):
             elif etool.tag == 'DBConnections':
                 for tool in etool:
                     if tool.tag == 'children':
-                        connector = extends.EObject();
+                        connector = EObject();
                         for key in tool.attrib:
                             set_attr(connector, key, tool.attrib[key]);
                         self.connectors[connector.name] = connector;
@@ -1176,7 +1176,7 @@ class Project(extends.EObject):
         connectors =dic.get('connectors',{});
         for key, item in connectors.items():
             conn = eval('%s()' % item['Type']);
-            extends.dict_copy_poco(conn,item);
+            dict_copy_poco(conn,item);
             self.connectors[key] = conn
 
         modules =dic.get('modules',{});
@@ -1195,14 +1195,14 @@ class Project(extends.EObject):
                     crawler.tools.append(etl)
             elif obj_type=='SmartCrawler':
                 crawler = spider.SmartCrawler();
-                extends.dict_copy_poco(crawler, module);
+                dict_copy_poco(crawler, module);
                 paths = module.get('xpaths',{});
                 for r in paths:
                     xpath = spider.XPath()
-                    extends.dict_copy_poco(xpath, r);
+                    dict_copy_poco(xpath, r);
                     crawler.xpaths.append(xpath)
                 crawler.requests = spider.Requests()
-                extends.dict_copy_poco(crawler.requests, module['requests'])
+                dict_copy_poco(crawler.requests, module['requests'])
             setattr(self,key,crawler);
             if crawler is not None:
                 self.modules[key] = crawler;
@@ -1213,12 +1213,12 @@ class Project(extends.EObject):
 
 
 def convert_dict(obj):
-    if not isinstance(obj, ( int, float, list, dict, tuple, extends.EObject)) and not extends.is_str(obj):
+    if not isinstance(obj, ( int, float, list, dict, tuple, EObject)) and not is_str(obj):
         return None
-    if isinstance(obj, extends.EObject):
+    if isinstance(obj, EObject):
         d={}
         obj_type= type(obj);
-        typename= extends.get_type_name(obj)
+        typename= get_type_name(obj)
         default= obj_type().__dict__;
         for key, value in obj.__dict__.items():
             if value== default.get(key,None):
@@ -1253,11 +1253,23 @@ def generate(tools, generator=None, init=True, execute=False, enabled=True):
     return generator;
 
 
+def get_generator_count(generator):
+    if isinstance(generator,list):
+        return len(generator);
+    if isinstance(generator,Generator):
+        if hasattr(generator,'_mount'):
+            return generator._mount;
+    return 100;
+
+
 
 def parallel_map(tools):
-    index= extends.get_index(tools,lambda x:isinstance(x,ToListTF))
+    index= get_index(tools, lambda x:isinstance(x, ParallelTF))
     if index==-1:
-        return tools,None,None;
+        if isinstance(tools[0],Generator):
+            return tools[:1],tools[1:],None;
+        else:
+            return tools,None,None;
     mapper = tools[:index]
     reducer=tools[index+1:]
     parameter= tools[index];
@@ -1266,7 +1278,7 @@ def parallel_map(tools):
 
 
 
-class ETLTask(extends.EObject):
+class ETLTask(EObject):
     def __init__(self):
         self.tools = [];
         self.name=''
@@ -1289,7 +1301,7 @@ class ETLTask(extends.EObject):
         self._master.manager.shutdown();
     def __str__(self):
         def conv_value(value):
-            if extends.is_str(value):
+            if is_str(value):
                 value= value.replace('\n',' ').replace('\r','');
                 sp="'"
                 if value.find("'")>=0:
@@ -1303,7 +1315,7 @@ class ETLTask(extends.EObject):
         array.append('##task name:%s'%self.name);
         array.append('.clear()')
         for t in self.tools:
-            typename = extends.get_type_name(t);
+            typename = get_type_name(t);
             s = ".%s(%s" % (typename, conv_value(t.Column));
             attrs = [];
             defaultdict = type(t)().__dict__;
@@ -1311,7 +1323,7 @@ class ETLTask(extends.EObject):
                 value = t.__dict__[att];
                 if att in ['one_input','OneOutput', 'column', '_m_yield']:
                     continue
-                if not isinstance(value, ( int, bool, float)) and not extends.is_str(value):
+                if not isinstance(value, ( int, bool, float)) and not is_str(value):
                     continue;
                 if value is None or att not in defaultdict or defaultdict[att] == value:
                     continue;
@@ -1334,31 +1346,31 @@ class ETLTask(extends.EObject):
                 yield p;
 
 
-    def execute(self, etl_count=100, execute=True, notify_count=100):
-        c=0;
-        for r in self.query(etl_count,execute):
-            c+=1;
-            if c%notify_count==0:
-                print(c);
-        print('task finish');
+    def execute(self, etl_count=100, execute=True):
+        count= force_generate(progress_indicator( self.query(etl_count,execute)))
+        print('task finished,total count is %s'%(count))
 
 
 
     def get(self, format='print', etl_count=100, take=10, skip=0):
-        datas= extends.get_keys(extends.get_mount(self.query(etl_count), take, skip),cols);
-        return extends.get(datas,format);
+        datas= get_keys(get_mount(self.query(etl_count), take, skip),cols);
+        return get(datas,format,count=take);
 
-    def m_exec(self, thread_count=10, can_execute=True,take=999999,skip=0):
+    def m_execute(self, thread_count=10, execute=True, take=999999, skip=0):
         import threadpool
         pool = threadpool.ThreadPool(thread_count)
+        mapper,reducer,parallel= parallel_map(self.tools);
+        count_per_group = parallel.count_per_thread if parallel is not None else 1;
+        mapper_generator= generate(mapper,execute=execute);
+        def function(item):
+            def get_task_name():
+                if parallel is None:
+                    return 'sub task';
+                return query(item,parallel.column);
+            generator= generate(reducer, item, execute);
+            count = force_generate(progress_indicator(generator,title=get_task_name()))
 
-        mapper,reducer,parameter= parallel_map(self.tools, can_execute);
-        def funcs(item):
-            task= generate(reducer, item, can_execute);
-            print('total_count: %d'%len([r for r in task]));
-            print('finish' + extends.to_str(item));
-
-        requests = threadpool.makeRequests(funcs, extends.group_by_mount(mapper,parameter.count_per_thread,group_skip=skip,group_take=take));
+        requests = threadpool.makeRequests(function, group_by_mount(mapper_generator,count_per_group,skip=skip,take=take));
         [pool.putRequest(req) for req in requests]
         pool.wait()
 

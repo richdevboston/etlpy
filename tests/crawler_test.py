@@ -1,7 +1,7 @@
 import unittest
 import pickle
 
-from etl import *
+from etl_test import *
 from xspider import *
 class Test(unittest.TestCase):
 

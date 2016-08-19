@@ -40,23 +40,51 @@ def get_mount(generator,take,skip=0):
             break;
         yield r;
 
+def force_generate(generator,max_count=None):
+    count=0;
+    for r in generator:
+        count+=1
+        if max_count is not None and count>=max_count:
+            break
+    return count;
+
+def generator_to_list(generator,max_count):
+    datas=[]
+    count = 0;
+    for r in generator:
+        count += 1
+        datas.append(r);
+        if max_count is not None and count >= max_count:
+            break
+    return datas;
 
 
+def progress_indicator(generator,title='Position Indicator',count=20):
+    from ipy_progressbar import ProgressBar
+    generator = ProgressBar(generator, title=title)
+    generator.max = count;
+    generator.start()
+    for data in generator:
+        yield data;
+    generator.finish()
 
-def get(datas,format='print'):
-    if is_ipynb or format == 'df'  and isinstance(datas,list):
-        from  pandas import DataFrame
-        return DataFrame(datas);
-    if format == 'print':
+def get(generator, format='print', count=20):
+    if format == 'print' and not is_ipynb:
         import pprint
-        for d in datas:
+        for d in generator:
             pprint.pprint(d);
+        return ;
     elif format == 'key':
         import pprint
-        for d in datas:
+        for d in generator:
             pprint.pprint(d.keys())
+        return ;
+    list_datas= generator_to_list(progress_indicator(generator,count=count),max_count=count);
+    if is_ipynb or format=='df':
+        from  pandas import DataFrame
+        return DataFrame(list_datas);
     else:
-        return list(datas);
+        return list_datas;
 
 def format(form,keys):
     res=form;
@@ -85,6 +113,7 @@ def merge(d1, d2):
     for r in d2:
         d1[r] = d2[r];
     return d1;
+
 
 
 def para_to_dict(para, split1, split2):
