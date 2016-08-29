@@ -2,8 +2,10 @@
 # coding: utf-8
 
 # In[1]:
-import sys
-sys.path.append("..")
+import os,sys
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0,parentdir)
+
 from src.repl import *
 
 
