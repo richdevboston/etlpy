@@ -1,8 +1,8 @@
 import unittest
-import pickle
 
 from etl_test import *
-from xspider import *
+
+from src.xspider import *
 class Test(unittest.TestCase):
 
     def test_list_data(self):

@@ -1,13 +1,13 @@
 # coding=utf-8
 import  sys;
-from multiprocessing.managers import BaseManager
-import etl;
-import json
-import extends;
 import time;
+from multiprocessing.managers import BaseManager
+
+from src import extends, etl
+
 authkey= "etlpy".encode('utf-8')
 timeout=1;
-rpc_port=8998
+rpc_port=28998
 
 if extends.PY2:
     from Queue import Queue
@@ -66,9 +66,9 @@ class Master:
         proj= etl.convert_dict(self.project);
         mapper, reducer, tolist = etl.parallel_map(module.tools)
         count_per_group = tolist.count_per_thread if tolist is not None else 1;
-        task_generator=extends.group_by_mount(etl.generate(mapper),count_per_group, take,skip);
+        task_generator= extends.group_by_mount(etl.generate(mapper), count_per_group, take, skip);
         from ipy_progressbar import ProgressBar
-        task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher',etl.get_generator_count(mapper))
+        task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher', etl.count(mapper))
         task_customer = ProgressBar(dispatched_count,title='Task Customer  ')
         task_customer.start()
         try:
@@ -112,12 +112,12 @@ class Slave:
         self.dispatched_job_queue = Queue()
         # 完成的作业队列
         self.finished_job_queue = Queue()
-    def start(self,execute= True,serverip='127.0.0.1',port=rpc_port):
+    def start(self, execute= True, server_ip='127.0.0.1', port=rpc_port):
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue')
         BaseManager.register('get_finished_job_queue')
 
-        server = serverip;
+        server = server_ip;
         print('Connect to server %s...' % server)
         manager = BaseManager(address=(server, port), authkey=authkey)
         manager.connect()
@@ -144,12 +144,13 @@ class Slave:
                 if not isinstance(config,list):
                     config=[config];
                 mapper,reducer,tool= etl.parallel_map(module.tools);
-                generator= etl.generate( reducer,generator=config,execute= execute)
+                generator= etl.generate(reducer, generator=config, execute= execute)
                 for r in generator:
                     #print(r.keys())
                     count+=1;
             except Exception as e:
-                print(e)
+                import traceback
+                traceback.print_exc()
             print('finish job,id %s, count %s'%(job.id,count))
             job_result= JobResult(job.jobname,count,job.id)
             finished_jobs.put(job_result)

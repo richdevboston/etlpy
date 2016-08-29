@@ -1,26 +1,21 @@
 # coding=utf-8
-import re
-import extends;
+from src import extends
+import sys;
 if extends.PY2:
     import urllib2
     from urlparse import urlparse
     from urlparse import urlunparse
     import cookielib
-    from urllib import quote,unquote
+    from urllib import quote
 else:
     import http.cookiejar
     from urllib.request import quote
     from urllib.parse import urlparse, urlunparse
     import urllib.request
 
-
-
-from lxml import etree
-
-
 import socket
 
-from xspider import *
+from src.xspider import *
 import random;
 box_regex = re.compile(r"\[\d{1,3}\]");
 
@@ -505,7 +500,7 @@ class SmartCrawler(extends.EObject):
         elif s==2:
             print(self.print_xpaths(True))
         else :
-            return extends.get(self._datas,format);
+            return extends.get(self._datas, format);
 
 
 

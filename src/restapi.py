@@ -1,14 +1,15 @@
 # coding=utf-8
-from flask import request
 import json;
-import sys;
+
 from flask import Flask, jsonify
-import copy;
+from flask import request
+
 app = Flask(__name__);
-from spider import  *
-from xspider import  *
+from src.spider import  *
+from src.xspider import  *
 proj=None;
-import etl;
+
+
 @app.route('/demo')
 def root():
     return app.send_static_file('extracttext.html')

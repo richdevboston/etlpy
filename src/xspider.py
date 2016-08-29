@@ -1,17 +1,12 @@
-import sys
-from itertools import groupby
-import spider
-import random
-import extends
-import etl
 import re
+from itertools import groupby
+
 from lxml import etree
-import importlib
+
+from src import extends, spider
+
 if extends.PY2:
-    import urllib2
-    from urllib import urlencode
-    from urlparse import urlparse
-    from urlparse import urlunparse
+    pass
 else:
     import html.parser as h
     html_parser = h.HTMLParser()
@@ -143,7 +138,7 @@ def _regex_find(string,regex):
      return res;
 
 def _tn_find(string,rule):
-    from tn import core
+    from src.tn import core
     return core.match(string,rule) is not None;
 
 
@@ -242,7 +237,7 @@ def get_diff_nodes(tree, root, root_path, has_attr, exists=None):
     if exists is not None:
         for r in exists:
             for p in xpaths:
-                short_path =spider. XPath(p.path).takeoff(root_path);
+                short_path = spider. XPath(p.path).takeoff(root_path);
                 if r.path == extends.to_str(short_path):
                     p.name = r.name;
                     break;
@@ -286,7 +281,7 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
         return get_diff_nodes(tree, root, root, is_attr, exist_xpaths);
 
     elif exist_len == 1:
-        real_path =spider.XPath(exist_xpaths[0].path);
+        real_path = spider.XPath(exist_xpaths[0].path);
         path_dict = {};
         for r in real_path.itersub():
             __search_table_root(root.xpath(str(r)), path_dict, False);
@@ -309,14 +304,14 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
 
 
 def get_list(html,xpaths=None, has_attr=False):
-    root=spider._get_etree(html);
+    root= spider._get_etree(html);
     if xpaths is None:
         root_path, xpaths = search_properties(root, None,has_attr );
-    datas = spider._get_datas(root, xpaths,True,None)
+    datas = spider._get_datas(root, xpaths, True, None)
     return datas,xpaths;
 
 def get_main(html,is_html=False):
-    root=spider._get_etree(html);
+    root= spider._get_etree(html);
     tree = etree.ElementTree(root);
     node_path = search_text_root(tree, root);
     nodes = tree.xpath(node_path);

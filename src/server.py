@@ -1,17 +1,16 @@
 # coding=utf-8
-import etl;
-
-import extends
-import time;
 import pprint;
 import  sys
+
+from src import etl
+
 if __name__ == '__main__':
     projfile=u'../Hawk-Projects/新闻抓取/财经新闻.xml';
     name=u'新浪股吧清洗'
     argv=sys.argv;
     mode='master'
     count=10000;
-    proj=etl.Project();
+    proj= etl.Project();
     count1= 0;
     if len(argv)>1:
         projfile=argv[1];
@@ -37,7 +36,7 @@ if __name__ == '__main__':
     task=proj.modules[name];
     #task.AllETLTools[0].enabled=True;
     if mode=='master':
-        from  distributed import *
+        from  src.distributed import *
         master = Master(proj, name);
         master.start(count1,count);
     elif mode =='display':

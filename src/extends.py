@@ -48,7 +48,12 @@ def force_generate(generator,max_count=None):
             break
     return count;
 
-def generator_to_list(generator,max_count):
+def foreach(generator,func):
+    for r in generator:
+        func(r)
+        yield r;
+
+def to_list(generator, max_count=None):
     datas=[]
     count = 0;
     for r in generator:
@@ -59,7 +64,7 @@ def generator_to_list(generator,max_count):
     return datas;
 
 
-def progress_indicator(generator,title='Position Indicator',count=20):
+def progress_indicator(generator,title='Position Indicator',count=2000):
     from ipy_progressbar import ProgressBar
     generator = ProgressBar(generator, title=title)
     generator.max = count;
@@ -79,7 +84,7 @@ def get(generator, format='print', count=20):
         for d in generator:
             pprint.pprint(d.keys())
         return ;
-    list_datas= generator_to_list(progress_indicator(generator,count=count),max_count=count);
+    list_datas= to_list(progress_indicator(generator, count=count), max_count=count);
     if is_ipynb or format=='df':
         from  pandas import DataFrame
         return DataFrame(list_datas);
@@ -150,7 +155,10 @@ def query(data, key):
         return key;
     if isinstance(key, str) and key.startswith('[') and key.endswith(']'):
         key = key[1:-1];
-        return data[key];
+        if key in data:
+            return data[key];
+        else:
+            return None
     return key;
 
 

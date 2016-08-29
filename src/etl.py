@@ -1,16 +1,14 @@
 # coding=utf-8
-import time;
-import re;
-from extends import *
-import urllib
-import spider;
-import json;
-import xml.etree.ElementTree as ET
 import csv
-import xspider;
+import json;
 import os;
-import  sys;
+import time;
 import traceback
+import urllib
+import xml.etree.ElementTree as ET
+
+from src import spider, xspider
+from src.extends import *
 
 if PY2:
     pass;
@@ -49,9 +47,7 @@ class ETLTool(EObject):
             return True
         if not is_str(self.script):
             return self.script(self)
-        import time;
-        from pytz import utc, timezone
-        from datetime import datetime
+        from pytz import utc
         from time import mktime
         def get_time(mtime):
             ts = mktime(utc.localize(mtime).utctimetuple())
@@ -748,12 +744,13 @@ class TnTF(Transformer):
         self.rule=None;
         self.one_input=True;
     def init(self):
-        import tn;
-        self._core =tn.core;
-        self._core.InitPyRule(tn)
-        self._core.RebuildEntity()
+        import tn
+        if not hasattr(self,'_core'):
+            self._core = tn.core;
+        self._core.init_py_rule(tn)
+        self._core.rebuild()
     def transform(self,data):
-        result=self._core.Extract(data, entities=[self.rule]);
+        result=self._core.extract(data, entities=[self.rule]);
         if any(result):
             return result[0]['#rewrite'];
         return '';
@@ -1012,7 +1009,7 @@ class SaveFileEX(Executor):
             os.makedirs(folder);
         urlpath= data[self.column];
         newfile= open(save_path,'wb');
-        newdata=spider.get_web_file(urlpath);
+        newdata= spider.get_web_file(urlpath);
         newfile.write(newdata);
         newfile.close();
 
@@ -1105,7 +1102,6 @@ class Project(EObject):
                                 set_attr(etl, conv_key(key), value );
                             tool.tools.append(etl);
                 elif etype == 'SmartCrawler':
-                    import spider;
                     tool = spider.SmartCrawler();
                     tool.requests = spider.Requests()
                     tool.name = etool.attrib['name'];
@@ -1253,7 +1249,7 @@ def generate(tools, generator=None, init=True, execute=False, enabled=True):
     return generator;
 
 
-def get_generator_count(generator):
+def count(generator):
     if isinstance(generator,list):
         return len(generator);
     if isinstance(generator,Generator):
@@ -1291,9 +1287,19 @@ class ETLTask(EObject):
         self.tools.pop(i);
         return self;
 
+    def check(self,count=10):
+        c= force_generate(foreach(self.tools,lambda x:x.init()))
+        for i in range(1,len(self.tools)):
+            attr=EObject()
+            tool=self.tools[i];
+            title= get_type_name(tool).replace('etl.','')+' '+tool.column;
+            list_datas = to_list(progress_indicator(get_keys(get_mount(generate(self.tools[:i],init=False),take=count), attr), count=count,title=title));
+            keys= ','.join(attr.__dict__.keys())
+            print('%s, %s, %s'%(str(i),title,keys))
+
     def distribute(self ,take=90999999,skip=0,port= None):
-        import distributed
-        self._master= distributed.Master(self._proj,self.name);
+        from src import distributed
+        self._master= distributed.Master(self._proj, self.name);
         self._master.start(take,skip,port)
     def stop_server(self):
         if self._master is None:
@@ -1370,7 +1376,7 @@ class ETLTask(EObject):
             generator= generate(reducer, item, execute);
             count = force_generate(progress_indicator(generator,title=get_task_name()))
 
-        requests = threadpool.makeRequests(function, group_by_mount(mapper_generator,count_per_group,skip=skip,take=take));
+        requests = threadpool.makeRequests(function, to_list(group_by_mount(mapper_generator, count_per_group, skip=skip, take=take)));
         [pool.putRequest(req) for req in requests]
         pool.wait()
 
