@@ -1,5 +1,5 @@
 # coding=utf-8
-from src import extends
+import extends
 import sys;
 if extends.PY2:
     import urllib2
@@ -15,7 +15,7 @@ else:
 
 import socket
 
-from src.xspider import *
+from xspider import *
 import random;
 box_regex = re.compile(r"\[\d{1,3}\]");
 

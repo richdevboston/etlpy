@@ -3,7 +3,7 @@ import  sys;
 import time;
 from multiprocessing.managers import BaseManager
 
-from src import extends, etl
+import extends, etl
 
 authkey= "etlpy".encode('utf-8')
 timeout=1;

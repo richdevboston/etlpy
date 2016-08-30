@@ -3,7 +3,7 @@ from itertools import groupby
 
 from lxml import etree
 
-from src import extends, spider
+import extends, spider
 
 if extends.PY2:
     pass

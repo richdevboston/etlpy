@@ -7,8 +7,8 @@ import traceback
 import urllib
 import xml.etree.ElementTree as ET
 
-from src import spider, xspider
-from src.extends import *
+import spider, xspider
+from extends import *
 
 if PY2:
     pass;

@@ -30,7 +30,7 @@ def quote(string):
 
 def get_default_connector():
     mongo = etl.MongoDBConnector();
-    mongo.connect_str = 'mongodb://10.101.167.107'
+    mongo.connect_str = 'mongodb://10.244.0.112'
     mongo.db = 'ant_temp'
     con = connector('mongo', mongo)
     return con
