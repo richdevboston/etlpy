@@ -44,11 +44,11 @@ def task(name='etl'):
     from src import extends
     base_type= [etl.Filter, etl.Generator, etl.Executor, etl.Transformer];
     ignore_paras=['one_input','multi','column'];
-    task= etl.ETLTask();
-    task._proj=proj;
-    task.name=name;
-    proj.modules[name]=task;
-    setattr(proj,name,task);
+    my_task= etl.ETLTask();
+    my_task._proj=proj;
+    my_task.name=name;
+    proj.modules[name]=my_task;
+    setattr(proj,name,my_task);
 
     def set_attr(val, dic):
         for k in val.__dict__:
@@ -66,9 +66,9 @@ def task(name='etl'):
         new_tool=etl.%s();
         new_tool._proj=proj
         set_attr(new_tool,locals())
-        task.tools.append(new_tool);
-        new_tool._index= len(task.tools)
-        return task;
+        my_task.tools.append(new_tool);
+        new_tool._index= len(my_task.tools)
+        return my_task;
     '''
 
     def merge_func(k, v):
@@ -92,8 +92,8 @@ def task(name='etl'):
         locals()['cols']=etl.cols;
         exec(method_str,locals());
         func= locals()['__'+ new_name];
-        setattr(task,new_name,func);
-    return task;
+        setattr(my_task,new_name,func);
+    return my_task;
 
 
 
