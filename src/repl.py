@@ -1,5 +1,5 @@
 # coding=utf-8
-from src.distributed import *
+from distributed import *
 
 proj= etl.Project();
 
