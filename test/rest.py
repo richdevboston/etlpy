@@ -23,7 +23,7 @@ def get_html_data(url='',html='',has_attr=False,mode='list'):
 news_url='http://renjian.163.com/16/0817/20/BUMRU2KL00015C18.html'
 data = get_html_data(url='http://www.cnblogs.com')
 content=get_html_data(url=news_url,mode='content');
-print json.dumps(data,encoding='utf-8',ensure_ascii=False,indent=2);
-print json.dumps(content,encoding='utf-8',ensure_ascii=False,indent=2);
+print( json.dumps(data,encoding='utf-8',ensure_ascii=False,indent=2))
+print(json.dumps(content,encoding='utf-8',ensure_ascii=False,indent=2))
 news_html= urllib.urlopen(news_url).read().decode('gbk');
 content=get_html_data(html=news_html, mode='content',has_attr=True)

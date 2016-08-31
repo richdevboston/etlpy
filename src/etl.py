@@ -7,7 +7,8 @@ import traceback
 import urllib
 import xml.etree.ElementTree as ET
 
-import spider, xspider
+import spider
+import xspider
 from extends import *
 
 if PY2:
@@ -1298,7 +1299,7 @@ class ETLTask(EObject):
             print('%s, %s, %s'%(str(i),title,keys))
 
     def distribute(self ,take=90999999,skip=0,port= None):
-        from src import distributed
+        import distributed
         self._master= distributed.Master(self._proj, self.name);
         self._master.start(take,skip,port)
     def stop_server(self):

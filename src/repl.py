@@ -1,4 +1,7 @@
 # coding=utf-8
+
+
+
 from distributed import *
 
 proj= etl.Project();
@@ -9,7 +12,7 @@ def html(text):
     display(HTML(text));
 
 def spider(name='_crawler'):
-    from src import spider
+    import spider
     sp= spider.SmartCrawler();
     proj.modules[name]=sp;
     sp.name=name;
@@ -41,7 +44,7 @@ def connector(name,connector):
 
 def task(name='etl'):
     import inspect
-    from src import extends
+    import extends
     base_type= [etl.Filter, etl.Generator, etl.Executor, etl.Transformer];
     ignore_paras=['one_input','multi','column'];
     my_task= etl.ETLTask();
@@ -62,7 +65,7 @@ def task(name='etl'):
 
 
     dynaimc_method = '''def __%s(column='',%s):
-        import src.etl as etl
+        import etl as etl
         new_tool=etl.%s();
         new_tool._proj=proj
         set_attr(new_tool,locals())

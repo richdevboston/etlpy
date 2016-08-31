@@ -3,7 +3,8 @@ import  sys;
 import time;
 from multiprocessing.managers import BaseManager
 
-import extends, etl
+import extends;
+import etl
 
 authkey= "etlpy".encode('utf-8')
 timeout=1;
@@ -157,6 +158,10 @@ class Slave:
 
 
 if __name__ == '__main__':
+    import os, sys
+
+    parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src'
+    sys.path.insert(0, parentdir)
     ip= '127.0.0.1' #'10.101.167.107'
     port=rpc_port;
     argv=sys.argv;

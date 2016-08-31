@@ -2,8 +2,8 @@ import re
 from itertools import groupby
 
 from lxml import etree
-
-import extends, spider
+import spider;
+import extends
 
 if extends.PY2:
     pass
@@ -138,7 +138,7 @@ def _regex_find(string,regex):
      return res;
 
 def _tn_find(string,rule):
-    from src.tn import core
+    from tn import core
     return core.match(string,rule) is not None;
 
 

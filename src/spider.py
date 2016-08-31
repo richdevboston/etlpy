@@ -1,6 +1,7 @@
 # coding=utf-8
 import extends
 import sys;
+import re
 if extends.PY2:
     import urllib2
     from urlparse import urlparse
@@ -14,7 +15,6 @@ else:
     import urllib.request
 
 import socket
-
 from xspider import *
 import random;
 box_regex = re.compile(r"\[\d{1,3}\]");
@@ -361,7 +361,7 @@ class SmartCrawler(extends.EObject):
         if not self.multi :
             print('great hand can only be used in list')
             return self;
-        root_path,xpaths=search_properties(tree,self.xpaths,has_attr);
+        root_path,xpaths= search_properties(tree,self.xpaths,has_attr);
         datas= _get_datas(tree,xpaths,self.multi, None)
         self._datas= datas;
         self._xpaths= xpaths;

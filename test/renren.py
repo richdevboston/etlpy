@@ -3,10 +3,10 @@
 
 # In[1]:
 import os,sys
-parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import sys,os
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+'/src'
 sys.path.insert(0,parentdir)
-
-from src.repl import *
+from repl import *
 
 
 # In[2]:
@@ -131,11 +131,10 @@ l.dbex('id',connector='mongo',table='renren')
 # In[ ]:
 
 
-l.check()
 
 # In[ ]:
 
-l.execute()
+l.distribute()
 
 
 # In[ ]:

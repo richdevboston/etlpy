@@ -5,8 +5,8 @@ from flask import Flask, jsonify
 from flask import request
 
 app = Flask(__name__);
-from src.spider import  *
-from src.xspider import  *
+from spider import  *
+from xspider import  *
 proj=None;
 
 
