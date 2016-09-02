@@ -134,7 +134,7 @@ l.dbex('id',connector='mongo',table='renren2')
 
 # In[ ]:
 
-l.distribute()
+l.distribute(monitor_connector_name='mongo')
 
 
 # In[ ]:

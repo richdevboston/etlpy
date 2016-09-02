@@ -180,6 +180,7 @@ class Slave:
                             #print(r.keys())
                             count+=1;
                             total_count+=1;
+                        task_result.time=time.time()
                         task_result.count=count;
                         task_result.message='success';
 
