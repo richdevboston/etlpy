@@ -47,6 +47,19 @@ def _is_same_path(p1, p2, root_path):
     return str(path1) == str(path2);
 
 
+def get_diff_page(htmls,has_attr):
+    trees=[]
+    nodes=[];
+    for html in htmls:
+        root = etree.HTML(html);
+        tree = etree.ElementTree(root);
+        nodes.append(root);
+        trees.append(tree);
+    xpaths=[];
+    __get_diff_nodes(trees,nodes,xpaths,has_attr);
+    return xpaths;
+
+
 
 def search_text_root(tree, node):
     class ParaClass(object):
@@ -104,20 +117,20 @@ def __search_table_root(tree, nodes, path_dict, has_child):
                 node_group = list(node_group);
                 __search_table_root(tree, node_group, path_dict, has_child);
     target_node = list(node for node in nodes);  # filter(lambda x:not x.tag.startswith("#"),nodes);
-    childCount = float(len(target_node));
-    if 5 > childCount:
+    child_count = float(len(target_node));
+    if 5 > child_count:
         return;
-    sameNameCount = len([x for x in target_node if x.tag == target_node[1].tag]);
-    if sameNameCount < childCount * 0.7: return;
-    childCounts = [];
+    same_name_count = len([x for x in target_node if x.tag == target_node[1].tag]);
+    if same_name_count < child_count * 0.7: return;
+    child_counts = [];
     for n in target_node:
-        childCounts.append(len(list(r for r in n.iterchildren())));
-    v = extends.variance(childCounts);
+        child_counts.append(len(list(r for r in n.iterchildren())));
+    v = extends.variance(child_counts);
     if v > 2: return;
-    leafCount = get_node_leaf_count(target_node[0]);
-    if leafCount<2:
+    leaf_count = get_node_leaf_count(target_node[0]);
+    if leaf_count<2:
         return ;
-    value = childCount * PM25 + leafCount;
+    value = child_count * PM25 + leaf_count;
     xpath = spider.remove_last_xpath_num(tree.getpath(node).split('/'));
     path_dict[xpath] = value;
 
@@ -184,29 +197,35 @@ def __get_nearest_node(targets, node):
             selectnode=k;
     return selectnode;
 
-def __get_diff_nodes(tree, nodes, xpaths, has_attr):
+
+def __get_diff_nodes(trees,nodes, xpaths, has_attr):
+    def get_tree(i):
+        if isinstance(trees,list):
+            return trees[i];
+        return trees;
     is_child_contain_info = False;
     node1 = nodes[0]
     tree1 = etree.ElementTree(node1);
-    node1path = tree.getpath(node1);
-    for childnode1 in node1.iterchildren():
-        path = '/'.join(tree1.getpath(childnode1).split('/')[2:])
-        nodechild2 = [];
-        for r in nodes:
-            targets = r.xpath(path);
+    node1path = get_tree(0).getpath(node1);
+    for child_node1 in node1.iterchildren():
+        path = '/'.join(tree1.getpath(child_node1).split('/')[2:])
+        node_child2 = [];
+        for node in  nodes:
+            targets = node.xpath(path);
             if len(targets) == 0:
                 break;
-            nodechild2.append(targets[0]);
-        if len(nodechild2) <= 1:
+            node_child2.append(targets[0]);
+        if len(node_child2) <= 1:
             continue;
-        is_child_contain_info |= __get_diff_nodes(tree, nodechild2, xpaths, has_attr);
+        is_child_contain_info |= __get_diff_nodes(trees, node_child2, xpaths, has_attr);
     if is_child_contain_info == False:
-        for r in nodes:
-            if not  __is_same_string(r.text,node1.text):
-                prop_name = __search_node_name(r, xpaths);
+        for i in range(0,len(nodes)):
+            node=nodes[i];
+            if not  __is_same_string(node.text,node1.text):
+                prop_name = __search_node_name(node, xpaths);
                 xpath = spider.XPath(prop_name)
                 xpath.sample = node1.text;
-                xpath.path = node1path if len(xpaths) % 2 == 0 else tree.getpath(r);
+                xpath.path = node1path if len(xpaths) % 2 == 0 else get_tree(i).getpath(node);
                 xpaths.append(xpath);
                 is_child_contain_info = True;
                 break;
@@ -214,18 +233,20 @@ def __get_diff_nodes(tree, nodes, xpaths, has_attr):
         return is_child_contain_info;
     for r in node1.attrib:
         v = node1.attrib[r];
-        for node in nodes:
+        for i in range(0, len(nodes)):
+            node = nodes[i];
             value = node.attrib.get(r, None);
             if value is None:
                 break;
             if node.attrib[r] != v:
                 xpath = spider.XPath(__search_node_name(r, xpaths) + "_" + r);
-                xpath.path = node1path if len(xpaths) % 2 == 0 else tree.getpath(node);
+                xpath.path = node1path if len(xpaths) % 2 == 0 else get_tree(i).getpath(node);
                 xpath.path += '/@' + r;
                 xpath.sample = v;
                 xpaths.append(xpath);
                 break;
     return is_child_contain_info;
+
 
 
 def get_diff_nodes(tree, root, root_path, has_attr, exists=None):
@@ -277,7 +298,7 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
     tree = etree.ElementTree(root);
     exist_len = len(exist_xpaths);
     if exist_len > 1:
-        root = get_common_xpath(exist_xpaths);
+        root = spider.get_common_xpath(exist_xpaths);
         return get_diff_nodes(tree, root, root, is_attr, exist_xpaths);
 
     elif exist_len == 1:

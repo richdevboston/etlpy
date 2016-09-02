@@ -125,7 +125,7 @@ l.delete('col1_href col3_href col5_popval col7 col9_data-id col10_data.name col8
 l.number('user_lively')
 l.rename('col6:expr col0_data-src:head col2:name')
 l.replace('expr',script='经历 : ')
-l.dbex('id',connector='mongo',table='renren')
+l.dbex('id',connector='mongo',table='renren2')
 
 
 # In[ ]:

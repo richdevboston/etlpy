@@ -15,21 +15,31 @@ if extends.PY2:
 else:
     from queue import Queue
 class ETLJob:
-    def __init__(self,project,jobname,config,id):
+    def __init__(self, project, job_name, config, id):
         self.project= project;
-        self.jobname=jobname;
+        self.job_name=job_name;
         self.config=config;
         self.id= id;
 
+class Task:
+    def __init__(self,m_id,id,task):
+        self.m_id=m_id
+        self.id=id
+        self.count=0;
+        self.message=''
+        self.task=task
+
+
 class JobResult:
-    def __init__(self,name,count,id):
+    def __init__(self,name,tasks,id,total_count):
         self.name=name;
-        self.count=count;
+        self.tasks=tasks;
         self.id=id;
+        self.total_count=total_count;
+
 
 class Master:
-
-    def __init__(self, project, job_name):
+    def __init__(self, project, job_name,monitor_connector_name=None,table_name=None):
         # 派发出去的作业队列
         self.dispatched_job_queue = Queue()
         # 完成的作业队列
@@ -37,6 +47,14 @@ class Master:
         self.project= project;
         self.job_name=job_name;
         self.max_process= 10;
+        self.monitor=None;
+        if monitor_connector_name is not None:
+            monitor=self.project.connectors.get(monitor_connector_name,None);
+            monitor.init();
+            if monitor is not None:
+                if table_name is None:
+                    table_name=job_name+'_monitor';
+                self.monitor=monitor._db[table_name];
 
     def get_dispatched_job_queue(self):
         return self.dispatched_job_queue
@@ -53,6 +71,7 @@ class Master:
         print('current port is %d'%port)
         # 监听端口和启动服务
         manager = BaseManager(address=('0.0.0.0', port), authkey=authkey)
+
         self.manager=manager;
         manager.start()
         print('server started');
@@ -65,13 +84,12 @@ class Master:
         job_id = 0
         module= self.project.modules[self.job_name];
         proj= etl.convert_dict(self.project);
-        mapper, reducer, tolist = etl.parallel_map(module.tools)
-        count_per_group = tolist.count_per_thread if tolist is not None else 1;
+
+        mapper, reducer, parallel = etl.parallel_map(module.tools)
+
+        count_per_group = parallel.count_per_thread if parallel is not None else 1;
         task_generator= extends.group_by_mount(etl.generate(mapper), count_per_group, take, skip);
-        from ipy_progressbar import ProgressBar
         task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher', etl.count(mapper))
-        task_customer = ProgressBar(dispatched_count,title='Task Customer  ')
-        task_customer.start()
         try:
             while True:
                 while True:
@@ -85,13 +103,18 @@ class Master:
                             #print('dispatch job: {id}, count : {count} '.script (id=job.id,count=count_per_group))
                         dispatched_jobs.put(job)
                         if i%dispatched_count==0:
-                            task_customer.start()
                             while not dispatched_jobs.empty():
                                 job = finished_jobs.get(60)
-                                task_customer.advance()
+                                if self.monitor is not None:
+                                    monitor= self.monitor;
+                                    for task in job.tasks:
+                                        task_dict=task.__dict__;
+                                        item=monitor.update({'m_id':task.m_id,'id':task.id},task_dict,upsert=True);
                                 if not extends.is_ipynb:
                                     pass;
-                                    #print('finish job: {id}, count : {count} '.script(id=job.id, count=job.count))
+
+                            #print('finish job: {id}, count : {count} '.script(id=job.id, count=job.count))
+
                 if not  extends.is_ipynb:
                     key=input('press any key to repeat,c to cancel')
                     if key=='c':
@@ -102,6 +125,7 @@ class Master:
             traceback.print_exc()
             print('manager has shutdown')
             manager.shutdown();
+
 
 
 
@@ -129,8 +153,8 @@ class Slave:
         # 运行作业并返回结果，这里只是模拟作业运行，所以返回的是接收到的作业
         while True:
             if dispatched_jobs.empty():
-                time.sleep(5)
-                print('queue is empty,wait 5 sec...')
+                print('task finished, delay 5s')
+                time.sleep(5);
                 continue;
 
             job = dispatched_jobs.get(timeout=timeout)
@@ -138,28 +162,39 @@ class Slave:
             project=job.project;
             proj= etl.Project();
             proj.load_dict(project);
-            module= proj.modules[job.jobname];
-            count=0
+            module= proj.modules[job.job_name];
+            task_results=[]
+            total_count=0;
             try:
-                config= job.config;
-                if not isinstance(config,list):
-                    config=[config];
+                tasks= job.config;
+                if not isinstance(tasks,list):
+                    tasks=[tasks];
                 mapper,reducer,tool= etl.parallel_map(module.tools);
-                generator= etl.generate(reducer, generator=config, execute= execute)
-                for r in generator:
-                    #print(r.keys())
-                    count+=1;
+                for i in range(len(tasks)):
+                    task=tasks[i];
+                    task_result=Task(job.id,i,task);
+                    count=0;
+                    try:
+                        generator= etl.generate(reducer, generator=[task], execute= execute)
+                        for r in generator:
+                            #print(r.keys())
+                            count+=1;
+                            total_count+=1;
+                        task_result.count=count;
+                        task_result.message='success';
+
+                    except Exception as e:
+                        task_result.message=e;
+                    task_results.append(task_result)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
-            print('finish job,id %s, count %s'%(job.id,count))
-            job_result= JobResult(job.jobname,count,job.id)
+            print('finish job,id %s, count %s'%(job.id,total_count))
+            job_result= JobResult(job.job_name,task_results,job.id,total_count)
             finished_jobs.put(job_result)
-
 
 if __name__ == '__main__':
     import os, sys
-
     parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src'
     sys.path.insert(0, parentdir)
     ip= '127.0.0.1' #'10.101.167.107'

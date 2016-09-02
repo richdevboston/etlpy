@@ -30,13 +30,13 @@ def to_str(s):
 
 
 
-def get_mount(generator,take,skip=0):
+def get_mount(generator,take=None,skip=0):
     i=0;
     for r in generator:
         i += 1;
         if i<skip:
             continue;
-        if i>take+skip:
+        if take is not None and i>take+skip:
             break;
         yield r;
 
@@ -65,13 +65,26 @@ def to_list(generator, max_count=None):
 
 
 def progress_indicator(generator,title='Position Indicator',count=2000):
-    from ipy_progressbar import ProgressBar
-    generator = ProgressBar(generator, title=title)
-    generator.max = count;
-    generator.start()
-    for data in generator:
-        yield data;
-    generator.finish()
+    if is_ipynb:
+        from ipy_progressbar import ProgressBar
+        generator = ProgressBar(generator, title=title)
+        generator.max = count;
+        generator.start()
+        for data in generator:
+            yield data;
+        generator.finish()
+    else:
+        id=0;
+        for data in generator:
+            print(title+' '+str(id))
+            id+=1;
+            yield data;
+        print('task finished');
+
+def revert_invoke(item,funcs):
+    for i in range(0,len(funcs),-1):
+        item=funcs[i](item);
+    return item;
 
 def get(generator, format='print', count=20):
     if format == 'print' and not is_ipynb:

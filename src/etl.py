@@ -936,11 +936,11 @@ class FileExistFT(Transformer):
 class MergeRepeatTF(Transformer):
     pass;
 
-class NumRangeFT(Transformer):
+class TakeTF(Transformer):
     def __init__(self):
-        super(NumRangeFT, self).__init__();
+        super(TakeTF, self).__init__();
         self.skip=0;
-        self.take=1;
+        self.take=None;
     def process(self,data):
         for r in get_mount(data,self.take,self.skip):
             yield r;
@@ -1289,18 +1289,18 @@ class ETLTask(EObject):
         return self;
 
     def check(self,count=10):
-        c= force_generate(foreach(self.tools,lambda x:x.init()))
+        c=  force_generate(foreach(self.tools,lambda x:x.init()))
         for i in range(1,len(self.tools)):
             attr=EObject()
             tool=self.tools[i];
             title= get_type_name(tool).replace('etl.','')+' '+tool.column;
-            list_datas = to_list(progress_indicator(get_keys(get_mount(generate(self.tools[:i],init=False),take=count), attr), count=count,title=title));
+            list_datas =  to_list(progress_indicator(get_keys(get_mount(generate(self.tools[:i],init=False),take=count), attr), count=count,title=title));
             keys= ','.join(attr.__dict__.keys())
             print('%s, %s, %s'%(str(i),title,keys))
 
-    def distribute(self ,take=90999999,skip=0,port= None):
+    def distribute(self ,take=90999999,skip=0,port= None,monitor_connector_name=None,table_name=None):
         import distributed
-        self._master= distributed.Master(self._proj, self.name);
+        self._master= distributed.Master(self._proj, self.name,monitor_connector_name,table_name)
         self._master.start(take,skip,port)
     def stop_server(self):
         if self._master is None:
@@ -1380,5 +1380,9 @@ class ETLTask(EObject):
         requests = threadpool.makeRequests(function, to_list(group_by_mount(mapper_generator, count_per_group, skip=skip, take=take)));
         [pool.putRequest(req) for req in requests]
         pool.wait()
+
+
+
+
 
 
