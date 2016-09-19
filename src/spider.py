@@ -513,15 +513,22 @@ def get_web_file(url, code=None):
         url = 'http://' + url;
         print("auto transform %s" % (url));
     socket.setdefaulttimeout(30)
-    i_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
                     "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
                  "Accept-Encoding": "gzip, deflate, sdch",
                  "Connection":"keep-alive",
                  "Accept-Language": "zh-CN,zh;q=0.8,en;q = 0.6"
     }
-    req = urllib.request.Request(url=url, headers=i_headers)
-    page = urllib.request.urlopen(req)
-    html = page.read()
+    try:
+        opener = _build_opener();
+        t = [(r.strip(), headers[r]) for r in headers];
+        opener.addheaders = t;
+        page = opener.open(url)
+
+        html = page.read()
+    except Exception as e:
+        sys.stderr.write(str(e))
+        return None
     return html;
 
 

@@ -471,9 +471,9 @@ class SplitTF(Transformer):
         super(SplitTF, self).__init__()
         self.split_char= '';
         self.one_input = True;
-        self.from_back=False;
         self.split_blank=False;
         self.split_null=False;
+        self.index=0;
 
     def init(self):
         self.splits = self.split_char.split(' ');
@@ -492,8 +492,6 @@ class SplitTF(Transformer):
         r=data.split('\001');
         if len(r) < self.index:
             return data;
-        if self.from_back:
-            return r[-self.index-1];
         return r[self.index];
 
 class TrimTF(Transformer):
@@ -1011,6 +1009,8 @@ class SaveFileEX(Executor):
         urlpath= data[self.column];
         newfile= open(save_path,'wb');
         newdata= spider.get_web_file(urlpath);
+        if newdata is None:
+            return
         newfile.write(newdata);
         newfile.close();
 

@@ -23,10 +23,7 @@ def is_str(s):
     return False;
 
 def to_str(s):
-    if PY2:
-        return unicode(s);
-    else:
-        return str(s);
+    return str(s);
 
 
 
@@ -291,7 +288,7 @@ def group_by_mount(generator, group_count=10, take=9999999, skip=0):
         if len(tasks) >= group_count:
             yield tasks[:];
             task_id = task_id + 1
-            tasks.clear()
+            tasks=[]
         if task_id < skip:
             continue
         if task_id > take:
