@@ -23,7 +23,16 @@ def is_str(s):
     return False;
 
 def to_str(s):
-    return str(s);
+    if PY2 and isinstance(s,unicode):
+        return s;
+
+    try:
+        return str(s);
+    except Exception as e:
+        if PY2:
+            return unicode(s);
+        return 'to_str error:' + str(e);
+
 
 
 

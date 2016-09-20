@@ -19,7 +19,8 @@ class Test(unittest.TestCase):
         self.assertEqual(get('http://renjian.163.com/16/0817/20/BUMRU2KL00015C18.html',False), True, 'test sub fail')
 
 
-
+    def test_diff(self):
+        urls=[];
 
 if __name__ =='__main__':
   unittest.main()

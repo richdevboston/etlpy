@@ -36,6 +36,7 @@ def __get_match_counts(mat):
 
 class ETLTool(EObject):
     def __init__(self):
+        super(ETLTool, self).__init__()
         self.enabled=True;
         self.column = ''
     def process(self, data):
@@ -84,12 +85,14 @@ class Transformer(ETLTool):
                     traceback.print_exc()
             return;
         for d in data:
+            if d is None:
+                continue
             def edit_data(col, ncol=None):
-                if col not in d:
+                ncol = ncol if ncol != '' and  ncol is  not None  else col;
+                if col!='' and  col not in d:
                     return
                 if self.one_input:
                     res = self.transform(d[col]);
-                    ncol = ncol if ncol != '' and  ncol is  not None  else col;
                     d[ncol]=res;
                 else:
                     ncol = ncol if ncol != '' and  ncol is  not None else col;
@@ -535,14 +538,15 @@ class PythonTF(Transformer):
     def _get_data(self, data, col):
         value = data[col] if col in data else '';
         if is_str(self.script ):
-            result = self._eval_script({'value': value}, data);
+            result = self._eval_script({'value': value,'data':data}, data);
         else:
             result = self.script(data);
         return result;
     def m_transform(self,data,col):
         js= self._get_data(data,col)
-        for j in js:
-            yield j;
+        if isinstance(js,list):
+            for j in js:
+                yield j;
     def transform(self, data,col,ncol):
         js = self._get_data( data,col)
         if self.mode == GENERATE_DOC:
@@ -766,7 +770,7 @@ class ParallelTF(Transformer):
 class JsonTF(Transformer):
     def __init__(self):
         super(JsonTF, self).__init__()
-        self.mode=GENERATE_DOCS
+        self.mode= GENERATE_NONE
 
     def init(self):
         self._m_yield= self.mode == GENERATE_DOCS;
@@ -810,67 +814,80 @@ class RangeGE(Generator):
 
 
 
-def _get_task(task, data):
-    selector = query(data, task.selector);
-    if selector not in task._proj.modules:
-        sys.stderr.write('sub task %s  not in current project' % selector);
-    sub_etl = task._proj.modules[selector];
-    return sub_etl;
 
 
-class EtlGE(Generator):
+class SubEtlBase(object):
+    def __init__(self):
+        super(SubEtlBase, self).__init__()
+        self.selector=''
+        self.range = '0:100'
+        self.new_col=''
+
+    def _get_task(self, data):
+        selector = query(data, self.selector);
+        if selector not in self._proj.modules:
+            sys.stderr.write('sub task %s  not in current project' % selector);
+        sub_etl = self._proj.modules[selector];
+        return sub_etl;
+
+
+    def _get_tools(self,data):
+        data=data.copy()
+        sub_etl = self._get_task( data)
+        buf = self.range.split(':');
+        start = int(buf[0])
+        end = int(buf[1])
+        return sub_etl.tools[start:end]
+
+
+class EtlGE(Generator, SubEtlBase):
     def __init__(self):
         super(EtlGE, self).__init__()
-        self.selector=''
     def generate(self,data):
-        sub_etl= _get_task(self, data);
-        for r in generate(sub_etl.tools):
+        for r in generate(self._get_tools(data)):
             yield r;
 
 
-class EtlEX(Executor):
+class EtlEX(Executor, SubEtlBase):
     def __init__(self):
         super(EtlEX, self).__init__()
-        self.selector = ''
     def execute(self,data):
-        sub_etl= _get_task(self, data);
         if spider.is_none(self.new_col):
             doc = data.copy();
         else:
             doc = {};
             merge_query(doc, data, self.new_col + " " + self.column);
-        result=(r for r in generate(sub_etl.tools, [doc]))
+
+        tools=self._get_tools(doc)
         count=0;
-        for r in result:
+        for r in generate(tools, [doc],execute=self.enabled):
             count+=1;
         print('subtask:'+to_str(count))
         return data;
 
-class EtlTF(Transformer):
+class EtlTF(Transformer, SubEtlBase):
 
     def __init__(self):
+        super(EtlTF,self).__init__()
         self.cycle=False;
-        self.selector = ''
+        self._m_yield=True
 
     def m_transform(self,data,col):
-        sub_etl = _get_task(self, data);
-        newdata = data;
+        new_data = data;
         if self.cycle:
-            while newdata[col] != '':
-                result = first_or_default(generate(sub_etl.tools, [newdata.copy()]))
+            while new_data[col] != '':
+                result = first_or_default(generate(self._get_tools(new_data), [new_data.copy()]))
                 if result is None:
                     break
                 yield result.copy();
-                newdata = result;
+                new_data = result;
         else:
-            doc = data.copy();
-            for r in generate(sub_etl.tools, [doc]):
+            for r in generate(self._get_tools(data), [data]):
                 yield r
     def transform(self,data,col,ncol):
-        sub_etl = _get_task(self, data);
-        for r in generate(sub_etl.tools,[data.copy()]):
-            return merge(data, r);
-
+        for r in generate(self._get_tools(data),[data]):
+            merge(data, r);
+            break
 
 
 
@@ -957,44 +974,6 @@ class DelayTF(Transformer):
         yield data;
 
 
-class ReadFileTextTF(Transformer):
-    pass;
-
-class ReadFileTF(Transformer):
-    pass;
-
-class WriteFileTextTF(Transformer):
-    pass;
-class FolderGE(Generator):
-    pass;
-
-class TableGE(Generator):
-    def __init__(self):
-        super(TableGE, self).__init__()
-        self.table = None;
-
-    def can_dump(self):
-        return False;
-    def generate(self,generator):
-        for r in self.table:
-            yield r;
-
-class TableEX(Executor):
-    def __init__(self):
-        super(TableEX, self).__init__()
-        self.table = None;
-
-    def can_dump(self):
-        return False;
-
-    def execute(self, data):
-        table = self.table;
-        table.append(data);
-
-class FileDataTF(Transformer):
-    pass;
-
-
 class SaveFileEX(Executor):
     def __init__(self):
         super(SaveFileEX, self).__init__()
@@ -1013,6 +992,7 @@ class SaveFileEX(Executor):
             return
         newfile.write(newdata);
         newfile.close();
+        return data
 
 
 

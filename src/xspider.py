@@ -175,7 +175,7 @@ def __search_xpath(tree, node, keyword,match_func, has_attr=False):
             if has_attr:
                 for r in node.attrib:
                     if str_match(node.attrib[r], keyword,match_func):
-                        xpath = tree.getpath(node);
+                        xpath = tree.getpath(node)+'/@%s[1]'%(r)
                         return xpath;
     return None;
 
@@ -258,7 +258,7 @@ def get_diff_nodes(tree, root, root_path, has_attr, exists=None):
     if exists is not None:
         for r in exists:
             for p in xpaths:
-                short_path = spider. XPath(p.path).takeoff(root_path);
+                short_path =  spider.xpath_take_off (p.path,root_path);
                 if r.path == extends.to_str(short_path):
                     p.name = r.name;
                     break;
@@ -298,8 +298,8 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
     tree = etree.ElementTree(root);
     exist_len = len(exist_xpaths);
     if exist_len > 1:
-        root = spider.get_common_xpath(exist_xpaths);
-        return get_diff_nodes(tree, root, root, is_attr, exist_xpaths);
+        root_path = spider.get_common_xpath(exist_xpaths);
+        return root_path, get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
 
     elif exist_len == 1:
         real_path = spider.XPath(exist_xpaths[0].path);

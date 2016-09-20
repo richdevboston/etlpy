@@ -59,7 +59,11 @@ def get_common_xpath(xpaths):
                 first = path[0:i + 1];
                 return  remove_last_xpath_num(first);
 
-
+def xpath_take_off(path,root_path):
+    r= path.replace(root_path,'');
+    if r.startswith('['):
+        r= '/'.join(r.split('/')[1:])
+    return r;
 attrsplit=re.compile('@|\[');
 
 
@@ -355,13 +359,13 @@ class SmartCrawler(extends.EObject):
         self.requests.url = op.url;
         return opener;
 
-    def great_hand(self,has_attr=False):
+    def great_hand(self,attr=False):
         tree=self._tree;
         self._stage=2;
         if not self.multi :
             print('great hand can only be used in list')
             return self;
-        root_path,xpaths= search_properties(tree,self.xpaths,has_attr);
+        root_path,xpaths= search_properties(tree,self.xpaths,attr);
         datas= _get_datas(tree,xpaths,self.multi, None)
         self._datas= datas;
         self._xpaths= xpaths;
@@ -422,13 +426,15 @@ class SmartCrawler(extends.EObject):
         root = pyq(self._html);
         return root;
 
-    def search_xpath(self, keyword,  name=None,has_attr=False, is_html=False,mode='str'):
+    def search_xpath(self, keyword, name=None, attr=False, is_html=False, mode='str'):
         if self._stage<1:
             return 'please visit one url first';
-        result= search_xpath(self._tree , keyword, mode,has_attr);
+        result= search_xpath(self._tree, keyword, mode, attr);
         key=name if name is not  None else 'unknown';
         print('%s  : %s'%(key,result))
         if result is not None and name is not None:
+            if self.root is not None:
+                result=xpath_take_off(result,self.root)
             self.add_xpath(name,result,is_html)
         return self;
 
