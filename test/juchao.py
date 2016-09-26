@@ -10,6 +10,8 @@ from repl import  *
 from py2neo import Graph, Node,Subgraph,Relationship,NodeSelector
 graph = Graph("http://10.244.0.112:7474/db/data/",user='neo4j',password='kensho')
 relation=graph.data("MATCH (n:stock) RETURN n.stock_code LIMIT 4000")
+s=spider('s')
+
 
 t=task()
 t.pyge(script=relation)
