@@ -23,7 +23,7 @@ t.merge('code:post',script='stock={0}&searchkey=&category=&pageNum=1&pageSize=1&
 t.crawler('url',selector='s',post_data='[post]')
 t.delete('post')
 t.json('Content')
-t.py('Content:l',script=lambda x: x['Content']['totalRecordNum']/15+2)
+t.py('Content:l',script="value['totalRecordNum']/15+2")
 t.rangege('p',max='[l]',mode='cross')
 t.py('p',script='str(int(value))')
 t.merge('code:post',merge_with='p',script='stock={0}&searchkey=&category=&pageNum={1}&pageSize=15&column=sse&tabName=latest&sortName=&sortType=&limit=&seDate=')
