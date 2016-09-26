@@ -99,7 +99,7 @@ class Transformer(ETLTool):
                     self.transform(d,col,ncol);
             column=self.column;
             if is_str(self.column):
-                if self.column.find(':')>0:
+                if self.column.find(u':')>=0:
                     column=para_to_dict(self.column,',',':')
                 elif self.column.find(' ')>0:
                     column=[r.strip() for r in self.column.split(' ')]
@@ -114,6 +114,9 @@ class Transformer(ETLTool):
             yield d;
 
 class Executor(ETLTool):
+    def __init__(self):
+        super(Executor, self).__init__()
+        self.debug = False
     def execute(self,data):
         pass;
     def process(self,data):
@@ -168,9 +171,9 @@ class Generator(ETLTool):
                 return cross(generator, self.generate)
 
 
-EXECUTE_INSERT='OnlyInsert'
-EXECUTE_SAVE='Save'
-EXECUTE_UPDATE='Update'
+EXECUTE_INSERT='insert'
+EXECUTE_SAVE='save'
+EXECUTE_UPDATE='update'
 
 
 class MongoDBConnector(EObject):
@@ -237,21 +240,25 @@ class JsonConnector(FileConnector):
 class DbEX(Executor):
     def __init__(self):
         super(DbEX, self).__init__();
-        self.connector = '';
+        self.selector = '';
         self.mode = EXECUTE_INSERT
         self.table = '';
 
     def init(self):
-        self._connector = self._proj.connectors[self.connector];
+        self._connector = self._proj.connectors[self.selector];
         self._connector.init()
-        self._table = self._connector._db[self.table];
+
 
 
     def process(self,datas):
         etype = self.mode;
-        table = self._table;
-        work = {'OnlyInsert': lambda d: table.save(d),'InsertOrUpdate':lambda d: table.save(d)};
+        work = None
+        init=False
         for data in datas:
+            if not init:
+                table=  self._connector._db[query(data,self.table)];
+                work={EXECUTE_INSERT: lambda d: table.save(d), EXECUTE_UPDATE: lambda d: table.save(d)};
+                init=True
             ndata= data.copy()
             work[etype](ndata);
             yield data;
@@ -450,6 +457,8 @@ class ReplaceTF(RegexTF):
         if self.re:
             return re.sub(self.regex, self.new_value, data);
         else:
+            if data is None:
+                return None
             return data.replace(self.script,self.new_value);
 class NumberTF(Transformer):
     def __init__(self):
@@ -472,14 +481,14 @@ class NumberTF(Transformer):
 class SplitTF(Transformer):
     def __init__(self):
         super(SplitTF, self).__init__()
-        self.split_char= '';
+        self.script= '';
         self.one_input = True;
         self.split_blank=False;
         self.split_null=False;
         self.index=0;
 
     def init(self):
-        self.splits = self.split_char.split(' ');
+        self.splits = self.script.split(' ');
         if '' in self.splits:
             self.splits.remove('')
         if self.split_blank==True:
@@ -647,7 +656,11 @@ class PyQueryTF(Transformer):
         self.script = ''
         self._m_yield = True;
         self.mode = GET_TEXT
-        self.m_yield = False;
+        self.m_yield = True;
+
+
+    def init(self):
+        self._m_yield = self.m_yield;
 
     def m_transform(self, data, col):
         from pyquery import PyQuery as pyq
@@ -657,7 +670,7 @@ class PyQueryTF(Transformer):
             return;
         nodes =  root(self.script);
         for node in nodes:
-            ext = {'text': node.text() , 'html': to_str(node)};
+            ext = {'text': spider.get_node_text( node) , 'html': node};
             yield ext;
 
     def transform(self, data, col, ncol):
@@ -674,7 +687,7 @@ class PyQueryTF(Transformer):
             return
         node = nodes[0]
         if mode == GET_TEXT:
-            res= node.text()
+            res= spider.get_node_text(node)
         elif mode == GET_HTML:
             res=to_str(node);
         elif mode== GET_COUNT:
@@ -702,10 +715,10 @@ class XPathTF(Transformer):
         if tree is None:
             yield data;
             return;
-        nodes = tree.search_xpath(self.script);
+        nodes = tree.xpath(self.script);
         for node in nodes:
             html = etree.tostring(node).decode('utf-8');
-            ext = {'Text': spider.get_node_text(node), 'HTML': html};
+            ext = {'text': spider.get_node_text(node), 'html': html};
             yield ext;
 
     def transform(self, data,col,ncol):
@@ -816,9 +829,9 @@ class RangeGE(Generator):
 
 
 
-class SubEtlBase(object):
+class EtlGE(object):
     def __init__(self):
-        super(SubEtlBase, self).__init__()
+        super(EtlGE, self).__init__()
         self.selector=''
         self.range = '0:100'
         self.new_col=''
@@ -837,35 +850,51 @@ class SubEtlBase(object):
         buf = self.range.split(':');
         start = int(buf[0])
         end = int(buf[1])
-        return sub_etl.tools[start:end]
+        tools= sub_etl.tools[start:end]
+        for tool in tools:
+            tool.init()
+        return tools
 
-
-class EtlGE(Generator, SubEtlBase):
-    def __init__(self):
-        super(EtlGE, self).__init__()
-    def generate(self,data):
-        for r in generate(self._get_tools(data)):
-            yield r;
-
-
-class EtlEX(Executor, SubEtlBase):
-    def __init__(self):
-        super(EtlEX, self).__init__()
-    def execute(self,data):
+    def _generate(self, data,execute=False,init=False):
         if spider.is_none(self.new_col):
             doc = data.copy();
         else:
             doc = {};
             merge_query(doc, data, self.new_col + " " + self.column);
 
-        tools=self._get_tools(doc)
-        count=0;
-        for r in generate(tools, [doc],execute=self.enabled):
-            count+=1;
+        for r in generate(self._get_tools(doc),[doc],execute=execute,init=init):
+            yield r;
+
+
+    def generate(self,data):
+        return self._generate(data)
+
+
+class EtlEX(Executor, EtlGE):
+    def __init__(self):
+        super(EtlEX, self).__init__()
+
+
+    def process(self,data):
+        for d in data:
+            if self.debug == True:
+                for r in self._generate(d, False):
+                    yield r;
+            else:
+                yield self.execute(d)
+
+    def execute(self,data):
+
+        count=0
+        try:
+            for r in self._generate( data,self.enabled):
+                count+=1;
+        except Exception as e:
+            sys.stderr.write('subtask fail')
         print('subtask:'+to_str(count))
         return data;
 
-class EtlTF(Transformer, SubEtlBase):
+class EtlTF(Transformer, EtlGE):
 
     def __init__(self):
         super(EtlTF,self).__init__()
@@ -873,19 +902,18 @@ class EtlTF(Transformer, SubEtlBase):
         self._m_yield=True
 
     def m_transform(self,data,col):
-        new_data = data;
         if self.cycle:
             while new_data[col] != '':
-                result = first_or_default(generate(self._get_tools(new_data), [new_data.copy()]))
+                result = first_or_default(self._generate(data))
                 if result is None:
                     break
                 yield result.copy();
                 new_data = result;
         else:
-            for r in generate(self._get_tools(data), [data]):
+            for r in self._generate(data):
                 yield r
     def transform(self,data,col,ncol):
-        for r in generate(self._get_tools(data),[data]):
+        for r in self._generate(data):
             merge(data, r);
             break
 
@@ -904,37 +932,13 @@ class TextGE(Generator):
 
 
 
-class BaiduLocation(Transformer):
-    pass;
-
-
-class GetIPLocation(Transformer):
-    pass;
-
-class GetRoute(Transformer):
-    pass;
-
-class NearbySearch(Transformer):
-    pass;
-
-class NlpTF(Transformer):
-    pass;
-
-class TransTF(Transformer):
-    pass;
 class JoinDBTF(Transformer):
     pass;
 
 class RepeatTF(Transformer):
     pass;
-class ResponseTF(Transformer):
-    pass;
 
-class Time2StrTF(Transformer):
-    pass;
 
-class BfsGE(Generator):
-    pass;
 
 class DictTF(Transformer):
     pass;
@@ -1015,105 +1019,6 @@ class Project(EObject):
         return self;
     def pop(self,name):
         self.modules.pop(name)
-        return self;
-
-
-    def load_xml(self,path):
-
-
-        tree = ET.parse(path);
-
-        root = tree.getroot();
-        root = root.find('Doc');
-
-        def init_from_httpitem(config, item):
-            attrib = config.attrib;
-            paras = spider.para_to_dict(attrib['Parameters'], '\n', ':');
-            item.Headers = paras;
-            item.Url = attrib['URL'];
-            post = 'Postdata';
-            if post in attrib:
-                item.postdata = attrib[post];
-            else:
-                item.postdata = None;
-        def get_child_node(roots, name):
-            for etool in roots:
-                if etool.get('name') == name or etool.tag == name:
-                    return etool;
-            return None;
-
-        def set_attr(etl, key, value):
-            value=value.strip()
-            if key in ['Group', 'Type']:
-                return
-            intattrs = re.compile('Max|Min|count|index|interval|pos');
-            if value in ['True', 'False']:
-                setattr(etl, key, True if value == 'True' else False);
-            elif intattrs.search(key) is not None:
-                try:
-                    t = float(value);
-                    setattr(etl, key, t);
-                except ValueError:
-                    print('it is a ValueError')
-                    setattr(etl, key, value);
-
-            else:
-                setattr(etl, key, value);
-
-        def conv_key(key):
-            if key.find('selector') >= 0:
-                return  'selector';
-            elif key=='NewColumn':
-                return 'new_col';
-            return key;
-        for etool in root:
-            if etool.tag == 'children':
-                etype = etool.get('Type');
-                name = etool.get('name');
-                if etype == 'SmartETLTool':
-                    tool = ETLTask()
-                    tool.name=name;
-                    for m in etool:
-                        if m.tag == 'children':
-                            type = m.attrib['Type']
-                            etl =  eval(type+'()');
-                            etl._proj =self
-                            for key in m.attrib:
-                                value=m.attrib[key];
-                                set_attr(etl, conv_key(key), value );
-                            tool.tools.append(etl);
-                elif etype == 'SmartCrawler':
-                    tool = spider.SmartCrawler();
-                    tool.requests = spider.Requests()
-                    tool.name = etool.attrib['name'];
-                    tool.multi = etool.attrib['multi']
-                    tool.root = etool.attrib['root']
-                    httpconfig = get_child_node(etool, 'HttpSet');
-                    init_from_httpitem(httpconfig, tool.requests);
-                    login = get_child_node(etool, 'login');
-                    if login is not None:
-                        tool.login = spider.Requests()
-                        init_from_httpitem(login, tool.login);
-                    tool.xpaths = [];
-                    for child in etool:
-                        if child.tag == 'children':
-                            xpath = spider.xpath();
-                            xpath.name = child.attrib['name'];
-                            xpath.search_xpath = child.attrib['script'];
-                            xpath.IsHtml = child.attrib['IsHtml'] == 'True'
-                            tool.xpaths.append(xpath);
-
-                self.modules[name] = tool;
-                setattr(self, name, tool);
-            elif etool.tag == 'DBConnections':
-                for tool in etool:
-                    if tool.tag == 'children':
-                        connector = EObject();
-                        for key in tool.attrib:
-                            set_attr(connector, key, tool.attrib[key]);
-                        self.connectors[connector.name] = connector;
-
-        #print('load project success')
         return self;
 
     def dumps_json(self):
@@ -1222,8 +1127,9 @@ def generate(tools, generator=None, init=True, execute=False, enabled=True):
     for tool in tools:
         if tool.enabled == False and enabled == True:
             continue
-        if isinstance(tool,Executor) and execute==False:
-            continue;
+        if isinstance(tool,Executor):
+            if execute==False and tool.debug==False:
+                continue;
         if init:
             tool.init();
         generator = tool.process(generator)

@@ -103,7 +103,12 @@ def __get_sub_xpath(path,slice):
     r=path.split('/');
     paths= slice(r)
     return '/'.join(paths)
-def __search_table_root(tree, nodes, path_dict, has_child):
+def __search_table_root(tree, nodes, path_dict, has_child,strict=True):
+    if strict:
+        variance_max=2
+    else:
+        variance_max=10
+
     if nodes is None:
         return;
     if len(nodes) == 0:
@@ -115,7 +120,7 @@ def __search_table_root(tree, nodes, path_dict, has_child):
             childs= groupby(all_childs,key=lambda node:node.tag);
             for key,node_group in childs:
                 node_group = list(node_group);
-                __search_table_root(tree, node_group, path_dict, has_child);
+                __search_table_root(tree, node_group, path_dict, has_child,strict);
     target_node = list(node for node in nodes);  # filter(lambda x:not x.tag.startswith("#"),nodes);
     child_count = float(len(target_node));
     if 5 > child_count:
@@ -125,13 +130,13 @@ def __search_table_root(tree, nodes, path_dict, has_child):
     child_counts = [];
     for n in target_node:
         child_counts.append(len(list(r for r in n.iterchildren())));
-    v = extends.variance(child_counts);
-    if v > 2: return;
+    variance = extends.variance(child_counts);
+    if  variance > variance_max: return;
     leaf_count = get_node_leaf_count(target_node[0]);
-    if leaf_count<2:
+    if  leaf_count<2:
         return ;
     value = child_count * PM25 + leaf_count;
-    xpath = spider.remove_last_xpath_num(tree.getpath(node).split('/'));
+    xpath = spider.xpath_rm_last_num(tree.getpath(node).split('/'));
     path_dict[xpath] = value;
 
 
@@ -204,7 +209,8 @@ def __get_diff_nodes(trees,nodes, xpaths, has_attr):
             return trees[i];
         return trees;
     is_child_contain_info = False;
-    node1 = nodes[0]
+    index= len(nodes)/2;
+    node1 = nodes[index]
     tree1 = etree.ElementTree(node1);
     node1path = get_tree(0).getpath(node1);
     for child_node1 in node1.iterchildren():
@@ -213,7 +219,7 @@ def __get_diff_nodes(trees,nodes, xpaths, has_attr):
         for node in  nodes:
             targets = node.xpath(path);
             if len(targets) == 0:
-                break;
+                continue  #TODO: this is fucked
             node_child2.append(targets[0]);
         if len(node_child2) <= 1:
             continue;
@@ -300,12 +306,11 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
     if exist_len > 1:
         root_path = spider.get_common_xpath(exist_xpaths);
         return root_path, get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
-
     elif exist_len == 1:
-        real_path = spider.XPath(exist_xpaths[0].path);
+        real_path = exist_xpaths[0];
         path_dict = {};
-        for r in real_path.itersub():
-            __search_table_root(root.xpath(str(r)), path_dict, False);
+        for r in  spider.xpath_iter_sub( real_path.path):
+            __search_table_root(tree,root.xpath(str(r)), path_dict, False,strict=False);
         max_p = 0;
         path = None;
         for r in path_dict:
@@ -313,7 +318,9 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
                 path = r;
             max_p = path_dict[r];
         if path is not None:
-            return get_diff_nodes(tree, root, path, is_attr, exist_xpaths);
+            items=get_diff_nodes(tree, root, path, is_attr, exist_xpaths);
+            if len(items)>1:
+                return path,items
     else:
         path_dict = {};
         __search_table_root(tree, [root], path_dict, True);
@@ -322,6 +329,7 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
             items = get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
             if len(items) > 1:
                 return root_path,items;
+    return None,None
 
 
 def get_list(html,xpaths=None, has_attr=False):

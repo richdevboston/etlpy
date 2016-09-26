@@ -122,7 +122,10 @@ def get_keys(generator,s):
         if count<5:
             for key in r.keys():
                 if not key.startswith('_'):
-                    setattr(s,key,key);
+                    try:
+                        setattr(s,key,key)
+                    except Exception as e:
+                        pass
         yield r
 
 def repl_long_space(txt):
@@ -222,6 +225,10 @@ def cross(a, gene_func):
                 r1[key] = r2[key]
             yield dict.copy(r1);
 
+def cross_array(a,b,func):
+    for i in a:
+        for j in b:
+            yield func(i,j)
 
 
 def merge_all(a, b):

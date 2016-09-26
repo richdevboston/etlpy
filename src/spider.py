@@ -37,13 +37,12 @@ class XPath(extends.EObject):
     def __str__(self):
         return "%s %s %s" % (self.name, self.path, self.sample);
 
-def remove_last_xpath_num(paths):
+def xpath_rm_last_num(paths):
     v = paths[-1];
     m = box_regex.search(v);
-    if m is None:
-        return paths;
-    s = m.group(0);
-    paths[-1] = v.replace(s, "");
+    if m is not  None:
+        s = m.group(0);
+        paths[-1] = v.replace(s, "");
     return '/'.join(paths);
 
 def get_common_xpath(xpaths):
@@ -57,13 +56,19 @@ def get_common_xpath(xpaths):
                 c = path[i];
             elif c != path[i]:
                 first = path[0:i + 1];
-                return  remove_last_xpath_num(first);
+                return  xpath_rm_last_num(first);
 
 def xpath_take_off(path,root_path):
     r= path.replace(root_path,'');
     if r.startswith('['):
         r= '/'.join(r.split('/')[1:])
-    return r;
+    return r
+
+def xpath_iter_sub(path):
+    xps= path.split('/');
+    for i in range(2,len(xps)):
+        xp  =xpath_rm_last_num(xps[:i])
+        yield xp;
 attrsplit=re.compile('@|\[');
 
 
@@ -366,6 +371,9 @@ class SmartCrawler(extends.EObject):
             print('great hand can only be used in list')
             return self;
         root_path,xpaths= search_properties(tree,self.xpaths,attr);
+        if root_path is None:
+            print ('great hand failed')
+            return self;
         datas= _get_datas(tree,xpaths,self.multi, None)
         self._datas= datas;
         self._xpaths= xpaths;
