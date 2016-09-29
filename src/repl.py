@@ -3,7 +3,7 @@
 
 
 from distributed import *
-
+from extends import  *
 proj= etl.Project();
 
 
@@ -17,7 +17,6 @@ def spider(name='_crawler'):
     proj.modules[name]=sp;
     sp.name=name;
     sp._proj=proj
-    setattr(proj,name,sp);
     return sp;
 
 
@@ -45,20 +44,35 @@ def connector(name,connector):
 def task(name='etl'):
     import inspect
     import extends
-    base_type= [etl.Filter, etl.Generator, etl.Executor, etl.Transformer];
+    base_type= [etl.ETLTool,etl.Filter,etl.EtlBase, etl.Generator, etl.Executor, etl.Transformer];
     ignore_paras=['one_input','multi','column'];
     my_task= etl.ETLTask();
     my_task._proj=proj;
     my_task.name=name;
     proj.modules[name]=my_task;
-    setattr(proj,name,my_task);
 
+    def attr_filler(attr):
+        if attr.startswith('_'):
+            return  True
+        if attr in ignore_paras:
+            return True
+        return  False
     def set_attr(val, dic):
-        for k in val.__dict__:
-            if k.lower() in dic:
-                setattr(val, k, dic[k.lower()])
+        default = type(val)().__dict__;
+        for key in val.__dict__:
+            if key.startswith('_'):
+                continue
+            dv=default[key]
+            value = dic.get(key,dv)
+
+            if value==dv:
+                if key in para_dict:
+                    key2=para_dict[key]
+                    value= dic.get(key2,None)
+            if value is not None:
+                setattr(val, key, value)
     def _rename(module):
-        repl={'TF':'','Python':'py','Parallel':'pl'}
+        repl={'TF':'','Python':'py','Parallel':'pl','delete':'del'}
         for k,v in repl.items():
             module= module.replace(k,v)
         return module.lower();
@@ -70,14 +84,17 @@ def task(name='etl'):
         new_tool._proj=proj
         set_attr(new_tool,locals())
         my_task.tools.append(new_tool);
-        new_tool._index= len(my_task.tools)
         return my_task;
     '''
-
+    para_dict={'selector':'sl','script':'sc'}
     def merge_func(k, v):
         if extends.is_str(v):
             v = "'%s'" % (v);
-        return '%s=%s' % (k.lower(), v);
+        yield '%s=%s' % (k, v)
+        if k in para_dict:
+            k=para_dict[k]
+            yield '%s=%s'% (k, v)
+
     for name,tool_type in etl.__dict__.items():
         if not inspect.isclass(tool_type):
             continue;
@@ -86,7 +103,7 @@ def task(name='etl'):
         if tool_type in base_type:
             continue;
         tool=tool_type();
-        paras=[merge_func(k,v) for k,v in tool.__dict__.items() if not k.startswith('_')  and k not in ignore_paras]
+        paras= to_list(concat((merge_func(k,v) for k,v in tool.__dict__.items() if not attr_filler(k))))
         paras.sort()
         paras=','.join(paras);
         new_name=_rename(name)

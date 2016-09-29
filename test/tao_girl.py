@@ -54,8 +54,8 @@ b.number('col9:deal,col7:like,col8:count,col6:good_rate,col4:fensi')
 b.number('age id')
 b.delete('col9 col8 col5 col6 col7 col4 mm-photolike-count_radius-3')
 b.pl(count_per_thread=20)
-b.dbex(connector='mongo',table='taobao_gril')
-b.etlex(selector='albumlist',range='1:100')
+b.dbex(sl='mongo',table='taobao_gril')
+b.etlex(sl='albumlist',range='1:100')
 
 
 # album通过手气不错，来获取一个网红的所有迷之相册,同样id也没有自动获取。

@@ -197,7 +197,8 @@ def _get_page(url=None, headers=None, post_data='', timeout=30):
     socket.setdefaulttimeout(timeout);
     t = [(r.strip(), headers[r]) for r in headers];
     opener.addheaders = t;
-    binary_data = post_data.encode('utf-8')
+    import urllib
+
     try:
         url.encode('ascii')
     except Exception as e:
@@ -207,7 +208,16 @@ def _get_page(url=None, headers=None, post_data='', timeout=30):
         if post_data == '':
             page = opener.open(url);
         else:
-            page = opener.open(url, binary_data)
+            import requests
+            request = requests.post(
+                 url,
+                data=post_data)
+
+            print(request.content)
+            #page=opener.open(request)
+
+            #binary_data = urllib.urlencode(post_data)  # post_data #.encode('utf-8')
+            #page = opener.open(url, binary_data)
         return page;
     except Exception as e:
         sys.stderr.write(str(e));
@@ -386,7 +396,18 @@ class SmartCrawler(extends.EObject):
         self.requests.post_data=post_data;
         return self;
 
+    def rename(self,column):
+        if column.find(u':') >= 0:
+            column = extends.para_to_dict(column, ',', ':')
+            for path in self.xpaths:
+                if path.name in column:
+                    path.name=column[path.name]
+        elif column.find(' ') > 0:
+            column = [r.strip() for r in column.split(' ')]
+            for i in min(len(column),len(self.xpaths)):
+                self.xpaths[i].name=column[i]
 
+        return self;
     def test(self):
         paths= self.xpaths if self._stage > 3 else self._xpaths;
         root= self.root if self._stage >3  else self._root;

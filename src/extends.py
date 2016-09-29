@@ -59,6 +59,11 @@ def foreach(generator,func):
         func(r)
         yield r;
 
+def concat(generators):
+    for g in generators:
+        for r in g:
+            yield r
+
 def to_list(generator, max_count=None):
     datas=[]
     count = 0;
@@ -98,6 +103,7 @@ def get(generator, format='print', count=20):
         for d in generator:
             pprint.pprint(d);
         return ;
+
     elif format == 'key':
         import pprint
         for d in generator:
@@ -148,10 +154,12 @@ def para_to_dict(para, split1, split2):
     for s in para.split(split1):
         s=s.strip();
         rs = s.split(split2);
-        if len(rs) < 2:
-            continue;
+
         key = rs[0].strip();
-        value = s[len(key) + 1:].strip();
+        if len(rs) < 2:
+            value=key
+        else:
+            value = s[len(key) + 1:].strip();
         r[rs[0]] = value;
     return r;
 
@@ -223,7 +231,23 @@ def cross(a, gene_func):
         for r2 in gene_func(r1):
             for key in r2:
                 r1[key] = r2[key]
-            yield dict.copy(r1);
+                yield dict.copy(r1);
+
+
+def mix(g1,g2):
+    while True:
+        t1 = g1.next()
+        if t1 is None:
+            pass;
+        else:
+            yield t1
+        t2 = g2.next()
+        if t2 is None:
+            pass
+        else:
+            yield t2;
+        if t1 is None and t2 is None:
+            return
 
 def cross_array(a,b,func):
     for i in a:

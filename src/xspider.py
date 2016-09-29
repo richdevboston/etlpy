@@ -162,7 +162,7 @@ def _tn_find(string,rule):
 
 def search_xpath(node, keyword, match_func='str',has_attr=False):
     tree = etree.ElementTree(node);
-    dics={'str':_str_find,'tn':_tn_find,'re':_regex_find};
+    dics={'str':_str_find,'tn':_tn_find,'script':_regex_find};
     return __search_xpath(tree,node,keyword,dics[match_func] ,has_attr);
 
 

@@ -88,7 +88,7 @@ class Master:
         mapper, reducer, parallel = etl.parallel_map(module.tools)
 
         count_per_group = parallel.count_per_thread if parallel is not None else 1;
-        task_generator= extends.group_by_mount(etl.generate(mapper), count_per_group, take, skip);
+        task_generator= extends.group_by_mount(etl.ex_generate(mapper), count_per_group, take, skip);
         task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher', etl.count(mapper))
         try:
             while True:
@@ -175,7 +175,7 @@ class Slave:
                     task_result=Task(job.id,i,task);
                     count=0;
                     try:
-                        generator= etl.generate(reducer, generator=[task], execute= execute)
+                        generator= etl.ex_generate(reducer, generator=[task], execute= execute)
                         for r in generator:
                             #print(r.keys())
                             count+=1;

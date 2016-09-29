@@ -17,12 +17,16 @@ else:
     import html
 
 MERGE_APPEND= 'append';
-MERGE_TYPE_CROSS='cross'
-MERGE_TYPE_MERGE='merge'
+MERGE_CROSS= 'cross'
+MERGE_MERGE= 'merge'
+MERGE_MIX= 'mix'
 
 GENERATE_DOCS='docs'
 GENERATE_DOC= 'doc'
 GENERATE_NONE='none';
+
+CONV_ENCODE='encode'
+CONV_DECODE='decode'
 cols=EObject()
 
 GET_HTML='html'
@@ -49,12 +53,16 @@ class ETLTool(EObject):
             return True
         if not is_str(self.script):
             return self.script(self)
-        from pytz import utc
-        from time import mktime
-        def get_time(mtime):
-            ts = mktime(utc.localize(mtime).utctimetuple())
-            return ts;
         result=None;
+        from datetime import datetime
+
+        from time import mktime,strptime,strftime
+        def get_time(mtime):
+            from pytz import utc
+            if mtime == '':
+                mtime = datetime.now()
+            ts = mktime(utc.localize(mtime).utctimetuple())
+            return int(ts);
         try:
             if global_para is not None:
                 result = eval(self.script,global_para,locals())
@@ -96,7 +104,10 @@ class Transformer(ETLTool):
                     d[ncol]=res;
                 else:
                     ncol = ncol if ncol != '' and  ncol is  not None else col;
-                    self.transform(d,col,ncol);
+                    try:
+                        self.transform(d,col,ncol);
+                    except Exception as e:
+                        pass;
             column=self.column;
             if is_str(self.column):
                 if self.column.find(u':')>=0:
@@ -134,6 +145,7 @@ class Filter(ETLTool):
     def filter(self,data):
         return True;
     def process(self, data):
+        error=0;
         for r in data:
             item = None;
             if self.one_input:
@@ -149,12 +161,20 @@ class Filter(ETLTool):
             elif result == False and self.revert == True:
                 yield r;
             else:
-                if self.stop_while:
+                error+=1
+                if self.stop_while==False:
+                    continue
+                elif  self.stop_while==True:
+                    sys.stdout.write('stop iter \n')
                     break;
+                elif isinstance(self.stop_while, int) and error >= self.stop_while:
+                    sys.stdout.write('stop iter \n')
+                    break
+
 class Generator(ETLTool):
     def __init__(self):
         super(Generator, self).__init__()
-        self.mode= 'Append'
+        self.mode= 'append'
         self.pos= 0;
     def generate(self,generator):
         pass;
@@ -165,10 +185,12 @@ class Generator(ETLTool):
         else:
             if self.mode== MERGE_APPEND:
                 return append(generator, self.process(None));
-            elif self.mode==MERGE_TYPE_MERGE:
+            elif self.mode==MERGE_MERGE:
                 return merge(generator, self.process(None));
-            else:
+            elif self.mode==MERGE_CROSS:
                 return cross(generator, self.generate)
+            else:
+                return mix(generator, self.process(None))
 
 
 EXECUTE_INSERT='insert'
@@ -234,9 +256,6 @@ class JsonConnector(FileConnector):
         for r in items:
             yield r;
 
-
-
-
 class DbEX(Executor):
     def __init__(self):
         super(DbEX, self).__init__();
@@ -287,16 +306,21 @@ def set_value(data, value, col, ncol=None):
     else:
         data[col]=value;
 
-class RegexFT(Filter):
+class MatchFT(Filter):
     def __init__(self):
-        super(RegexFT, self).__init__();
+        super(MatchFT, self).__init__();
         self.script=''
+        self.mode='str'
     def init(self):
-        self.regex = re.compile(self.script);
+        if self.mode=='re':
+            self.regex = re.compile(self.script);
         self.count=1;
 
     def filter(self,data):
-        v = self.regex.findall(data);
+        if self.mode=='str':
+            v= [data[i:].startswith(self.script) for i in range(len(data))]
+        else:
+            v = self.regex.findall(data);
         if v is None:
             return False;
         else:
@@ -305,11 +329,11 @@ class RegexFT(Filter):
 class RangeFT(Filter):
     def __init__(self):
         super(RangeFT, self).__init__();
-        self.Min=0;
-        self.Max=100;
+        self.min=0;
+        self.max=100;
     def filter(self,item):
         f = float(item)
-        return self.Min <= f <= self.Max;
+        return self.min <= f <= self.max;
 
 class RepeatFT(Filter):
     def __init__(self):
@@ -334,14 +358,43 @@ class NullFT(Filter):
         return True;
 
 
+
+class RequestTF(Transformer):
+    def __init__(self):
+        super(RequestTF, self).__init__()
+        self.url=''
+
+    def transform(self, data, col, ncol):
+        sub_dict= data[col];
+        for k,v in sub_dict.items():
+            if PY2 and isinstance(v,unicode):
+                v= v.encode('utf-8')
+                sub_dict[k]=v
+        url_p=urllib.urlencode(sub_dict);
+        url= query(data,self.url)
+        data[ncol]=url+'?'+ url_p
+
+
 class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
         self.value=''
         self._m_yield=True
+        self.mode=GENERATE_NONE
+
+
     def m_transform(self, data, col):
-        data[col] = self.value;
-        yield data;
+        if self.mode==GENERATE_NONE:
+            data[col] = self.value;
+            yield data;
+        elif self.mode==GENERATE_DOC:
+            merge(data,self.value)
+            yield data;
+        else:
+            for d in self.value:
+                yield merge(data.copy(),d)
+
+
 
 
 
@@ -365,9 +418,55 @@ class RenameTF(Transformer):
 class DeleteTF(Transformer):
     def __init__(self):
         super(DeleteTF, self).__init__()
-        self.script=None;
+        self.script= ''
+
+    def init(self):
+        self._m_yield= self.script != ''
+        if self.script!= '':
+            self._re=re.compile(self.script)
+
+    def m_transform(self, data, col):
+        for k,v in data.items():
+            if self._re.match(k):
+                del data[k]
+        yield data
+
     def transform(self, data,col,ncol ):
         del data[col];
+
+
+class KeepTF(Transformer):
+    def __init__(self):
+        super(KeepTF, self).__init__()
+        self._m_yield=True
+        self.script= ''
+
+    def init(self):
+        if self.script!= '':
+            self._re = re.compile(self.script)
+
+    def m_transform(self, data, col):
+        doc = {}
+        if col.find(':')>0:
+            col= para_to_dict(col,',',':');
+            for k, v in data.items():
+                if k in col:
+                    doc[col[k]] = v
+            yield doc
+        else:
+            col=col.split(' ');
+
+            for k,v in data.items():
+                if  self.script== '':
+                    if k in col:
+                        doc[k]=v
+                else:
+                    if self._re.match(k):
+                        doc[k]=v
+            yield doc
+
+
+
 
 class HtmlTF(Transformer):
     def __init__(self):
@@ -375,7 +474,17 @@ class HtmlTF(Transformer):
         self.one_input=True;
         self.mode='decode'
     def transform(self, data):
-        return html.escape(data) if self.mode == 'encode' else html.unescape(data);
+        if PY2:
+
+            import HTMLParser
+            html_parser = HTMLParser.HTMLParser()
+            if self.mode=='decode':
+                return html_parser.unescape(data)
+            else:
+                import cgi
+                return  cgi.escape(data)
+        else:
+            return html.escape(data) if self.mode == 'encode' else html.unescape(data);
 
 
 class UrlTF(Transformer):
@@ -597,12 +706,15 @@ class PythonFT(Filter):
     def filter(self, data):
         import inspect
         data=data.copy();
+
+        col=self.column
+        value = data[col] if col in data else '';
         if is_str(self.script):
-            result = self._eval_script(data);
+            result = self._eval_script({'value': value, 'data': data}, data);
         elif inspect.isfunction(self.script):
             result = self.script(data)
         if result==None:
-            return True;
+            return False
         return result;
 
 class CrawlerTF(Transformer):
@@ -612,7 +724,9 @@ class CrawlerTF(Transformer):
         self.max_try=1;
         self.is_regex=False
         self.post_data=''
-
+        self.refresh=False
+        self.debug=False
+        self.__buff = {};
     def init(self):
         if is_str(self.selector):
             dic= self._proj.modules;
@@ -622,9 +736,12 @@ class CrawlerTF(Transformer):
                 sys.stderr.write('crawler {name} can not be found in project'.format(name=self.selector))
         else:
             self._crawler=self.selector;
-        self.__buff = {};
+        if self.refresh:
+            self.__buff={}
         self._m_yield = self._crawler.multi   and len(self._crawler.xpaths)>0;
     def _get_data(self,url,post_data=''):
+        if self.debug:
+            print(url)
         crawler = self._crawler;
         buff = self.__buff;
         if post_data is None:
@@ -644,9 +761,9 @@ class CrawlerTF(Transformer):
         for d in datas:
             yield d;
     def transform(self, data, col,ncol):
-
+        url=data[col]
         post_data= query(data,self.post_data);
-        ndata=self._get_data(data[col],post_data)
+        ndata=self._get_data(url,post_data)
         for k,v in ndata.items():
             data[k]=v;
 
@@ -759,16 +876,32 @@ class TnTF(Transformer):
         super(TnTF,self).__init__()
         self.rule=None;
         self.one_input=True;
+
     def init(self):
-        import tn
-        if not hasattr(self,'_core'):
-            self._core = tn.core;
-        self._core.init_py_rule(tn)
-        self._core.rebuild()
+        import codecs
+        from tn_py.tnpy import tn
+        import tn_py.tnnlp as tnnlp
+        import tn_py.custom as custom
+        TnTF.log=False
+        if not hasattr(TnTF,'core'):
+            TnTF.core = tn()
+            core=TnTF.core
+
+            core.init_tn_rule('src/tn_py/cnext', True)
+            core.init_py_rule(tnnlp)
+            core.init_py_rule(custom)
+            if TnTF.log:
+                core.log_file= codecs.open("../test/log.txt", 'w', encoding='utf-8')
+            core.rebuild()
     def transform(self,data):
-        result=self._core.extract(data, entities=[self.rule]);
+        core=TnTF.core;
+        data=to_str(data)
+        result=core.extract(data, entities=[self.rule]);
         if any(result):
-            return result[0]['#rewrite'];
+            result= result[0]['#rewrite'];
+            return result
+        if TnTF.log:
+            core.log_file.flush()
         return '';
 
 
@@ -780,10 +913,12 @@ class ParallelTF(Transformer):
     def m_transform(self, data,col):
         yield data;
 
+
 class JsonTF(Transformer):
     def __init__(self):
         super(JsonTF, self).__init__()
         self.mode= GENERATE_NONE
+        self.conv_mode=CONV_DECODE
 
     def init(self):
         self._m_yield= self.mode == GENERATE_DOCS;
@@ -794,11 +929,15 @@ class JsonTF(Transformer):
             yield j;
 
     def transform(self, data,col,ncol):
-        js = json.loads(data[col]);
-        if self.mode==GENERATE_DOC:
-            merge(data, js);
+        if self.conv_mode== CONV_DECODE:
+
+            js = json.loads(data[col]);
+            if self.mode==GENERATE_DOC:
+                merge(data, js);
+            else:
+                data[ncol]=js
         else:
-            data[ncol]=js
+            data[ncol]=json.dumps(data[col])
 
 class RangeGE(Generator):
     def __init__(self):
@@ -816,12 +955,16 @@ class RangeGE(Generator):
         interval= get_int(query(generator, self.interval),1)
         max_value= get_int(query(generator, self.max),1)
         min_value= get_int(query(generator, self.min),1)
+        if min_value==max_value:
+            yield {self.column:min_value}
+            return
         if interval>0:
             values=range(min_value,max_value,interval);
         else:
             values=range(max_value,min_value,interval)
         for i in values:
-            item= {self.column:round(i, 5)}
+
+            item= {self.column:i}
             yield item;
 
 
@@ -829,9 +972,9 @@ class RangeGE(Generator):
 
 
 
-class EtlGE(object):
+class EtlBase(ETLTool):
     def __init__(self):
-        super(EtlGE, self).__init__()
+        super(EtlBase, self).__init__()
         self.selector=''
         self.range = '0:100'
         self.new_col=''
@@ -845,7 +988,8 @@ class EtlGE(object):
 
 
     def _get_tools(self,data):
-        data=data.copy()
+        if data is not None:
+            data=data.copy()
         sub_etl = self._get_task( data)
         buf = self.range.split(':');
         start = int(buf[0])
@@ -856,21 +1000,27 @@ class EtlGE(object):
         return tools
 
     def _generate(self, data,execute=False,init=False):
+        doc=None
         if spider.is_none(self.new_col):
-            doc = data.copy();
+            if data is not None:
+                doc = data.copy();
         else:
-            doc = {};
             merge_query(doc, data, self.new_col + " " + self.column);
-
-        for r in generate(self._get_tools(doc),[doc],execute=execute,init=init):
+        generator=[doc] if doc is not None else None
+        for r in ex_generate(self._get_tools(doc),generator,execute=execute,init=init):
             yield r;
 
 
-    def generate(self,data):
+
+class EtlGE(Generator,EtlBase):
+    def __init__(self):
+        super(EtlGE, self).__init__()
+
+
+    def generate(self, data):
         return self._generate(data)
 
-
-class EtlEX(Executor, EtlGE):
+class EtlEX(Executor, EtlBase):
     def __init__(self):
         super(EtlEX, self).__init__()
 
@@ -894,7 +1044,7 @@ class EtlEX(Executor, EtlGE):
         print('subtask:'+to_str(count))
         return data;
 
-class EtlTF(Transformer, EtlGE):
+class EtlTF(Transformer, EtlBase):
 
     def __init__(self):
         super(EtlTF,self).__init__()
@@ -941,7 +1091,21 @@ class RepeatTF(Transformer):
 
 
 class DictTF(Transformer):
-    pass;
+    def __init__(self):
+        super(DictTF, self).__init__();
+        self.mode= CONV_ENCODE
+        self.script=''
+        self._m_yield = True;
+
+    def m_transform(self, data, col):
+        if self.mode==CONV_ENCODE:
+            doc={}
+            merge_query(doc,data,self.script);
+            data[col]=doc;
+            yield data;
+        else:
+            col_data=data[col]
+            yield merge(data.copy(),col_data);
 
 class FileExistFT(Transformer):
     def __init__(self):
@@ -1120,6 +1284,19 @@ def convert_dict(obj):
     return obj;
 
 
+def ex_generate(tools, generator=None, init=True, execute=False, enabled=True):
+    mapper, reducer, tolist = parallel_map(tools)
+    if init:
+        for tool in tools:
+            tool.init();
+    for r in generate(mapper, generator, init=False, execute=execute):
+        if reducer is None:
+            yield r;
+        else:
+            if isinstance(r, dict):
+                r = [r]
+            for p in ex_generate(reducer, r, init=False, execute=execute):
+                yield p;
 
 def generate(tools, generator=None, init=True, execute=False, enabled=True):
     if tools is None:
@@ -1149,10 +1326,7 @@ def count(generator):
 def parallel_map(tools):
     index= get_index(tools, lambda x:isinstance(x, ParallelTF))
     if index==-1:
-        if isinstance(tools[0],Generator):
-            return tools[:1],tools[1:],None;
-        else:
-            return tools,None,None;
+        return tools,None,None;
     mapper = tools[:index]
     reducer=tools[index+1:]
     parameter= tools[index];
@@ -1180,7 +1354,7 @@ class ETLTask(EObject):
             attr=EObject()
             tool=self.tools[i];
             title= get_type_name(tool).replace('etl.','')+' '+tool.column;
-            list_datas =  to_list(progress_indicator(get_keys(get_mount(generate(self.tools[:i],init=False),take=count), attr), count=count,title=title));
+            list_datas =  to_list(progress_indicator(get_keys(get_mount(ex_generate(self.tools[:i],init=False),take=count), attr), count=count,title=title));
             keys= ','.join(attr.__dict__.keys())
             print('%s, %s, %s'%(str(i),title,keys))
 
@@ -1229,15 +1403,8 @@ class ETLTask(EObject):
 
     def query(self, etl_count=100, execute=False):
         tools=self.tools[:etl_count];
-        mapper,reducer,tolist= parallel_map(tools)
-        for tool in tools:
-            tool.init();
-        for r in generate(mapper,None,init=False, execute=execute):
-            if  isinstance(r,dict):
-                r=[r]
-            for p in  generate(reducer, r, init=False,execute= execute):
-                yield p;
-
+        for r in ex_generate(tools):
+            yield r;
 
     def execute(self, etl_count=100, execute=True):
         count= force_generate(progress_indicator( self.query(etl_count,execute)))
