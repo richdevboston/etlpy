@@ -305,7 +305,7 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
     exist_len = len(exist_xpaths);
     if exist_len > 1:
         root_path = spider.get_common_xpath(exist_xpaths);
-        return root_path, get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
+        yield root_path, get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
     elif exist_len == 1:
         real_path = exist_xpaths[0];
         path_dict = {};
@@ -320,7 +320,7 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
         if path is not None:
             items=get_diff_nodes(tree, root, path, is_attr, exist_xpaths);
             if len(items)>1:
-                return path,items
+                yield path,items
     else:
         path_dict = {};
         __search_table_root(tree, [root], path_dict, True);
@@ -328,8 +328,8 @@ def search_properties(root, exist_xpaths=None, is_attr=False):
         for root_path in path_dict:
             items = get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
             if len(items) > 1:
-                return root_path,items;
-    return None,None
+                yield root_path,items;
+    yield None,None
 
 
 def get_list(html,xpaths=None, has_attr=False):

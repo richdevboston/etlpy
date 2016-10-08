@@ -42,7 +42,7 @@ def get_mount(generator,take=None,skip=0):
         i += 1;
         if i<skip:
             continue;
-        if take is not None and i>take+skip:
+        if isinstance( take,int) and i>0  and i>take+skip:
             break;
         yield r;
 
@@ -147,7 +147,16 @@ def merge(d1, d2):
         d1[r] = d2[r];
     return d1;
 
-
+def conv_dict(dic,para_dic):
+    import copy
+    dic=copy.copy(dic)
+    for k,v in para_dic.items():
+        if k==v:
+            continue
+        if k in dic:
+            dic[v]=dic[k]
+            del dic[k]
+    return dic
 
 def para_to_dict(para, split1, split2):
     r = {};
@@ -315,7 +324,7 @@ def dict_copy_poco(obj,dic):
 
 
 
-def group_by_mount(generator, group_count=10, take=9999999, skip=0):
+def group_by_mount(generator, group_count=10, take=-1, skip=0):
     tasks = [];
     task_id=0
 
@@ -331,8 +340,8 @@ def group_by_mount(generator, group_count=10, take=9999999, skip=0):
             tasks=[]
         if task_id < skip:
             continue
-        if task_id > take:
-            break;
+        if take>=0 and task_id > take:
+            break
 
 if __name__ == '__main__':
     res= is_in_ipynb();

@@ -5,8 +5,26 @@
 from distributed import *
 from extends import  *
 proj= etl.Project();
+import inspect
+import extends
+
+__base_type = [etl.ETLTool, etl.Filter, etl.EtlBase, etl.Generator, etl.Executor, etl.Transformer];
+__ignore_paras = ['one_input', 'multi', 'column'];
+
+tool_dict={}
+
+def get_etl(dic):
+    for name, tool_type in etl.__dict__.items():
+        if not inspect.isclass(tool_type):
+            continue;
+        if not issubclass(tool_type, etl.ETLTool):
+            continue
+        if tool_type in __base_type:
+            continue;
+        dic[name]=tool_type
 
 
+get_etl(tool_dict)
 def html(text):
     from IPython.core.display import HTML, display
     display(HTML(text));
@@ -42,10 +60,8 @@ def connector(name,connector):
     return connector
 
 def task(name='etl'):
-    import inspect
-    import extends
-    base_type= [etl.ETLTool,etl.Filter,etl.EtlBase, etl.Generator, etl.Executor, etl.Transformer];
-    ignore_paras=['one_input','multi','column'];
+
+
     my_task= etl.ETLTask();
     my_task._proj=proj;
     my_task.name=name;
@@ -54,7 +70,7 @@ def task(name='etl'):
     def attr_filler(attr):
         if attr.startswith('_'):
             return  True
-        if attr in ignore_paras:
+        if attr in __ignore_paras:
             return True
         return  False
     def set_attr(val, dic):
@@ -72,7 +88,7 @@ def task(name='etl'):
             if value is not None:
                 setattr(val, key, value)
     def _rename(module):
-        repl={'TF':'','Python':'py','Parallel':'pl','delete':'del'}
+        repl={'TF':'','Python':'py','Parallel':'pl'}
         for k,v in repl.items():
             module= module.replace(k,v)
         return module.lower();
@@ -100,7 +116,7 @@ def task(name='etl'):
             continue;
         if  not issubclass(tool_type, etl.ETLTool) :
             continue
-        if tool_type in base_type:
+        if tool_type in __base_type:
             continue;
         tool=tool_type();
         paras= to_list(concat((merge_func(k,v) for k,v in tool.__dict__.items() if not attr_filler(k))))

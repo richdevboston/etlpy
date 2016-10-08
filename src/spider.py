@@ -1,29 +1,15 @@
 # coding=utf-8
-import extends
+from extends import  *
 import sys;
 import re
-if extends.PY2:
-    import urllib2
-    from urlparse import urlparse
-    from urlparse import urlunparse
-    import cookielib
-    from urllib import quote
-else:
-    import http.cookiejar
-    from urllib.request import quote
-    from urllib.parse import urlparse, urlunparse
-    import urllib.request
+import requests
 
-import socket
+
 from xspider import *
 import random;
 box_regex = re.compile(r"\[\d{1,3}\]");
 
 agent_list = []
-# with open('agent.list.d') as f:
-#     for line_data in f:
-#         agent_list.append(line_data.strip())
-
 
 class XPath(extends.EObject):
     def __init__(self, name=None, xpath=None, is_html =False, sample=None, must=False):
@@ -102,129 +88,16 @@ extract = re.compile('\[(\w+)\]');
 charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
 charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
 
-
-def parse_url(r_url, url):
-    u = extends.para_to_dict(urlparse(r_url).query, '&', '=');
-    for r in extract.findall(url):
-        url = url.replace('[' + r + ']', u[r])
-    return url;
-
-
-
-def _build_opener():
-    if extends.PY2:
-        cookie_support = urllib2.HTTPCookieProcessor(cookielib.CookieJar())
-        opener = urllib2.build_opener(cookie_support, urllib2.HTTPHandler)
-        urllib2.install_opener(opener)
-    else:
-
-        cj = http.cookiejar.CookieJar()
-        pro = urllib.request.HTTPCookieProcessor(cj)
-        opener = urllib.request.build_opener(pro)
-    return opener;
-
-
 default_encodings=['utf-8','gbk'];
-class Requests(extends.EObject):
-    '''
-    save request parameters and can query_xpath html from certain url
-    '''
-    def __init__(self):
-        self.url = ''
-        self.cookie = '';
-        self.headers = {};
-        self.timeout = 30;
-        self.opener = "";
-        self.post_data= ''
-        self.best_encoding= 'utf-8'
-        self.method='GET'
-
-    def set_headers(self, headers):
-        dic = extends.para_to_dict(headers, '\n', ':')
-        extends.merge(self.headers, dic);
-        return self;
-
-    def add_proxy(self, address, proxy_type='all',
-                  user=None, password=None):
-        if proxy_type == 'all':
-            self.proxies = {'http': address, 'https': address, 'ftp': address}
-        else:
-            self.proxies[proxy_type] = address
-        proxy_handler = urllib2.ProxyHandler(self.proxies)
-        self._build_opener()
-        self.opener.add_handler(proxy_handler)
-
-        if user and password:
-            pwd_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
-            pwd_manager.add_password(None, address, user, password)
-            proxy_auth_handler = urllib2.ProxyBasicAuthHandler(pwd_manager)
-            self.opener.add_handler(proxy_auth_handler)
-        urllib2.install_opener(self.opener)
 
 
-    def remove_proxy(self):
-        self._build_opener()
-        urllib2.install_opener(self.opener)
-
-
-
-    def get_page(self, url=None,post_data=''):
-        if url is None:
-            url = self.url;
-        if post_data is None:
-            post_data=self.post_data;
-        return _get_page(url,self.headers,post_data,self.timeout);
-
-
-
-    def get_html(self, url=None,post_data=''):
-        page = self.get_page(url,post_data)
-        return _get_page_html(page,self.best_encoding)
-
-def _get_page(url=None, headers=None, post_data='', timeout=30):
-    def irl_to_url(iri):
-        parts = urlparse(iri)
-        pp = [(i, part) for i, part in enumerate(parts)]
-        res = [];
-        for p in pp:
-            res.append(p[1] if p[0] != 4 else quote(p[1]))
-        return urlunparse(res);
-
-    opener= _build_opener();
-    if headers is None:
-        headers={};
-    headers['User-Agent'] = random.choice(agent_list) if len(agent_list)>0 else 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0'
-    socket.setdefaulttimeout(timeout);
-    t = [(r.strip(), headers[r]) for r in headers];
-    opener.addheaders = t;
-    import urllib
-
-    try:
-        url.encode('ascii')
-    except Exception as e:
-        url = irl_to_url(url)
-
-    try:
-        if post_data == '':
-            page = opener.open(url);
-        else:
-            import requests
-            request = requests.post(
-                 url,
-                data=post_data)
-
-            print(request.content)
-            #page=opener.open(request)
-
-            #binary_data = urllib.urlencode(post_data)  # post_data #.encode('utf-8')
-            #page = opener.open(url, binary_data)
-        return page;
-    except Exception as e:
-        sys.stderr.write(str(e));
-        return None;
-
-
-def _decoding( html, except_encoding):
+def get_encoding(html):
+    encoding = charset.search(html)
+    if encoding is not None:
+        encoding = encoding.group(1);
+    if encoding is None:
+        encoding = 'utf-8'
+    except_encoding=encoding
     try:
         result = html.decode(except_encoding)
         return result;
@@ -245,32 +118,9 @@ def _decoding( html, except_encoding):
     result = html.decode(en, errors='ignore');
     return result
 
-def _get_page_html(page,best_encoding):
-    if page is None:
-        return "";
-    html = page.read();
-    if page.info().get('Content-Encoding') == 'gzip':
-        if extends.PY2:
-            import StringIO
-            import gzip
-            compressed_stream = StringIO.StringIO(html)
-            gzipper = gzip.GzipFile(fileobj=compressed_stream)
-            html = gzipper.read()  # data就是解压后的数据
-        else:
-            import gzip
-            html = gzip.decompress(html)
-    encoding = charset.search(str(html))
-    if encoding is not None:
-        encoding = encoding.group(1);
-    if encoding is None:
-        encoding = best_encoding
-    return _decoding(html, encoding);
-
-
 def get_html(url):
-    page=_get_page(url);
-    html=_get_page_html(page,'utf-8')
-    return html;
+    r = requests.get(url)
+    return r.text;
 
 def is_none(data):
     return  data is  None or data=='';
@@ -336,6 +186,8 @@ def _get_datas( root, xpaths, multi=True, root_path=None):
                         path = '/'.join(paths[len(root_path2.split('/')):len(paths)]);
                     else:
                         path = tree.getpath(node) + path;
+                    if path=='':
+                        path='/'
                     data = get_xpath_data(node, path, r.is_html);
                     if data is not None:
                         doc[r.name] = data;
@@ -352,38 +204,24 @@ class SmartCrawler(extends.EObject):
     '''
     def __init__(self):
         self.multi = True;
-        self.requests = Requests()
         self.name = None;
-        self.login = '';
-        self._has_login = False;
+        self.headers = {};
+        self.timeout = 30;
+        self.best_encoding = 'utf-8'
         self.clear();
-        self.url='http://wwww.cnblogs.com';
-    def auto_login(self, login):
-        if login.postdata is None:
-            return;
-        import http.cookiejar
-        cj = http.cookiejar.CookieJar()
-        pro = urllib.request.HTTPCookieProcessor(cj)
-        opener = urllib.request.build_opener(pro)
-        t = [(r, login.headers[r]) for r in login.headers];
-        opener.addheaders = t;
-        binary_data = login.postdata.encode('utf-8')
-        op = opener.open(login.Url, binary_data)
-        data = op.read().decode('utf-8')
-        print(data)
-        self.requests.url = op.url;
-        return opener;
 
-    def great_hand(self,attr=False):
+
+    def great_hand(self,attr=False,index=0):
         tree=self._tree;
         self._stage=2;
         if not self.multi :
             print('great hand can only be used in list')
             return self;
-        root_path,xpaths= search_properties(tree,self.xpaths,attr);
-        if root_path is None:
+        result=  first_or_default( get_mount(search_properties(tree,self.xpaths,attr),take=1,skip=index))
+        if result is None:
             print ('great hand failed')
             return self;
+        root,xpaths= result
         datas= _get_datas(tree,xpaths,self.multi, None)
         self._datas= datas;
         self._xpaths= xpaths;
@@ -393,7 +231,7 @@ class SmartCrawler(extends.EObject):
         self.multi=is_list;
         if root is not None:
             self.root=root;
-        self.requests.post_data=post_data;
+        self.post_data=post_data;
         return self;
 
     def rename(self,column):
@@ -406,31 +244,71 @@ class SmartCrawler(extends.EObject):
             column = [r.strip() for r in column.split(' ')]
             for i in min(len(column),len(self.xpaths)):
                 self.xpaths[i].name=column[i]
+        return self
 
-        return self;
+
+    def set_headers(self, headers):
+        dic = extends.para_to_dict(headers, '\n', ':')
+        extends.merge(self.headers, dic);
+        return self
+
+
     def test(self):
         paths= self.xpaths if self._stage > 3 else self._xpaths;
         root= self.root if self._stage >3  else self._root;
         self._stage = 3;
-        self._datas=self.__get_data_from_html(self._html, paths, root)
+        self._datas=self._get_data_from_html(self._html, paths, root)
         if isinstance(self._datas,dict):
             self._datas=[self._datas]
-        return self;
+        return self
 
-    def crawl(self,url,post_data=''):
-        if   self.login != "" and  self._has_login == False:
-            self.requests.opener = self.auto_login(self.login);
-            self._has_login = True;
-        html='';
-        try:
-            html = self.requests.get_html(url,post_data);
-        except Exception as e:
-            sys.stderr.write('url %s get error, %s'%(url,str(e)));
-        return self.__get_data_from_html(html, self.xpaths, self.root);
+    def crawl(self,url,post_data='',get_data=True):
+        req_data=(url,post_data)
+        for r in  self.crawls([req_data],get_data=True):
+            if not get_data:
+                r=r['Content']
+            return r
 
-    def __get_data_from_html(self, html, xpaths, root):
+
+    def crawls(self,req_datas,exception_handler=None,async=False,get_data=False,default_key='Content'):
+
+        if async:
+            import grequests
+            def get_requests(req):
+                url,post=req
+                if post == '':
+                    r = grequests.get(url, headers=self.headers)
+                else:
+                    r = grequests.post(url, headers=self.headers, data=post)
+                return r
+
+            res = grequests.map((get_requests(re) for re in req_datas), exception_handler=exception_handler);
+        else:
+
+
+            res=[]
+            for m_req in req_datas:
+                url,post=m_req
+                if post=='':
+                    r=requests.get(url,headers=self.headers)
+                else:
+                    r=requests.post(url,headers=self.headers,data=post)
+            res.append(r)
+        for response in res:
+            if response is not None:
+                data=get_encoding(response.content)
+                if get_data:
+                    data=self._get_data_from_html(data, self.xpaths, self.root)
+                    if extends.is_str(data):
+                        data = {default_key: data}
+            else:
+                data={default_key:''}
+            yield data;
+
+
+    def _get_data_from_html(self, html, xpaths, root):
         if isinstance(xpaths, list) and len(xpaths) == 0:
-            return {'Content': html};
+            return html
         tree = _get_etree(html);
         if tree is None:
             return {} if self.multi == False else [];
@@ -469,12 +347,8 @@ class SmartCrawler(extends.EObject):
 
 
     def visit(self, url=None,post_data=''):
-        if url is not None:
-           self.url=url;
-        else:
-            url= self.url;
         self._stage=1;
-        html = self.requests.get_html(url,post_data);
+        html = self.crawl(url,post_data,False);
         self._html= html;
         self._tree= _get_etree(html);
         return self;

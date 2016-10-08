@@ -79,9 +79,46 @@ class Transformer(ETLTool):
         self._m_yield=False
         self.one_input = False;
         self.new_col=None
+        self._m_process=False
     def transform(self,data):
         pass;
-    def process(self,data):
+
+    def m_process(self,data):
+        for r in data:
+            yield r
+
+    def _process(self,data,column,transform_func):
+        def edit_data(col, ncol=None):
+            ncol = ncol if ncol != '' and ncol is not None  else col;
+            if col != '' and col not in data:
+                return
+            if self.one_input:
+                res = transform_func(data[col]);
+                data[ncol] = res;
+            else:
+                ncol = ncol if ncol != '' and ncol is not None else col;
+                try:
+                    transform_func(data, col, ncol);
+                except Exception as e:
+                    pass;
+        if is_str(column):
+            if column.find(u':') >= 0:
+                column = para_to_dict(self.column, ',', ':')
+            elif self.column.find(' ') > 0:
+                column = [r.strip() for r in self.column.split(' ')]
+        if isinstance(column, dict):
+            for k, v in column.items():
+                edit_data(k, v);
+        elif isinstance(column, (list, set)):
+            for k in column:
+                edit_data(k)
+        else:
+            edit_data(column, self.new_col)
+    def process(self,data,_m_process=True):
+        if self._m_process==True and _m_process:
+            for r  in self.m_process(data):
+                yield r;
+            return
         if self._m_yield:  # one to many
             for r in data:
                 try:
@@ -95,33 +132,8 @@ class Transformer(ETLTool):
         for d in data:
             if d is None:
                 continue
-            def edit_data(col, ncol=None):
-                ncol = ncol if ncol != '' and  ncol is  not None  else col;
-                if col!='' and  col not in d:
-                    return
-                if self.one_input:
-                    res = self.transform(d[col]);
-                    d[ncol]=res;
-                else:
-                    ncol = ncol if ncol != '' and  ncol is  not None else col;
-                    try:
-                        self.transform(d,col,ncol);
-                    except Exception as e:
-                        pass;
             column=self.column;
-            if is_str(self.column):
-                if self.column.find(u':')>=0:
-                    column=para_to_dict(self.column,',',':')
-                elif self.column.find(' ')>0:
-                    column=[r.strip() for r in self.column.split(' ')]
-            if isinstance(column, dict):
-                for k,v in column.items():
-                    edit_data(k,v);
-            elif isinstance(column, (list, set)):
-                for k in column:
-                    edit_data(k)
-            else:
-                edit_data(column, self.new_col)
+            self._process(d,column,self.transform);
             yield d;
 
 class Executor(ETLTool):
@@ -135,6 +147,7 @@ class Executor(ETLTool):
             yield self.execute(r);
     def init(self):
         pass
+
 
 class Filter(ETLTool):
     def __init__(self):
@@ -256,19 +269,27 @@ class JsonConnector(FileConnector):
         for r in items:
             yield r;
 
-class DbEX(Executor):
+
+class DBBase(ETLTool):
     def __init__(self):
-        super(DbEX, self).__init__();
+        super(DBBase, self).__init__();
         self.selector = '';
-        self.mode = EXECUTE_INSERT
         self.table = '';
 
     def init(self):
         self._connector = self._proj.connectors[self.selector];
         self._connector.init()
+        self._table = self._connector._db[self.table];
 
 
 
+class DbEX(Executor,DBBase):
+    def __init__(self):
+        super(DbEX, self).__init__();
+        self.mode = EXECUTE_INSERT
+
+    def init(self):
+        DBBase.init(self)
     def process(self,datas):
         etype = self.mode;
         work = None
@@ -283,20 +304,49 @@ class DbEX(Executor):
             yield data;
 
 
-
-class DbGE(Generator):
+class DbGE(Generator,DBBase):
     def __init__(self):
-        super(Generator, self).__init__();
-        self.connector = '';
-        self.table = '';
+        super(DbGE, self).__init__();
 
-    def init(self):
-        self._connector = self._proj.connectors[self.connector];
-        self._connector.init()
-        self._table = self._connector._db[self.table];
     def generate(self,data):
         for data in self._table.find():
             yield data;
+
+
+class JoinDBTF(Transformer,DBBase):
+    def __init__(self):
+        super(JoinDBTF, self).__init__();
+        self.mode = 'doc'
+        self.script=''
+        self._m_yield=True
+
+    def init(self):
+        super(JoinDBTF, self).init();
+
+
+    def m_transform(self, data, col):
+        if self._table==None:
+            yield data;
+        key = data[col]
+        dic= para_to_dict(self.script,',',':')
+        values = {r: 1 for r in  dic.keys()}
+        def db_filter(d):
+            if '_id' in d:
+                del d['_id']
+
+        if self.mode == 'docs':
+            result = self._table.find({col: key}, values)
+            for r in result:
+                db_filter(r)
+                r=conv_dict(r,dic)
+                yield r;
+        else:
+            result = self._table.find_one({col: key}, values)
+            if result is not None:
+                db_filter(result)
+                yield merge(data.copy(),conv_dict(result,dic))
+            else:
+                yield data
 
 
 
@@ -319,12 +369,14 @@ class MatchFT(Filter):
     def filter(self,data):
         if self.mode=='str':
             v= [data[i:].startswith(self.script) for i in range(len(data))]
+            if v==0:
+                return False;
         else:
             v = self.regex.findall(data);
-        if v is None:
-            return False;
-        else:
-            return self.count <= len(v)
+            if v is None:
+                return False;
+
+        return self.count <= len(v)
 
 class RangeFT(Filter):
     def __init__(self):
@@ -466,7 +518,19 @@ class KeepTF(Transformer):
             yield doc
 
 
+class EscapeTF(Transformer):
+    def __init__(self):
+        super(EscapeTF, self).__init__()
+        self.one_input = True;
+        self.mode = 'decode'
 
+    def transform(self, data):
+        if self.mode == 'decode':
+            if PY2:
+                return data.encode('utf-8').decode('string_escape').decode('utf-8')
+            else:
+                return data.decode('unicode_escape')
+        return data;
 
 class HtmlTF(Transformer):
     def __init__(self):
@@ -543,6 +607,7 @@ class RegexTF(Transformer):
         self.script = '';
         self.one_input = True;
         self.index=0;
+
     def init(self):
         self.regex = re.compile(self.script);
     def transform(self, data):
@@ -611,7 +676,7 @@ class SplitTF(Transformer):
         for i in self.splits:
             data = data.replace(i, '\001');
         r=data.split('\001');
-        if len(r) < self.index:
+        if len(r) <= self.index:
             return data;
         return r[self.index];
 
@@ -721,12 +786,40 @@ class CrawlerTF(Transformer):
     def __init__(self):
         super(CrawlerTF, self).__init__()
         self.selector='';
-        self.max_try=1;
         self.is_regex=False
         self.post_data=''
         self.refresh=False
         self.debug=False
         self.__buff = {};
+        self.pl_count=1
+
+    def m_process(self,data):
+        for g in group_by_mount(data,self.pl_count):
+            if self._m_yield:
+                col=self.column
+                reqs=((d,col) for  d in g)
+                for raw,result in self._get_data(reqs):
+                    for p in result:
+                        my = merge_query(raw, p, self.new_col);
+                    yield my;
+            else:
+                reqs=[]
+                new_col=[]
+                datas=[]
+                def transform(data, col, ncol):
+                    reqs.append((data,col))
+                    new_col.append(ncol)
+                    datas.append(data)
+                for d in g:
+                    self._process(d, self.column, transform);
+                index=0
+                for data,result in self._get_data(reqs,new_col[index]):
+                    index+=1
+                    if result is not None:
+                        for k, v in result.items():
+                            data[k] = v;
+                    yield data
+
     def init(self):
         if is_str(self.selector):
             dic= self._proj.modules;
@@ -738,34 +831,61 @@ class CrawlerTF(Transformer):
             self._crawler=self.selector;
         if self.refresh:
             self.__buff={}
+        if self.pl_count>1:
+            self._m_process=True
+
         self._m_yield = self._crawler.multi   and len(self._crawler.xpaths)>0;
-    def _get_data(self,url,post_data=''):
-        if self.debug:
-            print(url)
-        crawler = self._crawler;
+
+
+    def _get_data(self,reqs,default_key='Content'):
         buff = self.__buff;
-        if post_data is None:
-            post_data=''
-        key=url+post_data;
-        if key in buff:
-            data = buff[key];
-        else:
-            data = crawler.crawl(url,post_data);
+        def _get_request_info(req):
+            data = req[0]
+            col = req[1]
+            url = data[col];
+            post_data = query(data, self.post_data);
+            if self.debug:
+                print(url)
+            if post_data is None:
+                post_data = ''
+            return url,post_data,data
+
+        def _filter(url,post_data):
+            key = url + post_data;
+            if key in buff:
+                data = buff[key];
+            else:
+                data=False
+            return data
+
+        reqs2=[]
+        datas=[]
+        for req in reqs:
+            url, post_data,data = _get_request_info(req)
+            result= _filter(url,post_data)
+            if result==False:
+                reqs2.append((url,post_data))
+                datas.append(data)
+            else:
+                yield data,result
+        for req,data,result in  zip(reqs2,datas,self._crawler.crawls(reqs2,async= self.pl_count>1,get_data=True,default_key=default_key)):
+            url,post=req
+            key=url+post
             if len(buff) < 100:
-                buff[key] = data;
-        return data;
+                buff[key] = result
+            yield data,result;
+
     def m_transform(self,data,col):
-        url = data[col];
-        post_data= query(data,self.post_data);
-        datas = self._get_data(url,post_data)
-        for d in datas:
-            yield d;
+        res=self._get_data([(data,col)]);
+        for d in res:
+            raw, datas = d
+            for r in datas:
+                yield r;
     def transform(self, data, col,ncol):
-        url=data[col]
-        post_data= query(data,self.post_data);
-        ndata=self._get_data(url,post_data)
-        for k,v in ndata.items():
-            data[k]=v;
+        for r in  self._get_data([(data, col)],default_key=ncol):
+            for k,v in r[1].items():
+                data[k]=v;
+            return
 
 class PyQueryTF(Transformer):
     def __init__(self):
@@ -1005,6 +1125,7 @@ class EtlBase(ETLTool):
             if data is not None:
                 doc = data.copy();
         else:
+            doc={}
             merge_query(doc, data, self.new_col + " " + self.column);
         generator=[doc] if doc is not None else None
         for r in ex_generate(self._get_tools(doc),generator,execute=execute,init=init):
@@ -1050,6 +1171,11 @@ class EtlTF(Transformer, EtlBase):
         super(EtlTF,self).__init__()
         self.cycle=False;
         self._m_yield=True
+        self.mode='docs'
+
+    def init(self):
+        self._m_yield=self.mode=='docs';
+
 
     def m_transform(self,data,col):
         if self.cycle:
@@ -1082,12 +1208,41 @@ class TextGE(Generator):
 
 
 
-class JoinDBTF(Transformer):
-    pass;
+
 
 class RepeatTF(Transformer):
     pass;
 
+
+class SampleTF(Transformer):
+    def __init__(self):
+        super(SampleTF, self).__init__();
+        self.count=1
+        self._m_process=True
+
+    def m_process(self,data):
+        count=0
+        for r in data:
+            count+=1
+            if self.count>0 and count% self.count==0:
+                yield r
+
+class RotateTF(Transformer):
+    def __init__(self):
+        super(RotateTF, self).__init__();
+        self.sc = '';
+        self._m_process = True
+
+
+    def m_process(self, datas):
+        result={}
+        for data in  datas:
+            key= data.get(self.column,None)
+            if key is None:
+                continue
+            value = query(data,self.sc);
+            result[key]=value
+        yield result
 
 
 class DictTF(Transformer):
@@ -1123,7 +1278,7 @@ class TakeTF(Transformer):
     def __init__(self):
         super(TakeTF, self).__init__();
         self.skip=0;
-        self.take=None;
+        self.take=''
     def process(self,data):
         for r in get_mount(data,self.take,self.skip):
             yield r;
@@ -1145,11 +1300,11 @@ class DelayTF(Transformer):
 class SaveFileEX(Executor):
     def __init__(self):
         super(SaveFileEX, self).__init__()
-        self.SavePath='';
+        self.path= '';
 
 
     def execute(self,data):
-        save_path = query(data, self.SavePath);
+        save_path = query(data, self.path);
         (folder,file)=os.path.split(save_path);
         if not os.path.exists(folder):
             os.makedirs(folder);
@@ -1403,7 +1558,7 @@ class ETLTask(EObject):
 
     def query(self, etl_count=100, execute=False):
         tools=self.tools[:etl_count];
-        for r in ex_generate(tools):
+        for r in ex_generate(tools,execute=execute):
             yield r;
 
     def execute(self, etl_count=100, execute=True):
@@ -1412,7 +1567,7 @@ class ETLTask(EObject):
 
 
 
-    def get(self, format='print', etl_count=100, take=10, skip=0):
+    def get(self,take=10, format='print', etl_count=100, skip=0):
         datas= get_keys(get_mount(self.query(etl_count), take, skip),cols);
         return get(datas,format,count=take);
 

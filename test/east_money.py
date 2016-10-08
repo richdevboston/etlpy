@@ -28,7 +28,7 @@ c.etlex('url', selector='cpi',range='1:100',new_col='type')
 
 
 mongo= get_default_connector()
-mongo.db='ant'
+mongo.db='ant2'
 
 def get_content(c):
 
@@ -40,11 +40,14 @@ def get_content(c):
         for r in p:
             buf.append(r.text)
         return buf;
-
+    def get_second(tag):
+        second = root('.secondTr '+tag)
+        return get_texts(second)
     first = root('.firstTr th strong')
     cols = get_texts(first)[1:]
-    second = root('.secondTr td')
-    sec_cols = get_texts(second)
+    sec_cols= get_second('th')
+    if len(sec_cols)==0:
+        sec_cols=get_second('td')
     l=0 if len(sec_cols)==0 else 1
     if l!=0:
         sec_cols= sec_cols[:len(sec_cols)/len(cols)]
@@ -72,7 +75,7 @@ def get_content(c):
 
 t=task('cpi')
 t.clear()
-t.textge('url','cpi.html')
+t.textge('url','hbgyl.html')
 t.merge('url',script='http://data.eastmoney.com/cjsj/{0}')
 t.crawler('url',selector='s')
 t.strextract('Content:rurl',start='<form id="form2" action="',end='<input')
@@ -86,6 +89,8 @@ t.crawler('url',selector='s')
 t.py('Content',script=get_content,mode='docs',new_col='type')
 t.nullft(u'日期')
 t.dbex(selector='mongo',table='[type]')
-t.get(etl_count=3)
+#t.get(etl_count=100)
+
+#c.get()
 
 c.execute()

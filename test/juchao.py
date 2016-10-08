@@ -35,9 +35,9 @@ t.py('Content',script="value['classifiedAnnouncements'][0]",mode='docs',new_col=
 t.merge('adjunctUrl',script='http://www.cninfo.com.cn/{0}')
 t.split('adjunctUrl:file',script='/',index=-1)
 t.merge('code:save',script='../juchao/{0}/{1}',merge_with='file')
-t.savefileex('adjunctUrl',savepath='[save]')
+t.savefileex('adjunctUrl',path='[save]')
 t.delete('save secCode')
-t.dbex(selector='mongo',table='juchao')
+#t.dbex(selector='mongo',table='juchao')
 t.get()
 
 t.distribute()
