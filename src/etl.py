@@ -1402,8 +1402,6 @@ class Project(EObject):
                     xpath = spider.XPath()
                     dict_copy_poco(xpath, r);
                     crawler.xpaths.append(xpath)
-                crawler.requests = spider.Requests()
-                dict_copy_poco(crawler.requests, module['requests'])
             setattr(self,key,crawler);
             if crawler is not None:
                 self.modules[key] = crawler;

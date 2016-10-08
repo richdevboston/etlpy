@@ -35,7 +35,6 @@ xq.get()
 
 # In[4]:
 
-xq.get().ix[0]
 
 
 # In[5]:
@@ -52,8 +51,9 @@ t.keep(u'col10_title:name,col12:rent_num,col14_href:href,col17_title:region,col4
 t.number('kind,price,seal,rent_num,desc:age')
 t.number('monthdeal',index=1)
 t.replace('name',sc=u'网签')
-t.replace('region',sc=u'小区')
+t.replace('region',sc=u'小区') 
 t.regex('href:id',sc='c\d+')
+t.pl()
 t.etlex('id', sl='xqh',new_col='age name region')
 t.dbex('id',sl='mongo',table='bj_district')
 
@@ -106,7 +106,7 @@ h.py('text:value',sc='value[4:]')
 h.delete('text')
 h.rotate('key',sc='[value]')
 
-h.get(2000)
+#h.get(2000)
 
 
 # In[10]:

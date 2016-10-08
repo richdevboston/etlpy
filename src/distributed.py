@@ -86,7 +86,9 @@ class Master:
         proj= etl.convert_dict(self.project);
 
         mapper, reducer, parallel = etl.parallel_map(module.tools)
-
+        if parallel is None:
+            print 'this script do not support pl...'
+            return
         count_per_group = parallel.count_per_thread if parallel is not None else 1;
         task_generator= extends.group_by_mount(etl.ex_generate(mapper), count_per_group, take, skip);
         task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher', etl.count(mapper))
