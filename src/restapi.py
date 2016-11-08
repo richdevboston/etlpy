@@ -54,7 +54,7 @@ def extract_list():
         result= jsonify(**{'result':data});
         return result;
 
-@app.route('/extract/content', methods=['POST'])
+@app.route('/extract/script', methods=['POST'])
 def extract_content():
     try:
         html,params= _get_html(request)

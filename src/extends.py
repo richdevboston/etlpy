@@ -3,6 +3,8 @@ import re;
 import sys;
 PY2 = sys.version_info[0] == 2
 
+enable_progress=True
+
 def is_in_ipynb():
     try:
         cfg = get_ipython()
@@ -76,6 +78,10 @@ def to_list(generator, max_count=None):
 
 
 def progress_indicator(generator,title='Position Indicator',count=2000):
+    if not enable_progress:
+        for r in generator:
+            yield r
+        return
     if is_ipynb:
         from ipy_progressbar import ProgressBar
         generator = ProgressBar(generator, title=title)
@@ -169,7 +175,9 @@ def para_to_dict(para, split1, split2):
             value=key
         else:
             value = s[len(key) + 1:].strip();
-        r[rs[0]] = value;
+        if key=='':
+            continue
+        r[key] = value;
     return r;
 
 

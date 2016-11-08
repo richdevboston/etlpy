@@ -7,10 +7,16 @@ class C(object):
         print('Enter C')
         super(C,self).__init__()
         self.test2 = 3
+
+    def display(self):
+        print('C')
+
 class D(object):
     def __init__(self):
         print('enter D')
         self.test4=3
+    def display(self):
+        print('D')
 class B(A):
     def __init__(self):
         print('Enter B')
@@ -25,7 +31,12 @@ class E(C,D):
         super(E,self).__init__();
 
 
+    def display(self):
+        print('E')
+
+
 e=E()
 print e.test2
 print e.test4
+print e.display()
 

@@ -271,15 +271,24 @@ class SmartCrawler(extends.EObject):
 
 
     def crawls(self,req_datas,exception_handler=None,async=False,get_data=False,default_key='Content'):
+        def get_request_para(req):
+            url,post=req;
+            paras={};
+            if  len( self.headers)>0:
+                paras['headers']=self.headers;
+            if post!='':
+                paras['data']=post
+            paras['url']=url;
+            return paras,post!=''
 
         if async:
             import grequests
             def get_requests(req):
-                url,post=req
-                if post == '':
-                    r = grequests.get(url, headers=self.headers)
+                paras,is_post=get_request_para(req)
+                if not is_post:
+                    r = grequests.get(**paras)
                 else:
-                    r = grequests.post(url, headers=self.headers, data=post)
+                    r = grequests.post(**paras)
                 return r
 
             res = grequests.map((get_requests(re) for re in req_datas), exception_handler=exception_handler);
@@ -287,12 +296,12 @@ class SmartCrawler(extends.EObject):
 
 
             res=[]
-            for m_req in req_datas:
-                url,post=m_req
-                if post=='':
-                    r=requests.get(url,headers=self.headers)
+            for req in req_datas:
+                paras, is_post = get_request_para(req)
+                if not is_post:
+                    r=requests.get(**paras)
                 else:
-                    r=requests.post(url,headers=self.headers,data=post)
+                    r=requests.post(**paras)
             res.append(r)
         for response in res:
             if response is not None:

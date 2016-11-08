@@ -30,6 +30,7 @@ CONV_DECODE='decode'
 cols=EObject()
 
 GET_HTML='html'
+GET_NODE='node'
 GET_TEXT='text'
 GET_COUNT='count'
 GET_ARRAY='array'
@@ -90,7 +91,7 @@ class Transformer(ETLTool):
     def _process(self,data,column,transform_func):
         def edit_data(col, ncol=None):
             ncol = ncol if ncol != '' and ncol is not None  else col;
-            if col != '' and col not in data:
+            if col != '' and  col not in data:
                 return
             if self.one_input:
                 res = transform_func(data[col]);
@@ -430,20 +431,20 @@ class RequestTF(Transformer):
 class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
-        self.value=''
+        self.script= ''
         self._m_yield=True
         self.mode=GENERATE_NONE
 
 
     def m_transform(self, data, col):
         if self.mode==GENERATE_NONE:
-            data[col] = self.value;
+            data[col] = self.script;
             yield data;
         elif self.mode==GENERATE_DOC:
-            merge(data,self.value)
+            merge(data, self.script)
             yield data;
         else:
-            for d in self.value:
+            for d in self.script:
                 yield merge(data.copy(),d)
 
 
@@ -625,10 +626,10 @@ class ReplaceTF(RegexTF):
         super(ReplaceTF, self).__init__()
         self.new_value = '';
         self.one_input=True
-        self.re=False;
+        self.mode='str';
 
     def transform(self, data):
-        if self.re:
+        if self.mode=='re':
             return re.sub(self.regex, self.new_value, data);
         else:
             if data is None:
@@ -712,18 +713,25 @@ class StrExtractTF(Transformer):
 class PythonTF(Transformer):
     def __init__(self):
         super(PythonTF, self).__init__()
-        self.script='value'
+        self.script='script'
         self.mode=GENERATE_NONE;
 
     def init(self):
         self._m_yield= self.mode == GENERATE_DOCS;
 
     def _get_data(self, data, col):
-        value = data[col] if col in data else '';
-        if is_str(self.script ):
-            result = self._eval_script({'value': value,'data':data}, data);
+        if col=='':
+            if is_str(self.script):
+                self._eval_script({'data': data}, data);
+            else:
+                self.script(data);
+            return None
         else:
-            result = self.script(data);
+            value = data[col]
+            if is_str(self.script ):
+                result = self._eval_script({'value': value,'data':data}, data);
+            else:
+                result = self.script(value);
         return result;
     def m_transform(self,data,col):
         js= self._get_data(data,col)
@@ -735,6 +743,8 @@ class PythonTF(Transformer):
         if self.mode == GENERATE_DOC:
             merge(data, js);
         else:
+            if col=='':
+                return
             col= ncol if ncol is not None else col;
             data[col]=js;
 
@@ -782,6 +792,8 @@ class PythonFT(Filter):
             return False
         return result;
 
+
+
 class CrawlerTF(Transformer):
     def __init__(self):
         super(CrawlerTF, self).__init__()
@@ -825,8 +837,10 @@ class CrawlerTF(Transformer):
             dic= self._proj.modules;
             if self.selector in dic:
                 self._crawler= dic[self.selector]
-            else:
+            elif self.selector!='':
                 sys.stderr.write('crawler {name} can not be found in project'.format(name=self.selector))
+            else:
+                self._crawler=spider.SmartCrawler();
         else:
             self._crawler=self.selector;
         if self.refresh:
@@ -851,7 +865,7 @@ class CrawlerTF(Transformer):
             return url,post_data,data
 
         def _filter(url,post_data):
-            key = url + post_data;
+            key = url + str(post_data)
             if key in buff:
                 data = buff[key];
             else:
@@ -870,7 +884,7 @@ class CrawlerTF(Transformer):
                 yield data,result
         for req,data,result in  zip(reqs2,datas,self._crawler.crawls(reqs2,async= self.pl_count>1,get_data=True,default_key=default_key)):
             url,post=req
-            key=url+post
+            key=url+str(post)
             if len(buff) < 100:
                 buff[key] = result
             yield data,result;
@@ -933,6 +947,18 @@ class PyQueryTF(Transformer):
             res= nodes;
         data[ncol] = res;
 
+class TreeTF(Transformer):
+    def __init__(self):
+        super(TreeTF, self).__init__()
+        self.one_input = True;
+
+
+    def transform(self, data):
+        from lxml import etree
+        root = spider._get_etree(data);
+        tree = etree.ElementTree(root)
+        return tree
+
 
 class XPathTF(Transformer):
     def __init__(self):
@@ -945,10 +971,17 @@ class XPathTF(Transformer):
     def init(self):
         self._m_yield=self.m_yield;
 
+    def _trans(self,data):
+        from lxml import etree
+        if isinstance(data, (str, unicode)):
+            root = spider._get_etree(data);
+            tree = etree.ElementTree(root)
+        else:
+            tree = data
+        return tree;
     def m_transform(self,data,col):
         from lxml import etree
-        root = spider._get_etree(data[col]);
-        tree = etree.ElementTree(root)
+        tree= self._trans(data[col]);
         if tree is None:
             yield data;
             return;
@@ -960,20 +993,15 @@ class XPathTF(Transformer):
 
     def transform(self, data,col,ncol):
         from lxml import etree
-        d= data[col]
-        if d is None or d=='':
-            return None
-        root = spider._get_etree(data[col]);
-        tree = etree.ElementTree(root)
+        tree = self._trans(data[col]);
         if tree is None:
             return None;
         mode=self.mode;
-        if self.script== '' or self.script is None:
-            node_path = xspider.search_text_root(tree, root);
-        else:
-            node_path=self.script;
+        node_path = query(data, self.script);
         if node_path is None:
             return;
+        if node_path== '' or node_path is None:
+            return
         nodes = tree.xpath(node_path);
         if len(nodes) < 1:
             return
@@ -985,6 +1013,8 @@ class XPathTF(Transformer):
                 res = to_str(node)
         elif mode==GET_HTML:
             res =  etree.tostring(node).decode('utf-8');
+        elif mode==GET_NODE:
+            res=node
         else:
             res=len(nodes);
 
@@ -1171,10 +1201,10 @@ class EtlTF(Transformer, EtlBase):
         super(EtlTF,self).__init__()
         self.cycle=False;
         self._m_yield=True
-        self.mode='docs'
+        self.mode=GENERATE_DOCS
 
     def init(self):
-        self._m_yield=self.mode=='docs';
+        self._m_yield=self.mode==GENERATE_DOCS;
 
 
     def m_transform(self,data,col):
@@ -1189,18 +1219,23 @@ class EtlTF(Transformer, EtlBase):
             for r in self._generate(data):
                 yield r
     def transform(self,data,col,ncol):
-        for r in self._generate(data):
-            merge(data, r);
-            break
-
+        if self.mode==GENERATE_DOC:
+            for r in self._generate(data):
+                merge(data, r);
+                break
+        else:
+            buf=[];
+            for r in self._generate(data):
+                buf.append(r)
+            data[ncol]=buf
 
 
 class TextGE(Generator):
     def __init__(self):
         super(TextGE, self).__init__()
-        self.content='';
+        self.script= '';
     def init(self):
-        value=self.content.replace('\n','\001').replace(' ','\001')
+        value=self.script.replace('\n', '\001').replace(' ', '\001')
         self._arglists= [r.strip() for r in value.split('\001')];
     def generate(self,data):
         for i in range(int(self.pos), len(self._arglists)):
@@ -1565,8 +1600,8 @@ class ETLTask(EObject):
 
 
 
-    def get(self,take=10, format='print', etl_count=100, skip=0):
-        datas= get_keys(get_mount(self.query(etl_count), take, skip),cols);
+    def get(self,take=10, format='print', etl_count=100, skip=0,execute=False):
+        datas= get_keys(get_mount(self.query(etl_count,execute=execute), take, skip),cols);
         return get(datas,format,count=take);
 
     def m_execute(self, thread_count=10, execute=True, take=999999, skip=0):
