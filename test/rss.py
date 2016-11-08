@@ -115,7 +115,7 @@ if execute:
     rss.json('resp', mode='doc')
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
-send_result=rss.get(100,etl_count=40,execute=execute,format='key')
+send_result=rss.get(100,etl_count=40,execute=execute,format='keys',paras=['url','title','author'])
 
 #send_result[['title','url','hash']]
 

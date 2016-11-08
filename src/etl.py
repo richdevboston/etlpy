@@ -1600,9 +1600,9 @@ class ETLTask(EObject):
 
 
 
-    def get(self,take=10, format='print', etl_count=100, skip=0,execute=False):
+    def get(self,take=10, format='print', etl_count=100, skip=0,execute=False,paras=None):
         datas= get_keys(get_mount(self.query(etl_count,execute=execute), take, skip),cols);
-        return get(datas,format,count=take);
+        return get(datas,format,count=take,paras=paras);
 
     def m_execute(self, thread_count=10, execute=True, take=999999, skip=0):
         import threadpool

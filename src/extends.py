@@ -103,13 +103,16 @@ def revert_invoke(item,funcs):
         item=funcs[i](item);
     return item;
 
-def get(generator, format='print', count=20):
+def get(generator, format='print', count=20,paras=None):
     if format == 'print' and not is_ipynb:
         import pprint
         for d in generator:
             pprint.pprint(d);
         return ;
-
+    elif format=='keys':
+        for d in generator:
+            for k in paras:
+                print ("%s:  %s "%(k, d.get(k,'None')))
     elif format == 'key':
         import pprint
         for d in generator:
