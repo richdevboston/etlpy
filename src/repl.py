@@ -87,6 +87,9 @@ def task(name='etl'):
                     value= dic.get(key2,None)
             if value is not None:
                 setattr(val, key, value)
+        if val.column=='' and my_task._last_column!='' and not str(type(val)).lower().find('python')>=0:
+            val.column=my_task._last_column
+        my_task._last_column=val.column
     def _rename(module):
         repl={'TF':'','Python':'py','Parallel':'pl'}
         for k,v in repl.items():

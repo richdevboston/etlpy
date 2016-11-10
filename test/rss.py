@@ -67,7 +67,7 @@ for item in rlist.split('\n'):
     v=kv[1].strip()
     rlist2.append({'app_id':k,'rss':v})
 
-
+print rlist2
 
 ins= task('insert')
 ins.nullft('error',revert=True)
@@ -79,13 +79,13 @@ ins.dbex(sl='mongo',table=table_name)
 rss = task('rss')
 # rss.pyge('rss',sc=[r for r in rss_list.split('\n') if r!='' and r.startswith('#')==False])
 rss.pyge(sc=rlist2[:])
-#rss.matchft('rss', sc='douguo', mode='re')
+rss.matchft('rss', sc='haibao', mode='re')
 rss.split('rss:source', sc='.', index=1)
 rss.py('source:xpath', sc=get_xpath)
 rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id], mode='docs', new_col='rss source xpath app_id')
 rss.py('link:hash', sc='hash(data["title"]+data["link"])')
 rss.nullft('hash')
-if True:#execute:
+if False: #True:#execute:
     rss.joindb('hash', sl='mongo', table=table_name, sc='title:title2', mode='doc')
     rss.nullft('title2', revert=True)
 rss.py(sc=get_content)
@@ -115,7 +115,7 @@ if execute:
     rss.json('resp', mode='doc')
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
-send_result=rss.get(100,etl_count=40,execute=execute,format='keys',paras=['url','title','author'])
+send_result=rss.get(2,etl_count=100,execute=execute)
 
 #send_result[['title','url','hash']]
 

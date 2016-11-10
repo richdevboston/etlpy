@@ -147,6 +147,13 @@ def get_node_text(node):
     __get_node_text(node, array);
     return ' '.join(array);
 
+def get_node_html(node):
+    if node is None:
+        return ""
+    if str(type(node)).lower().find('str')>0:
+        return str(node)
+    else:
+        return etree.tostring(node).decode('utf-8');
 
 def _get_etree( html):
     root = None

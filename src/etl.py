@@ -33,7 +33,7 @@ GET_HTML='html'
 GET_NODE='node'
 GET_TEXT='text'
 GET_COUNT='count'
-GET_ARRAY='array'
+GET_ARRAY='list'
 
 
 def __get_match_counts(mat):
@@ -49,6 +49,10 @@ class ETLTool(EObject):
     def init(self):
         pass;
 
+    def _is_mode(self,mode):
+        if not hasattr(self,'mode'):
+            return False
+        return mode in self.mode.split('|')
     def _eval_script(self, global_para=None, local_para=None):
         if self.script == '':
             return True
@@ -722,14 +726,16 @@ class PythonTF(Transformer):
     def _get_data(self, data, col):
         if col=='':
             if is_str(self.script):
-                self._eval_script({'data': data}, data);
+                dic = merge({'data': data}, data)
+                self._eval_script(dic);
             else:
                 self.script(data);
             return None
         else:
             value = data[col]
             if is_str(self.script ):
-                result = self._eval_script({'value': value,'data':data}, data);
+                dic = merge({'value': value, 'data': data}, data)
+                result = self._eval_script(dic);
             else:
                 result = self.script(value);
         return result;
@@ -785,7 +791,8 @@ class PythonFT(Filter):
         col=self.column
         value = data[col] if col in data else '';
         if is_str(self.script):
-            result = self._eval_script({'value': value, 'data': data}, data);
+            dic=merge({'value': value, 'data': data},data)
+            result = self._eval_script(dic);
         elif inspect.isfunction(self.script):
             result = self.script(data)
         if result==None:
@@ -901,51 +908,7 @@ class CrawlerTF(Transformer):
                 data[k]=v;
             return
 
-class PyQueryTF(Transformer):
-    def __init__(self):
-        super(PyQueryTF, self).__init__()
-        self.script = ''
-        self._m_yield = True;
-        self.mode = GET_TEXT
-        self.m_yield = True;
 
-
-    def init(self):
-        self._m_yield = self.m_yield;
-
-    def m_transform(self, data, col):
-        from pyquery import PyQuery as pyq
-        root = pyq(data[col]);
-        if root is None:
-            yield data;
-            return;
-        nodes =  root(self.script);
-        for node in nodes:
-            ext = {'text': spider.get_node_text( node) , 'html': node};
-            yield ext;
-
-    def transform(self, data, col, ncol):
-        d = data[col]
-        if d is None or d == '':
-            return None
-        from pyquery import PyQuery as pyq
-        root = pyq(data[col]);
-        if root is None:
-            return None;
-        mode = self.mode;
-        nodes = root(self.script);
-        if len(nodes) < 1:
-            return
-        node = nodes[0]
-        if mode == GET_TEXT:
-            res= spider.get_node_text(node)
-        elif mode == GET_HTML:
-            res=to_str(node);
-        elif mode== GET_COUNT:
-            res = len(nodes);
-        else:
-            res= nodes;
-        data[ncol] = res;
 
 class TreeTF(Transformer):
     def __init__(self):
@@ -964,7 +927,6 @@ class XPathTF(Transformer):
     def __init__(self):
         super(XPathTF, self).__init__()
         self.script= ''
-        self._m_yield = True;
         self.mode= GET_TEXT
         self.m_yield=False;
 
@@ -980,45 +942,93 @@ class XPathTF(Transformer):
             tree = data
         return tree;
     def m_transform(self,data,col):
-        from lxml import etree
         tree= self._trans(data[col]);
         if tree is None:
             yield data;
             return;
         nodes = tree.xpath(self.script);
-        for node in nodes:
-            html = etree.tostring(node).decode('utf-8');
-            ext = {'text': spider.get_node_text(node), 'html': html};
-            yield ext;
+        for r in self._m_transform(nodes):
+            yield r
 
+    def _m_transform(self,nodes):
+        for node in nodes:
+            ext = {'text': spider.get_node_text(node), 'html': spider.get_node_html(node)};
+            yield ext;
+    def _transform(self,nodes):
+        if len(nodes) < 1:
+            return
+        node = nodes[0]
+        def get_data(node):
+            res=None
+            if self._is_mode(GET_NODE):
+                res= node
+            elif self._is_mode(GET_TEXT):
+                if hasattr(node, 'text'):
+                    res = spider.get_node_text(node);
+                else:
+                    res = to_str(node)
+            elif self._is_mode( GET_HTML):
+                res = spider.get_node_html(node)
+            return res
+        if self._is_mode(GET_ARRAY):
+            res= [get_data(r) for r in nodes]
+        else:
+            res= get_data(node)
+        return res
     def transform(self, data,col,ncol):
-        from lxml import etree
         tree = self._trans(data[col]);
         if tree is None:
             return None;
-        mode=self.mode;
+
         node_path = query(data, self.script);
         if node_path is None:
             return;
         if node_path== '' or node_path is None:
             return
         nodes = tree.xpath(node_path);
-        if len(nodes) < 1:
-            return
-        node = nodes[0]
-        if mode== GET_TEXT:
-            if hasattr(node, 'text'):
-                res = spider.get_node_text(node);
-            else:
-                res = to_str(node)
-        elif mode==GET_HTML:
-            res =  etree.tostring(node).decode('utf-8');
-        elif mode==GET_NODE:
-            res=node
-        else:
-            res=len(nodes);
+        data[ncol]=self._transform(nodes)
 
-        data[ncol]=res;
+
+class PyQueryTF(XPathTF):
+    def __init__(self):
+        super(PyQueryTF, self).__init__()
+        self.script = ''
+        self.mode = GET_TEXT
+        self.m_yield = False;
+
+    def init(self):
+        self._m_yield = self.m_yield;
+
+    def m_transform(self, data, col):
+        from pyquery import PyQuery as pyq
+        root = pyq(data[col]);
+        if root is None:
+            yield data;
+            return;
+        nodes = root(self.script);
+        for r in self._m_transform(nodes):
+            yield r;
+
+    def transform(self, data, col, ncol):
+        d = data[col]
+        if d is None or d == '':
+            return None
+        from pyquery import PyQuery as pyq
+        root = pyq(data[col]);
+        if root is None:
+            return None;
+        nodes = root(self.script);
+        data[ncol] =  self._transform(nodes)
+
+
+class AtTF(Transformer):
+    def __init__(self):
+        super(AtTF, self).__init__()
+        self.one_input = True;
+        self.script=''
+
+    def transform(self, data):
+        return data[self.script];
 
 class TnTF(Transformer):
 
@@ -1131,6 +1141,8 @@ class EtlBase(ETLTool):
 
     def _get_task(self, data):
         selector = query(data, self.selector);
+        if isinstance(self.selector,ETLTask):
+            return self.selector
         if selector not in self._proj.modules:
             sys.stderr.write('sub task %s  not in current project' % selector);
         sub_etl = self._proj.modules[selector];
@@ -1138,14 +1150,19 @@ class EtlBase(ETLTool):
 
 
     def _get_tools(self,data):
-        if data is not None:
-            data=data.copy()
-        sub_etl = self._get_task( data)
-        buf = self.range.split(':');
+
+        sub_etl = self._get_task(data)
+
+        buf = [r for r in self.range.split(':') if r.strip()!='']
         start = int(buf[0])
-        end = int(buf[1])
+        if len(buf)>1:
+            end = int(buf[1])
+        else:
+            end=20000;
         tools= sub_etl.tools[start:end]
         for tool in tools:
+            if tool==self:
+                continue
             tool.init()
         return tools
 
@@ -1156,7 +1173,7 @@ class EtlBase(ETLTool):
                 doc = data.copy();
         else:
             doc={}
-            merge_query(doc, data, self.new_col + " " + self.column);
+            merge_query(doc, data, self.column+" "+self.new_col);
         generator=[doc] if doc is not None else None
         for r in ex_generate(self._get_tools(doc),generator,execute=execute,init=init):
             yield r;
@@ -1209,12 +1226,11 @@ class EtlTF(Transformer, EtlBase):
 
     def m_transform(self,data,col):
         if self.cycle:
-            while new_data[col] != '':
-                result = first_or_default(self._generate(data))
-                if result is None:
-                    break
-                yield result.copy();
-                new_data = result;
+            new_data={}
+            result = first_or_default(self._generate(data))
+            if result is None:
+                return
+            yield result.copy();
         else:
             for r in self._generate(data):
                 yield r
@@ -1528,6 +1544,7 @@ class ETLTask(EObject):
         self.tools = [];
         self.name=''
         self._master=None;
+        self._last_column=''
     def clear(self):
         self.tools=[]
         return self;

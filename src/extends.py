@@ -186,13 +186,29 @@ def para_to_dict(para, split1, split2):
 
 def merge_query(d1, d2, columns):
     if isinstance(columns, str) and columns.strip() != "":
-        columns = columns.split(' ');
+        if columns.find(":")>0:
+            columns=para_to_dict(columns,',',':')
+        else:
+            columns = columns.split(' ');
     if columns is None:
         return d1;
-    for r in columns:
-        if r in d2:
-            d1[r] = d2[r];
+    if isinstance(columns,list):
+        for r in columns:
+            if r in d2:
+                d1[r] = d2[r];
+    elif isinstance(columns,dict):
+        for k,v in columns.items():
+            d1[v]=d2[k]
     return d1;
+
+import types
+
+def tramp(gen, *args, **kwargs):
+    g = gen(*args, **kwargs)
+    while isinstance(g, types.GeneratorType):
+        g=g.next()
+    return g
+
 
 
 def first_or_default(generator):
