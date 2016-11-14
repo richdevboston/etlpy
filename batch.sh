@@ -1,4 +1,4 @@
 for((i=0; i<$1; ++i))  
 do
- nohup  python3 src/distributed.py $2 &
+ nohup  python src/distributed.py client $2 &
 done  

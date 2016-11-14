@@ -5,6 +5,14 @@ PY2 = sys.version_info[0] == 2
 
 enable_progress=True
 
+if PY2:
+    import codecs
+
+    open = codecs.open
+else:
+    open = open
+
+
 def is_in_ipynb():
     try:
         cfg = get_ipython()
@@ -75,6 +83,7 @@ def to_list(generator, max_count=None):
         if max_count is not None and count >= max_count:
             break
     return datas;
+
 
 
 def progress_indicator(generator,title='Position Indicator',count=2000):
@@ -219,7 +228,7 @@ def first_or_default(generator):
 def query(data, key):
     if data is None:
         return key;
-    if isinstance(key, str) and key.startswith('[') and key.endswith(']'):
+    if is_str(key) and key.startswith('[') and key.endswith(']'):
         key = key[1:-1];
         if key in data:
             return data[key];
@@ -346,7 +355,7 @@ def dict_to_poco_type(obj):
 def dict_copy_poco(obj,dic):
     for key,value in obj.__dict__.items():
         if key in dic:
-            if isinstance(dic[key], (str,int,float)):
+            if isinstance(dic[key], (str,int,float,unicode)):
                 setattr(obj,key,dic[key])
 
 

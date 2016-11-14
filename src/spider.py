@@ -3,15 +3,15 @@ from extends import  *
 import sys;
 import re
 import requests
-
-
-from xspider import *
+from lxml import etree
+import extends
 import random;
+from itertools import groupby
 box_regex = re.compile(r"\[\d{1,3}\]");
 
 agent_list = []
 
-class XPath(extends.EObject):
+class XPath(EObject):
     def __init__(self, name=None, xpath=None, is_html =False, sample=None, must=False):
         self.path = xpath;
         self.sample = sample;
@@ -155,6 +155,329 @@ def get_node_html(node):
     else:
         return etree.tostring(node).decode('utf-8');
 
+
+if PY2:
+    pass
+else:
+    import html.parser as h
+    html_parser = h.HTMLParser()
+
+
+
+
+PM25 = 2.4;
+
+ignoretag = re.compile('script|style');
+boxRegex = re.compile(r"\[\d{1,3}\]");
+
+
+def str_match(text, keyword, match_func):
+    if text is None: return 0;
+    keyword = keyword.strip();
+    items = [r.strip() for r in re.split('\t|\r|\n', text)];
+    for r in items:
+        if match_func(r,keyword):
+            return 1;
+    return 0;
+
+
+def get_node_leaf_count(node):
+    count = 0;
+    if node is None: return;
+    nodes = [r for r in node.iterchildren()];
+    c = len(nodes);
+    if c == 0: count += 1;
+    for node in nodes:
+        count += get_node_leaf_count(node);
+    return count;
+
+
+def _is_same_path(p1, p2, root_path):
+    path1 = p1.replace(root_path,'');
+    path2 = p2.replace(root_path,'');
+    return str(path1) == str(path2);
+
+
+def get_diff_page(htmls,has_attr):
+    trees=[]
+    nodes=[];
+    for html in htmls:
+        root = etree.HTML(html);
+        tree = etree.ElementTree(root);
+        nodes.append(root);
+        trees.append(tree);
+    xpaths=[];
+    __get_diff_nodes(trees,nodes,xpaths,has_attr);
+    return xpaths;
+
+
+
+def search_text_root(tree, node):
+    class ParaClass(object):
+        def __init__(self):
+            self.tlen = 0;
+            self.path = ''
+    para=ParaClass();
+    __search_text_root(tree, node, para);
+    if para.path=='':
+        return None;
+    path=para.path.split('/');
+    if len(path)<2:
+        return para.path;
+    path='/'.join(path[:-1])
+    return path;
+
+
+def __search_text_root(tree, node, para):
+    if  hasattr(node,'tag')  and  isinstance(node.tag,str) and node.tag.lower() not in ['script','style','comment']:
+        child_nodes=[n for n in node.iterchildren()];
+        if len(child_nodes)>0:
+            for child in child_nodes:
+                __search_text_root(tree, child, para);
+        else:
+            text = node.text;
+            if text ==None:
+                return ;
+            tlen = len(text)
+            if tlen > para.tlen:
+                para.tlen = tlen;
+                para.path = tree.getpath(node);
+
+
+
+
+def __get_sub_xpath(path,slice):
+    r=path.split('/');
+    paths= slice(r)
+    return '/'.join(paths)
+def __search_table_root(tree, nodes, path_dict, has_child,strict=True):
+    if strict:
+        variance_max=2
+    else:
+        variance_max=10
+
+    if nodes is None:
+        return;
+    if len(nodes) == 0:
+        return None;
+    node = nodes[0];
+    if has_child:
+        for node in nodes:
+            all_childs=[child for child in node.iterchildren() if str(child.__class__).find('Element')>0]
+            childs= groupby(all_childs,key=lambda node:node.tag);
+            for key,node_group in childs:
+                node_group = list(node_group);
+                __search_table_root(tree, node_group, path_dict, has_child,strict);
+    target_node = list(node for node in nodes);  # filter(lambda x:not x.tag.startswith("#"),nodes);
+    child_count = float(len(target_node));
+    if 5 > child_count:
+        return;
+    same_name_count = len([x for x in target_node if x.tag == target_node[1].tag]);
+    if same_name_count < child_count * 0.7: return;
+    child_counts = [];
+    for n in target_node:
+        child_counts.append(len(list(r for r in n.iterchildren())));
+    variance = extends.variance(child_counts);
+    if  variance > variance_max: return;
+    leaf_count = get_node_leaf_count(target_node[0]);
+    if  leaf_count<2:
+        return ;
+    value = child_count * PM25 + leaf_count;
+    xpath = xpath_rm_last_num(tree.getpath(node).split('/'));
+    path_dict[xpath] = value;
+
+
+def search_table_root(root, has_child=True):
+    d = {};
+    tree = etree.ElementTree(root);
+    __search_table_root(tree, root, d, has_child);
+    return d;
+
+def _str_find(string,word):
+    return string.find(word)>=0;
+
+def _regex_find(string,regex):
+     res=re.match(regex,string);
+     if res:
+         return res;
+     return res;
+
+def _tn_find(string,rule):
+    from tn import core
+    return core.match(string,rule) is not None;
+
+
+def search_xpath(node, keyword, match_func='str',has_attr=False):
+    tree = etree.ElementTree(node);
+    dics={'str':_str_find,'tn':_tn_find,'script':_regex_find};
+    return __search_xpath(tree,node,keyword,dics[match_func] ,has_attr);
+
+
+def __search_xpath(tree, node, keyword,match_func, has_attr=False):
+    if node is None or keyword is None: return;
+    nodes = node.iterchildren();
+    for node in nodes:
+        if str(node.__class__).find("Element") > 0:
+            path = __search_xpath(tree, node, keyword, match_func, has_attr);
+            if path is not None:
+                return path;
+            if node.text is not None and str_match(node.text, keyword,match_func):
+                xpath = tree.getpath(node)
+                return xpath;
+            if has_attr:
+                for r in node.attrib:
+                    if str_match(node.attrib[r], keyword,match_func):
+                        xpath = tree.getpath(node)+'/@%s[1]'%(r)
+                        return xpath;
+    return None;
+
+def __get_nearest_node(targets, node):
+    dic={};
+    for target in targets:
+        if type(target)!=type(node):
+            continue;
+        if target.tag!=node.tag:
+            continue;
+        dis= len(target.attrib.keys()) - len(node.attrib.keys())
+        dis=abs(dis);
+        dis+= abs(get_node_leaf_count(target) - get_node_leaf_count(node))
+        dic[target]=dis;
+    minv=99999;
+    selectnode=None;
+    for k,v in dic.items():
+        if v<minv:
+            selectnode=k;
+    return selectnode;
+
+
+def __get_diff_nodes(trees,nodes, xpaths, has_attr):
+    def get_tree(i):
+        if isinstance(trees,list):
+            return trees[i];
+        return trees;
+    is_child_contain_info = False;
+    index= len(nodes)/2;
+    node1 = nodes[index]
+    tree1 = etree.ElementTree(node1);
+    node1path = get_tree(0).getpath(node1);
+    for child_node1 in node1.iterchildren():
+        path = '/'.join(tree1.getpath(child_node1).split('/')[2:])
+        node_child2 = [];
+        for node in  nodes:
+            targets = node.xpath(path);
+            if len(targets) == 0:
+                continue  #TODO: this is fucked
+            node_child2.append(targets[0]);
+        if len(node_child2) <= 1:
+            continue;
+        is_child_contain_info |= __get_diff_nodes(trees, node_child2, xpaths, has_attr);
+    if is_child_contain_info == False:
+        for i in range(0,len(nodes)):
+            node=nodes[i];
+            if not  __is_same_string(node.text,node1.text):
+                prop_name = __search_node_name(node, xpaths);
+                xpath = XPath(prop_name)
+                xpath.sample = node1.text;
+                xpath.path = node1path if len(xpaths) % 2 == 0 else get_tree(i).getpath(node);
+                xpaths.append(xpath);
+                is_child_contain_info = True;
+                break;
+    if not has_attr:
+        return is_child_contain_info;
+    for r in node1.attrib:
+        v = node1.attrib[r];
+        for i in range(0, len(nodes)):
+            node = nodes[i];
+            value = node.attrib.get(r, None);
+            if value is None:
+                break;
+            if node.attrib[r] != v:
+                xpath = XPath(__search_node_name(r, xpaths) + "_" + r);
+                xpath.path = node1path if len(xpaths) % 2 == 0 else get_tree(i).getpath(node);
+                xpath.path += '/@' + r;
+                xpath.sample = v;
+                xpaths.append(xpath);
+                break;
+    return is_child_contain_info;
+
+
+
+def get_diff_nodes(tree, root, root_path, has_attr, exists=None):
+    xpaths = [];
+    nodes = [r for r in root.xpath(root_path)]
+    count = len(nodes);
+    if count > 1:
+        __get_diff_nodes(tree, nodes, xpaths, has_attr);
+    if exists is not None:
+        for r in exists:
+            for p in xpaths:
+                short_path =  xpath_take_off (p.path,root_path);
+                if r.path == extends.to_str(short_path):
+                    p.name = r.name;
+                    break;
+    return xpaths;
+
+def __is_same_string(t1,t2):
+    if t1 is None and t2 is None:
+        return True;
+    elif t1 is not None and t2 is not None:
+        return t1.strip()==t2.strip();
+    return False
+
+
+def __search_node_name(node, xpaths):
+    if not  hasattr(node,'attrib'):
+        return 'col%s' % (len(xpaths));
+    attr_key = ["class","id"];
+    for key in attr_key:
+        name = node.attrib.get(key, None);
+        if name is not None:
+            break;
+    if name is None:
+        return  'col%s'%(len(xpaths));
+    for c in xpaths:
+        if c.name == name:
+            name2 = node.getparent().attrib.get(name, None);
+            if name2 is None:
+                return 'col%s' % (len(xpaths));
+            else:
+                name = name2 + '_' + name;
+    return name.replace(' ', '_');
+
+
+
+def search_properties(root, exist_xpaths=None, is_attr=False):
+    if exist_xpaths == None: exist_xpaths = [];
+    tree = etree.ElementTree(root);
+    exist_len = len(exist_xpaths);
+    if exist_len > 1:
+        root_path = get_common_xpath(exist_xpaths);
+        yield root_path, get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
+    elif exist_len == 1:
+        real_path = exist_xpaths[0];
+        path_dict = {};
+        for r in  xpath_iter_sub( real_path.path):
+            __search_table_root(tree,root.xpath(str(r)), path_dict, False,strict=False);
+        max_p = 0;
+        path = None;
+        for r in path_dict:
+            if path_dict[r] > max_p:
+                path = r;
+            max_p = path_dict[r];
+        if path is not None:
+            items=get_diff_nodes(tree, root, path, is_attr, exist_xpaths);
+            if len(items)>1:
+                yield path,items
+    else:
+        path_dict = {};
+        __search_table_root(tree, [root], path_dict, True);
+        path_dict = sorted(path_dict, key=lambda d: path_dict[d], reverse=True);
+        for root_path in path_dict:
+            items = get_diff_nodes(tree, root, root_path, is_attr, exist_xpaths);
+            if len(items) > 1:
+                yield root_path,items;
+    yield None,None
+
 def _get_etree( html):
     root = None
     if html != '':
@@ -163,9 +486,35 @@ def _get_etree( html):
         except Exception as e:
             sys.stderr.write('html script error'+str(e))
     return root;
+def get_list(html,xpaths=None, has_attr=False):
+    root= _get_etree(html);
+    if xpaths is None:
+        root_path, xpaths = search_properties(root, None,has_attr );
+    datas = get_datas(root, xpaths, True, None)
+    return datas,xpaths;
 
+def get_main(html,is_html=False):
+    root= _get_etree(html);
+    tree = etree.ElementTree(root);
+    node_path = search_text_root(tree, root);
+    nodes = tree.xpath(node_path);
+    if len(nodes)==0:
+        return ''
+    node=nodes[0]
+    if is_html:
+        res = etree.tostring(node).decode('utf-8');
+    else:
+        if hasattr(node, 'text'):
+            res = get_node_text(node);
+        else:
+            res = extends.to_str(node)
+    return res;
 
-def _get_datas( root, xpaths, multi=True, root_path=None):
+def get_sub_xpath(root,xpath):
+    paths = xpath.split('/');
+    path = '/'+'/'.join(paths[len(root.split('/')):len(paths)]);
+    return path;
+def get_datas( root, xpaths, multi=True, root_path=None):
     tree = etree.ElementTree(root);
     docs = [];
     if not multi:
@@ -205,271 +554,6 @@ def _get_datas( root, xpaths, multi=True, root_path=None):
 
 
 
-class SmartCrawler(extends.EObject):
-    '''
-    A _crawler with httpitem and parse html to structured data by search & script
-    '''
-    def __init__(self):
-        self.multi = True;
-        self.name = None;
-        self.headers = {};
-        self.timeout = 30;
-        self.best_encoding = 'utf-8'
-        self.clear();
-
-
-    def great_hand(self,attr=False,index=0):
-        tree=self._tree;
-        self._stage=2;
-        if not self.multi :
-            print('great hand can only be used in list')
-            return self;
-        result=  first_or_default( get_mount(search_properties(tree,self.xpaths,attr),take=1,skip=index))
-        if result is None:
-            print ('great hand failed')
-            return self;
-        root,xpaths= result
-        datas= _get_datas(tree,xpaths,self.multi, None)
-        self._datas= datas;
-        self._xpaths= xpaths;
-        return self;
-
-    def set_paras(self, is_list=True,post_data='', root=None):
-        self.multi=is_list;
-        if root is not None:
-            self.root=root;
-        self.post_data=post_data;
-        return self;
-
-    def rename(self,column):
-        if column.find(u':') >= 0:
-            column = extends.para_to_dict(column, ',', ':')
-            for path in self.xpaths:
-                if path.name in column:
-                    path.name=column[path.name]
-        elif column.find(' ') > 0:
-            column = [r.strip() for r in column.split(' ')]
-            for i in min(len(column),len(self.xpaths)):
-                self.xpaths[i].name=column[i]
-        return self
-
-
-    def set_headers(self, headers):
-        dic = extends.para_to_dict(headers, '\n', ':')
-        extends.merge(self.headers, dic);
-        return self
-
-
-    def test(self):
-        paths= self.xpaths if self._stage > 3 else self._xpaths;
-        root= self.root if self._stage >3  else self._root;
-        self._stage = 3;
-        self._datas=self._get_data_from_html(self._html, paths, root)
-        if isinstance(self._datas,dict):
-            self._datas=[self._datas]
-        return self
-
-    def crawl(self,url,post_data='',get_data=True):
-        req_data=(url,post_data)
-        for r in  self.crawls([req_data],get_data=True):
-            if not get_data:
-                r=r['Content']
-            return r
-
-
-    def crawls(self,req_datas,exception_handler=None,async=False,get_data=False,default_key='Content'):
-        def get_request_para(req):
-            url,post=req;
-            paras={};
-            if  len( self.headers)>0:
-                paras['headers']=self.headers;
-            if post!='':
-                paras['data']=post
-            paras['url']=url;
-            return paras,post!=''
-
-        if async:
-            import grequests
-            def get_requests(req):
-                paras,is_post=get_request_para(req)
-                if not is_post:
-                    r = grequests.get(**paras)
-                else:
-                    r = grequests.post(**paras)
-                return r
-
-            res = grequests.map((get_requests(re) for re in req_datas), exception_handler=exception_handler);
-        else:
-
-
-            res=[]
-            for req in req_datas:
-                paras, is_post = get_request_para(req)
-                if not is_post:
-                    r=requests.get(**paras)
-                else:
-                    r=requests.post(**paras)
-            res.append(r)
-        for response in res:
-            if response is not None:
-                data=get_encoding(response.content)
-                if get_data:
-                    data=self._get_data_from_html(data, self.xpaths, self.root)
-                    if extends.is_str(data):
-                        data = {default_key: data}
-            else:
-                data={default_key:''}
-            yield data;
-
-
-    def _get_data_from_html(self, html, xpaths, root):
-        if isinstance(xpaths, list) and len(xpaths) == 0:
-            return html
-        tree = _get_etree(html);
-        if tree is None:
-            return {} if self.multi == False else [];
-        return _get_datas(tree, xpaths, self.multi, root);
-
-    def add_xpath(self, name, xpath, is_html=False):
-        for r in self.xpaths:
-            if r.name==name:
-                return ;
-        xpath = XPath(name, xpath, is_html);
-        self.xpaths.append(xpath);''
-        return self;
-
-    def query_xpath(self, xpath, is_html=False):
-        if self._stage < 1:
-            return 'please visit one url first';
-        datas= get_xpath_data(self._tree,xpath,is_html,False);
-        return datas;
-
-    def py_query(self):
-        from pyquery import PyQuery as pyq
-        root = pyq(self._html);
-        return root;
-
-    def search_xpath(self, keyword, name=None, attr=False, is_html=False, mode='str'):
-        if self._stage<1:
-            return 'please visit one url first';
-        result= search_xpath(self._tree, keyword, mode, attr);
-        key=name if name is not  None else 'unknown';
-        print('%s  : %s'%(key,result))
-        if result is not None and name is not None:
-            if self.root is not None:
-                result=xpath_take_off(result,self.root)
-            self.add_xpath(name,result,is_html)
-        return self;
-
-
-    def visit(self, url=None,post_data=''):
-        self._stage=1;
-        html = self.crawl(url,post_data,False);
-        self._html= html;
-        self._tree= _get_etree(html);
-        return self;
-
-    def clear(self):
-        self._stage=0;
-        self.xpaths=[];
-        self._xpaths=[];
-        self.tree=None;
-        self._datas=None;
-        self._tree=None;
-        self.root=None;
-        self._root=None;
-        return self;
-    def print_xpaths(self,is_test=True):
-        if is_test:
-            paths=self._xpaths;
-        else:
-            paths= self.xpaths;
-        if paths is None:
-            print( 'xpaths is None');
-        if len(paths)==0:
-            print('script  is empty')
-        buf=[];
-        if self.root is not None:
-            rpath=self.root if not is_test else self._root;
-            buf.append('root:'+ rpath);
-        for r in paths:
-            buf.append('%s\t%s\tis_html: %s' % (r.name, r.path, r.is_html))
-        result= '\n'.join(buf);
-        return result;
-
-    def __str__(self):
-        return self.print_xpaths(False);
-
-    def accept(self,set_root_xpath=False):
-        self._stage=4;
-        if len(self._xpaths)>0:
-            self.xpaths=self._xpaths;
-        if set_root_xpath:
-            self.root= get_common_xpath(self._xpaths)
-            for path in self.xpaths:
-                m_path = path.path.split('/');
-                path.XPath = '/'.join(m_path[len(self.root.split('/')):len(m_path)]);
-        if self._tree is not None:
-            self.tree= self._tree;
-        return self;
-    def get(self,format='print'):
-        s=self._stage;
-        if s==0:
-            print(self)
-        elif s==1:
-            if extends.is_ipynb:
-                from IPython.core.display import HTML,display
-                display(HTML(self._html));
-            else:
-                print(self._html);
-        elif s==2:
-            print(self.print_xpaths(True))
-        else :
-            return extends.get(self._datas, format);
-
-
-
-
-
-
-def get_web_file(url, code=None):
-    url = url.strip();
-    if not url.startswith('http'):
-        url = 'http://' + url;
-        print("auto transform %s" % (url));
-    socket.setdefaulttimeout(30)
-    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
-                    "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                 "Accept-Encoding": "gzip, deflate, sdch",
-                 "Connection":"keep-alive",
-                 "Accept-Language": "zh-CN,zh;q=0.8,en;q = 0.6"
-    }
-    try:
-        opener = _build_opener();
-        t = [(r.strip(), headers[r]) for r in headers];
-        opener.addheaders = t;
-        page = opener.open(url)
-
-        html = page.read()
-    except Exception as e:
-        sys.stderr.write(str(e))
-        return None
-    return html;
-
-
-
-
-def get_img_format(name):
-    if name is None:
-        return None, None;
-    p = name.split('.');
-    if len(p) != 2:
-        return name, 'jpg';
-
-    back = p[-1];
-    if back == "jpg" or back == "png" or back == "gif":  # back=="png"  ignore because png is so big!
-        return p[-2], back;
-    return None, None;
 
 
 

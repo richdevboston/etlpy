@@ -32,11 +32,13 @@ def html(text):
 def spider(name='_crawler'):
     import spider
     sp= spider.SmartCrawler();
-    proj.modules[name]=sp;
+    proj.env[name]=sp;
     sp.name=name;
     sp._proj=proj
     return sp;
 
+def set(key,value):
+    proj.env[key]=value
 
 def quote(string):
     if extends.PY2:
@@ -52,20 +54,15 @@ def get_default_connector():
     mongo = etl.MongoDBConnector();
     mongo.connect_str = 'mongodb://10.244.0.112'
     mongo.db = 'ant_temp'
-    con = connector('mongo', mongo)
-    return con
+    set('mongo',mongo)
+    return mongo
 
-def connector(name,connector):
-    proj.connectors[name]=connector;
-    return connector
 
 def task(name='etl'):
-
-
     my_task= etl.ETLTask();
     my_task._proj=proj;
-    my_task.name=name;
-    proj.modules[name]=my_task;
+    my_task.name=name
+    proj.env[name]=my_task
 
     def attr_filler(attr):
         if attr.startswith('_'):
@@ -87,9 +84,19 @@ def task(name='etl'):
                     value= dic.get(key2,None)
             if value is not None:
                 setattr(val, key, value)
-        if val.column=='' and my_task._last_column!='' and not str(type(val)).lower().find('python')>=0:
-            val.column=my_task._last_column
-        my_task._last_column=val.column
+        pos=val.column.find(":")
+        column = val.column;
+        column0=column
+        if pos==0:
+            column=my_task._last_column+val.column
+            column0=column.split(':')[0]
+
+        if column == '' and my_task._last_column != '' and not str(type(val)).lower().find('python') >= 0:
+            val.column = my_task._last_column
+        else:
+            val.column=column
+        if column0!='':
+            my_task._last_column = column0
     def _rename(module):
         repl={'TF':'','Python':'py','Parallel':'pl'}
         for k,v in repl.items():

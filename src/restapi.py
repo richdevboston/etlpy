@@ -6,7 +6,6 @@ from flask import request
 
 app = Flask(__name__);
 from spider import  *
-from xspider import  *
 proj=None;
 
 

@@ -8,7 +8,7 @@ import urllib
 import xml.etree.ElementTree as ET
 
 import spider
-import xspider
+import extends
 from extends import *
 
 if PY2:
@@ -282,7 +282,7 @@ class DBBase(ETLTool):
         self.table = '';
 
     def init(self):
-        self._connector = self._proj.connectors[self.selector];
+        self._connector = self._proj.env[self.selector];
         self._connector.init()
         self._table = self._connector._db[self.table];
 
@@ -799,13 +799,54 @@ class PythonFT(Filter):
             return False
         return result;
 
+class GreatTF(Transformer):
+    def __init__(self):
+        super(GreatTF, self).__init__()
+        self.index=0;
+        self.attr=False
+        self.script=''
 
+    def init(self):
+        self._m_yield=True
+
+    def m_transform(self, data, col):
+        from spider import search_properties,get_datas
+        root = data[col]
+        if root is None:
+            return
+
+        if is_str(root):
+            from lxml import etree
+            root = spider._get_etree(root)
+        tree = etree.ElementTree(root);
+        if self.script!='':
+            xpaths= spider.get_diff_nodes(tree,root,self.script,self.attr)
+            root_path=self.script
+        else:
+            result = first_or_default(get_mount(search_properties(root, None, self.attr), take=1, skip=self.index))
+            if result is None:
+                print ('great hand failed')
+                yield data
+                return
+            root_path, xpaths = result
+        for r in xpaths:
+            r.path= spider.get_sub_xpath(root_path,r.path);
+
+        code0=  '\n.'.join((u"xpath(u':{col}',sc='/{path}')\\" .format(col=r.name,path=r.path,sample=r.sample) for r in xpaths))
+        code= u".xpath(sc='%s',m_yield=True,mode='html').tree()\\\n.%s" %(root_path,code0 );
+        print code
+        code2= '\n'.join(u"#{key} : #{value}".format(key=r.name,value=r.sample.strip()) for r in xpaths);
+        print code2
+        datas = get_datas(root, xpaths, True, root_path=root_path)
+        for r in datas:
+            yield r
 
 class CrawlerTF(Transformer):
     def __init__(self):
         super(CrawlerTF, self).__init__()
-        self.selector='';
-        self.is_regex=False
+        self.headers = ''
+        self.timeout = 30;
+        self.best_encoding = 'utf-8'
         self.post_data=''
         self.refresh=False
         self.debug=False
@@ -840,25 +881,53 @@ class CrawlerTF(Transformer):
                     yield data
 
     def init(self):
-        if is_str(self.selector):
-            dic= self._proj.modules;
-            if self.selector in dic:
-                self._crawler= dic[self.selector]
-            elif self.selector!='':
-                sys.stderr.write('crawler {name} can not be found in project'.format(name=self.selector))
-            else:
-                self._crawler=spider.SmartCrawler();
-        else:
-            self._crawler=self.selector;
         if self.refresh:
             self.__buff={}
         if self.pl_count>1:
             self._m_process=True
 
-        self._m_yield = self._crawler.multi   and len(self._crawler.xpaths)>0;
+
+    def crawls(self, req_datas, exception_handler=None):
+        import requests
+        from spider import get_encoding
+        def get_request_para(req):
+            url, post = req;
+            paras = {};
+            if self.headers in self._proj.env:
+                paras['headers'] = self._proj.env[self.headers]
+            if post != '':
+                paras['data'] = post
+            paras['url'] = url;
+            return paras, post != ''
+
+        if self.pl_count>1:
+            import grequests
+            def get_requests(req):
+                paras, is_post = get_request_para(req)
+                if not is_post:
+                    r = grequests.get(**paras)
+                else:
+                    r = grequests.post(**paras)
+                return r
+
+            res = grequests.map((get_requests(re) for re in req_datas), exception_handler=exception_handler);
+        else:
+
+            res = []
+            for req in req_datas:
+                paras, is_post = get_request_para(req)
+                if not is_post:
+                    r = requests.get(**paras)
+                else:
+                    r = requests.post(**paras)
+            res.append(r)
+        for response in res:
+            if response is not None:
+                data = get_encoding(response.content)
+                yield data;
 
 
-    def _get_data(self,reqs,default_key='Content'):
+    def _get_data(self,reqs):
         buff = self.__buff;
         def _get_request_info(req):
             data = req[0]
@@ -889,23 +958,16 @@ class CrawlerTF(Transformer):
                 datas.append(data)
             else:
                 yield data,result
-        for req,data,result in  zip(reqs2,datas,self._crawler.crawls(reqs2,async= self.pl_count>1,get_data=True,default_key=default_key)):
+        for req,data,result in  zip(reqs2,datas,self.crawls(reqs2)):
             url,post=req
             key=url+str(post)
             if len(buff) < 100:
                 buff[key] = result
             yield data,result;
 
-    def m_transform(self,data,col):
-        res=self._get_data([(data,col)]);
-        for d in res:
-            raw, datas = d
-            for r in datas:
-                yield r;
     def transform(self, data, col,ncol):
-        for r in  self._get_data([(data, col)],default_key=ncol):
-            for k,v in r[1].items():
-                data[k]=v;
+        for r in  self._get_data([(data, col)]):
+            data[ncol]=r[1]
             return
 
 
@@ -919,9 +981,27 @@ class TreeTF(Transformer):
     def transform(self, data):
         from lxml import etree
         root = spider._get_etree(data);
-        tree = etree.ElementTree(root)
-        return tree
+        #tree = etree.ElementTree(root)
+        return root
 
+
+class SearchTF(Transformer):
+    def __init__(self):
+        super(SearchTF, self).__init__()
+        self.script = ''
+        self._m_yield=False;
+        self.one_input=True;
+        self.mode='str'
+    def transform(self, data):
+        from spider import search_xpath
+        if data is None:
+            return None;
+        if is_str(data):
+            from lxml import etree
+            tree = spider._get_etree(data);
+        result = search_xpath(tree, self.script,self.mode, True);
+        print result
+        return result
 
 class XPathTF(Transformer):
     def __init__(self):
@@ -952,7 +1032,8 @@ class XPathTF(Transformer):
 
     def _m_transform(self,nodes):
         for node in nodes:
-            ext = {'text': spider.get_node_text(node), 'html': spider.get_node_html(node)};
+            data= self._transform([node]);
+            ext={self.column:data}
             yield ext;
     def _transform(self,nodes):
         if len(nodes) < 1:
@@ -979,21 +1060,20 @@ class XPathTF(Transformer):
         tree = self._trans(data[col]);
         if tree is None:
             return None;
-
         node_path = query(data, self.script);
         if node_path is None:
             return;
         if node_path== '' or node_path is None:
             return
-        nodes = tree.xpath(node_path);
+        nodes = tree.xpath(node_path)
         data[ncol]=self._transform(nodes)
 
 
-class PyQueryTF(XPathTF):
+class PyQTF(XPathTF):
     def __init__(self):
-        super(PyQueryTF, self).__init__()
+        super(PyQTF, self).__init__()
         self.script = ''
-        self.mode = GET_TEXT
+        self.mode = GET_HTML
         self.m_yield = False;
 
     def init(self):
@@ -1152,7 +1232,6 @@ class EtlBase(ETLTool):
     def _get_tools(self,data):
 
         sub_etl = self._get_task(data)
-
         buf = [r for r in self.range.split(':') if r.strip()!='']
         start = int(buf[0])
         if len(buf)>1:
@@ -1258,12 +1337,15 @@ class TextGE(Generator):
             yield {self.column: self._arglists[i]}
 
 
+class TextTF(XPathTF):
+    def __init__(self):
+        super(TextTF, self).__init__()
 
 
-
-class RepeatTF(Transformer):
-    pass;
-
+    def init(self):
+        self._m_yield = False
+        self.script='//*'
+        self.mode='text'
 
 class SampleTF(Transformer):
     def __init__(self):
@@ -1322,8 +1404,6 @@ class FileExistFT(Transformer):
         import os;
         return to_str(os.path.exists(data));
 
-class MergeRepeatTF(Transformer):
-    pass;
 
 class TakeTF(Transformer):
     def __init__(self):
@@ -1355,40 +1435,33 @@ class SaveFileEX(Executor):
 
 
     def execute(self,data):
+        import requests
         save_path = query(data, self.path);
         (folder,file)=os.path.split(save_path);
         if not os.path.exists(folder):
             os.makedirs(folder);
         urlpath= data[self.column];
         newfile= open(save_path,'wb');
-        newdata= spider.get_web_file(urlpath);
-        if newdata is None:
+        req = requests.get(urlpath)
+        if req is None:
             return
-        newfile.write(newdata);
+        newfile.write(req.content);
         newfile.close();
         return data
 
 
 
-
-
-
-
-
 class Project(EObject):
     def __init__(self):
-        self.modules={};
-        self.connectors={};
+        self.env={};
+        self.env={};
         self.edit_time= time.time();
         self.desc="edit project description here";
         self.author='desert';
 
     def clear(self):
-        self.modules.clear()
-        self.connectors.clear()
-        return self;
-    def pop(self,name):
-        self.modules.pop(name)
+        self.env.clear()
+        self.env.clear()
         return self;
 
     def dumps_json(self):
@@ -1401,7 +1474,7 @@ class Project(EObject):
         return yaml.dump(dic)
 
     def dump_yaml(self, path):
-        with open(path, 'w', encoding='utf-8') as f:
+        with extends.open(path, 'w', encoding='utf-8') as f:
             f.write(self.dumps_yaml());
     def load_yaml(self, path):
         import yaml
@@ -1415,48 +1488,33 @@ class Project(EObject):
         return self.load_dict(d)
 
     def dump_json(self,path):
-        with open(path,'w',encoding='utf-8') as f:
+        with extends.open(path,'w',encoding='utf-8') as f:
             f.write(self.dumps_json());
 
     def load_json(self,path):
-        with open(path,'r',encoding='utf-8') as f:
+        with extends.open(path,'r',encoding='utf-8') as f:
             js= f.read();
             return self.loads_json(js)
 
 
     def load_dict(self,dic):
-        connectors =dic.get('connectors',{});
-        for key, item in connectors.items():
-            conn = eval('%s()' % item['Type']);
-            dict_copy_poco(conn,item);
-            self.connectors[key] = conn
-
-        modules =dic.get('modules',{});
-        for key, module in modules.items():
-            obj_type = module['Type']
-
-            if obj_type=='ETLTask':
-                crawler = ETLTask();
-                for r in module['tools']:
-                    etl =eval('%s()'%r['Type']);
-                    for attr, value in r.items():
-                        if attr in ['Type']:
-                            continue;
-                        setattr(etl, attr, value);
-                    etl._proj = self;
-                    crawler.tools.append(etl)
-            elif obj_type=='SmartCrawler':
-                crawler = spider.SmartCrawler();
-                dict_copy_poco(crawler, module);
-                paths = module.get('xpaths',{});
-                for r in paths:
-                    xpath = spider.XPath()
-                    dict_copy_poco(xpath, r);
-                    crawler.xpaths.append(xpath)
-            setattr(self,key,crawler);
-            if crawler is not None:
-                self.modules[key] = crawler;
-        #print('load project success')
+        items =dic.get('env',{});
+        for key, item in items.items():
+            if 'Type' in item:
+                obj_type = item['Type']
+                task = eval('%s()' % obj_type);
+                if obj_type == 'ETLTask':
+                    for r in item['tools']:
+                        etl = eval('%s()' % r['Type']);
+                        for attr, value in r.items():
+                            if attr in ['Type']:
+                                continue;
+                            setattr(etl, attr, value);
+                        etl._proj = self;
+                        task.tools.append(etl)
+                else:
+                    dict_copy_poco(task,item);
+            self.env[key]=task
         return self;
 
 
@@ -1508,6 +1566,7 @@ def generate(tools, generator=None, init=True, execute=False, enabled=True):
     for tool in tools:
         if tool.enabled == False and enabled == True:
             continue
+
         if isinstance(tool,Executor):
             if execute==False and tool.debug==False:
                 continue;
@@ -1549,12 +1608,34 @@ class ETLTask(EObject):
         self.tools=[]
         return self;
 
-    def pop(self,i):
-        self.tools.pop(i);
-        return self;
+    def to_json(self):
+        dic = convert_dict(self)
+        return json.dumps(dic, ensure_ascii=False, indent=2)
+
+    def to_yaml(self):
+        import yaml
+        dic = convert_dict(self)
+        return yaml.dump(dic)
+
+    def to_graph(self,path='etl.jpg'):
+        import pygraphviz as pgv
+        A = pgv.AGraph(directed=True, strict=True);
+        last = "root"
+        A.add_node(last)
+        for tool in self.tools:
+            m_type=str(tool.__class__)
+            A.add_node(m_type)
+
+
+            A.add_edge(last,tool,tool.column)
+            last=tool
+
+        A.graph_attr['epsilon'] = '0.001'
+        A.layout('dot')  # layout with dot
+        A.draw(path)  # write to file
 
     def check(self,count=10):
-        c=  force_generate(foreach(self.tools,lambda x:x.init()))
+        c=  force_generate(foreach(self.tools, lambda x:x.init()))
         for i in range(1,len(self.tools)):
             attr=EObject()
             tool=self.tools[i];
@@ -1565,8 +1646,55 @@ class ETLTask(EObject):
 
     def distribute(self ,take=90999999,skip=0,port= None,monitor_connector_name=None,table_name=None):
         import distributed
-        self._master= distributed.Master(self._proj, self.name,monitor_connector_name,table_name)
-        self._master.start(take,skip,port)
+        self._master= distributed.Master(
+        self._master.start_project(self._proj, self.name,take,skip,port,monitor_connector_name,table_name))
+
+    def _pl_generator(self,take=-1,skip=0):
+        mapper, reducer, parallel = parallel_map(self.tools)
+        if parallel is None:
+            print 'this script do not support pl...'
+            return
+
+        count_per_group = parallel.count_per_thread if parallel is not None else 1;
+        task_generator = extends.group_by_mount(ex_generate(mapper), count_per_group, take, skip);
+        task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher', count(mapper))
+        for r in task_generator:
+            yield r
+
+    def _get_related_tasks(self,tasks):
+        for r in self.tools:
+            if isinstance(r, EtlBase) and r not in tasks:
+                tasks.add(r.name)
+                r._get_related_tasks(tasks)
+    def get_related_tasks(self):
+        tasks=set()
+        self._get_related_tasks(tasks)
+        return tasks
+
+    def rpc(self,method='finished',server='127.0.0.1',port=60007,take=-1,skip=0):
+        import requests
+
+        if method in ['finished','dispatched','clean']:
+            url="http://%s:%s/task/query/%s"%(server,port,method);
+            data= json.loads(requests.get(url).content)
+            print 'remain: %s'%(data['remain'])
+            return get(data[method],count=1000000)
+        elif method=='insert':
+            url="http://%s:%s/task/%s"%(server,port,method);
+            tasks=self.get_related_tasks()
+            n_proj=convert_dict(self._proj);
+            for k,v in n_proj.items():
+                if  isinstance(v,dict) and v.get('Type',None)=='ETLTask' and v['name'] not in tasks:
+                    del n_proj[k]
+            id=0;
+            for task in self._pl_generator(take,skip):
+                job={'proj':n_proj,'name':self.name,'tasks':task,'id':id}
+                id+=1
+                res=requests.post(url,json=job)
+            print 'total push tasks: %s'%(id);
+
+
+
     def stop_server(self):
         if self._master is None:
             return 'server is not exist';
@@ -1588,7 +1716,7 @@ class ETLTask(EObject):
         array.append('.clear()')
         for t in self.tools:
             typename = get_type_name(t);
-            s = ".%s(%s" % (typename, conv_value(t.Column));
+            s = ".%s(%s" % (typename, conv_value(t.column));
             attrs = [];
             defaultdict = type(t)().__dict__;
             for att in t.__dict__:
