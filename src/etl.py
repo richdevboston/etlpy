@@ -1378,7 +1378,7 @@ class TextTF(XPathTF):
 
     def init(self):
         self._m_yield = False
-        self.script='//*[0]'
+        self.script='//*'
         self.mode='text'
 
 class SampleTF(Transformer):
