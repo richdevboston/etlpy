@@ -138,8 +138,7 @@ class Transformer(ETLTool):
                 try:
                     datas=self.m_transform(r, self.column);
                     for p in datas:
-                        my=merge_query(p, r, self.new_col);
-                        yield my;
+                        yield p
                 except Exception as e:
                     traceback.print_exc()
             return;
@@ -1050,12 +1049,14 @@ class ListTF(Transformer):
         super(ListTF, self).__init__()
         self.mode = CONV_DECODE
         self._m_yield=True
+        self.script=''
 
     def m_transform(self, data, col):
         root = data[col];
         if self.mode== CONV_DECODE:
             for r in root:
-                yield {col:r}
+                my = merge_query(r, data, self.script);
+                yield {col:my}
 
 
 class XPathTF(Transformer):

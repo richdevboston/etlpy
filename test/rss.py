@@ -80,9 +80,9 @@ rss = task('rss')
 # rss.pyge('rss',sc=[r for r in rss_list.split('\n') if r!='' and r.startswith('#')==False])
 rss.pyge(sc=rlist2[:])
 rss.matchft('rss', sc='haibao', mode='re')
-rss.split('rss:source', sc='.', index=1)
+rss.split('rss:source', sc='.' ).at(sc='1')
 rss.py('source:xpath', sc=get_xpath)
-rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id], mode='docs', new_col='rss source xpath app_id')
+rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='rss source xpath app_id')
 rss.py('link:hash', sc='hash(data["title"]+data["link"])')
 rss.nullft('hash')
 if False: #True:#execute:
@@ -115,7 +115,7 @@ if execute:
     rss.json('resp', mode='doc')
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
-send_result=rss.get(2,etl_count=100,execute=execute)
+send_result=rss.get(2,etl=100,execute=execute)
 
 #send_result[['title','url','hash']]
 
