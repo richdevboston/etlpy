@@ -111,7 +111,7 @@ rss.repeatft('title')
 rss.rename('source:author,link:url')
 if execute:
     rss.dict('post', sc="title desc comment content cover url app_id invoke_method")
-    rss.crawler('r_url:resp', post_data='[post]')
+    rss.crawler('r_url:resp', sc='[post]')
     rss.json('resp', mode='doc')
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
