@@ -12,6 +12,7 @@ if PY2:
 else:
     open = open
 
+debug_level= 1
 
 def is_in_ipynb():
     try:
@@ -31,6 +32,7 @@ def is_str(s):
         if isinstance(s, (str)):
             return True;
     return False;
+
 
 def to_str(s):
     if PY2 and isinstance(s,unicode):

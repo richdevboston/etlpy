@@ -44,6 +44,13 @@ class ETLTool(EObject):
         super(ETLTool, self).__init__()
         self.enabled=True;
         self.column = ''
+        self.debug = False
+
+    def query(self,data):
+        for k,v in self.__dict__.items():
+            if not k.startswith('_'):
+                v2=query(data,v)
+                setattr(self,k,v2)
     def process(self, data):
         return data
     def init(self):
@@ -105,6 +112,8 @@ class Transformer(ETLTool):
                 try:
                     transform_func(data, col, ncol);
                 except Exception as e:
+                    if extends.debug_level>0:
+                        print e
                     pass;
         if is_str(column):
             if column.find(u':') >= 0:
@@ -144,7 +153,7 @@ class Transformer(ETLTool):
 class Executor(ETLTool):
     def __init__(self):
         super(Executor, self).__init__()
-        self.debug = False
+
     def execute(self,data):
         pass;
     def process(self,data):
@@ -436,20 +445,11 @@ class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
         self.script= ''
-        self._m_yield=True
-        self.mode=GENERATE_NONE
 
 
     def m_transform(self, data, col):
-        if self.mode==GENERATE_NONE:
-            data[col] = self.script;
-            yield data;
-        elif self.mode==GENERATE_DOC:
-            merge(data, self.script)
-            yield data;
-        else:
-            for d in self.script:
-                yield merge(data.copy(),d)
+        data[col] = self.script;
+        yield data;
 
 
 
@@ -625,20 +625,78 @@ class RegexTF(Transformer):
             r = item[self.index];
             return r if is_str(r) else r[0];
 
+class LastTF(Transformer):
+    def __init__(self):
+        super(LastTF,self).__init__()
+        self.count=1
+        self._m_process=True
+
+    def m_process(self, data):
+        r0 = None
+        while True:
+            try:
+                # 获得下一个值:
+                x = next(data)
+                r0=x
+            except StopIteration:
+                # 遇到StopIteration就退出循环
+                break
+        yield r0
+
+
+
+class AggTF(Transformer):
+    def __init__(self):
+        super(AggTF, self).__init__()
+        self._m_process = True
+        self.script=''
+    def m_process(self,data):
+        r0=None
+        import inspect
+        for m in data:
+
+            if self.column!='':
+                r=m[self.column]
+            if r0==None:
+                r0=r
+                yield m
+                continue
+            if is_str(self.script):
+                r2=self._eval_script(global_para={'a': r0, 'b': r})
+
+            elif inspect.isfunction(self.script):
+                r2 = self.script(r0,r)
+            if r2 != None:
+                r =r2
+            if self.column!='':
+                m[self.column]=r;
+            else:
+                m=r
+            yield m
+            r0=r
+
+
+
 class ReplaceTF(RegexTF):
     def __init__(self):
         super(ReplaceTF, self).__init__()
         self.new_value = '';
-        self.one_input=True
         self.mode='str';
+        self.one_input=False
 
-    def transform(self, data):
+    def transform(self, data,col,ncol):
+        ndata=data[col]
+        if ndata is None:
+            return
+        new_value= query(data,self.new_value)
         if self.mode=='re':
-            return re.sub(self.regex, self.new_value, data);
+            result= re.sub(self.regex, new_value, ndata);
         else:
-            if data is None:
-                return None
-            return data.replace(self.script,self.new_value);
+            if ndata is None:
+                result= None
+            else:
+                result=ndata.replace(self.script,new_value);
+        data[ncol]=result
 class NumberTF(Transformer):
     def __init__(self):
         super(NumberTF, self).__init__()
@@ -664,7 +722,6 @@ class SplitTF(Transformer):
         self.one_input = True;
         self.split_blank=False;
         self.split_null=False;
-        self.index=0;
 
     def init(self):
         self.splits = self.script.split(' ');
@@ -674,17 +731,13 @@ class SplitTF(Transformer):
             self.splits.append(' ');
         if self.split_null==True:
             self.splits.append('\n')
-        self.index = int(self.index)
     def transform(self, data):
         if len(self.splits)==0:
             return data;
         for i in self.splits:
             data = data.replace(i, '\001');
         r=data.split('\001');
-        if len(r) <= self.index:
-            return data;
-        return r[self.index];
-
+        return r
 class TrimTF(Transformer):
     def __init__(self):
         super(TrimTF, self).__init__()
@@ -718,10 +771,7 @@ class PythonTF(Transformer):
     def __init__(self):
         super(PythonTF, self).__init__()
         self.script='script'
-        self.mode=GENERATE_NONE;
 
-    def init(self):
-        self._m_yield= self.mode == GENERATE_DOCS;
 
     def _get_data(self, data, col):
         if col=='':
@@ -739,21 +789,10 @@ class PythonTF(Transformer):
             else:
                 result = self.script(value);
         return result;
-    def m_transform(self,data,col):
-        js= self._get_data(data,col)
-        if isinstance(js,list):
-            for j in js:
-                yield j;
+
     def transform(self, data,col,ncol):
         js = self._get_data( data,col)
-        if self.mode == GENERATE_DOC:
-            merge(data, js);
-        else:
-            if col=='':
-                return
-            col= ncol if ncol is not None else col;
-            data[col]=js;
-
+        data[ncol]=js
 
 class PythonGE(Generator):
     def __init__(self):
@@ -833,7 +872,7 @@ class GreatTF(Transformer):
             r.path= spider.get_sub_xpath(root_path,r.path);
 
         code0=  '\n.'.join((u"xpath(u':{col}',sc='/{path}')\\" .format(col=r.name,path=r.path,sample=r.sample) for r in xpaths))
-        code= u".xpath(sc='%s',m_yield=True,mode='html').tree()\\\n.%s" %(root_path,code0 );
+        code= u".xpath(sc='%s',mode='html|list').list().tree()\\\n.%s" %(root_path,code0 );
         print code
         code2= '\n'.join(u"#{key} : #{value}".format(key=r.name,value=r.sample.strip()) for r in xpaths);
         print code2
@@ -841,16 +880,37 @@ class GreatTF(Transformer):
         for r in datas:
             yield r
 
+class CacheTF(Transformer):
+    def __init__(self):
+        super(CacheTF, self).__init__()
+        self.refresh = False
+        self.max=100
+        self._m_process = True
+
+
+    def init(self):
+        if self.refresh:
+            self._proj.__cache=[]
+    def m_process(self,data):
+        i=0
+        while i<len(self._proj.__cache):
+            yield self._proj.__cache[i]
+            i+=1
+        self._proj.__cache=[]
+        for r in get_mount(data):
+            if self.max>len(self._proj.__cache):
+                self._proj.__cache.append(r)
+            yield r;
+
+
+
 class CrawlerTF(Transformer):
     def __init__(self):
         super(CrawlerTF, self).__init__()
         self.headers = ''
-        self.timeout = 30;
-        self.best_encoding = 'utf-8'
-        self.post_data=''
-        self.refresh=False
-        self.debug=False
-        self.__buff = {};
+        self.encoding = 'utf-8'
+        self.script= ''
+        self.mode='get'
         self.pl_count=1
 
     def m_process(self,data):
@@ -881,8 +941,6 @@ class CrawlerTF(Transformer):
                     yield data
 
     def init(self):
-        if self.refresh:
-            self.__buff={}
         if self.pl_count>1:
             self._m_process=True
 
@@ -891,20 +949,21 @@ class CrawlerTF(Transformer):
         import requests
         from spider import get_encoding
         def get_request_para(req):
-            url, post = req;
+            url, data = req;
             paras = {};
             if self.headers in self._proj.env:
                 paras['headers'] = self._proj.env[self.headers]
-            if post != '':
-                paras['data'] = post
+            if data != '':
+                key= 'data' if self.mode=='post' else 'params';
+                paras[key] = data
             paras['url'] = url;
-            return paras, post != ''
+            return paras
 
         if self.pl_count>1:
             import grequests
             def get_requests(req):
-                paras, is_post = get_request_para(req)
-                if not is_post:
+                paras = get_request_para(req)
+                if self.mode=='get':
                     r = grequests.get(**paras)
                 else:
                     r = grequests.post(**paras)
@@ -915,8 +974,8 @@ class CrawlerTF(Transformer):
 
             res = []
             for req in req_datas:
-                paras, is_post = get_request_para(req)
-                if not is_post:
+                paras = get_request_para(req)
+                if self.mode=='get':
                     r = requests.get(**paras)
                 else:
                     r = requests.post(**paras)
@@ -928,41 +987,24 @@ class CrawlerTF(Transformer):
 
 
     def _get_data(self,reqs):
-        buff = self.__buff;
         def _get_request_info(req):
             data = req[0]
             col = req[1]
             url = data[col];
-            post_data = query(data, self.post_data);
+            request_data= query(data, self.script);
             if self.debug:
                 print(url)
-            if post_data is None:
-                post_data = ''
-            return url,post_data,data
-
-        def _filter(url,post_data):
-            key = url + str(post_data)
-            if key in buff:
-                data = buff[key];
-            else:
-                data=False
-            return data
+            if request_data is None:
+                request_data = ''
+            return url,request_data,data
 
         reqs2=[]
         datas=[]
         for req in reqs:
-            url, post_data,data = _get_request_info(req)
-            result= _filter(url,post_data)
-            if result==False:
-                reqs2.append((url,post_data))
-                datas.append(data)
-            else:
-                yield data,result
+            url,request_data,data = _get_request_info(req)
+            reqs2.append((url,request_data))
+            datas.append(data)
         for req,data,result in  zip(reqs2,datas,self.crawls(reqs2)):
-            url,post=req
-            key=url+str(post)
-            if len(buff) < 100:
-                buff[key] = result
             yield data,result;
 
     def transform(self, data, col,ncol):
@@ -1003,15 +1045,24 @@ class SearchTF(Transformer):
         print result
         return result
 
+class ListTF(Transformer):
+    def __init__(self):
+        super(ListTF, self).__init__()
+        self.mode = CONV_DECODE
+        self._m_yield=True
+
+    def m_transform(self, data, col):
+        root = data[col];
+        if self.mode== CONV_DECODE:
+            for r in root:
+                yield {col:r}
+
+
 class XPathTF(Transformer):
     def __init__(self):
         super(XPathTF, self).__init__()
         self.script= ''
         self.mode= GET_TEXT
-        self.m_yield=False;
-
-    def init(self):
-        self._m_yield=self.m_yield;
 
     def _trans(self,data):
         from lxml import etree
@@ -1021,52 +1072,46 @@ class XPathTF(Transformer):
         else:
             tree = data
         return tree;
-    def m_transform(self,data,col):
-        tree= self._trans(data[col]);
-        if tree is None:
-            yield data;
-            return;
-        nodes = tree.xpath(self.script);
-        for r in self._m_transform(nodes):
-            yield r
 
-    def _m_transform(self,nodes):
-        for node in nodes:
-            data= self._transform([node]);
-            ext={self.column:data}
-            yield ext;
-    def _transform(self,nodes):
+    def _transform(self, nodes):
         if len(nodes) < 1:
             return
         node = nodes[0]
+
         def get_data(node):
-            res=None
+            res = None
             if self._is_mode(GET_NODE):
-                res= node
+                res = node
             elif self._is_mode(GET_TEXT):
                 if hasattr(node, 'text'):
                     res = spider.get_node_text(node);
                 else:
                     res = to_str(node)
-            elif self._is_mode( GET_HTML):
+            elif self._is_mode(GET_HTML):
                 res = spider.get_node_html(node)
             return res
+
         if self._is_mode(GET_ARRAY):
-            res= [get_data(r) for r in nodes]
+            res = [get_data(r) for r in nodes]
         else:
-            res= get_data(node)
+            res = get_data(node)
         return res
-    def transform(self, data,col,ncol):
-        tree = self._trans(data[col]);
+
+    def transform(self,data,col,ncol):
+        tree= self._trans(data[col]);
         if tree is None:
-            return None;
+            return
         node_path = query(data, self.script);
         if node_path is None:
-            return;
-        if node_path== '' or node_path is None:
             return
-        nodes = tree.xpath(node_path)
-        data[ncol]=self._transform(nodes)
+        if node_path == '' or node_path is None:
+            return
+        nodes = tree.xpath(self.script);
+        if len(nodes)<1:
+            return
+        data[ncol]= self._transform(nodes)
+
+
 
 
 class PyQTF(XPathTF):
@@ -1074,31 +1119,19 @@ class PyQTF(XPathTF):
         super(PyQTF, self).__init__()
         self.script = ''
         self.mode = GET_HTML
-        self.m_yield = False;
 
-    def init(self):
-        self._m_yield = self.m_yield;
-
-    def m_transform(self, data, col):
+    def transform(self, data, col,ncol):
         from pyquery import PyQuery as pyq
         root = pyq(data[col]);
         if root is None:
-            yield data;
             return;
-        nodes = root(self.script);
-        for r in self._m_transform(nodes):
-            yield r;
-
-    def transform(self, data, col, ncol):
-        d = data[col]
-        if d is None or d == '':
-            return None
-        from pyquery import PyQuery as pyq
-        root = pyq(data[col]);
-        if root is None:
-            return None;
-        nodes = root(self.script);
-        data[ncol] =  self._transform(nodes)
+        node_path = query(data, self.script);
+        if node_path is None:
+            return
+        if node_path == '' or node_path is None:
+            return
+        nodes = root(node_path);
+        data[ncol]= self._transform(nodes)
 
 
 class AtTF(Transformer):
@@ -1106,6 +1139,17 @@ class AtTF(Transformer):
         super(AtTF, self).__init__()
         self.one_input = True;
         self.script=''
+
+    def init(self):
+        def get_int(x, default=0):
+            try:
+                return int(x)
+            except:
+                return default;
+        index= get_int(self.script,None)
+        if index!=None:
+            self.script=index
+
 
     def transform(self, data):
         return data[self.script];
@@ -1157,27 +1201,16 @@ class ParallelTF(Transformer):
 class JsonTF(Transformer):
     def __init__(self):
         super(JsonTF, self).__init__()
-        self.mode= GENERATE_NONE
-        self.conv_mode=CONV_DECODE
+        self.mode=  CONV_ENCODE
+        self.one_input=True
 
-    def init(self):
-        self._m_yield= self.mode == GENERATE_DOCS;
-
-    def m_transform(self,data,col):
-        js=json.loads(data[col]);
-        for j in js:
-            yield j;
-
-    def transform(self, data,col,ncol):
-        if self.conv_mode== CONV_DECODE:
-
-            js = json.loads(data[col]);
-            if self.mode==GENERATE_DOC:
-                merge(data, js);
-            else:
-                data[ncol]=js
+    def transform(self, data):
+        if self.mode== CONV_DECODE:
+            return json.loads(data);
         else:
-            data[ncol]=json.dumps(data[col])
+            return json.dumps(data)
+
+
 
 class RangeGE(Generator):
     def __init__(self):
@@ -1223,9 +1256,9 @@ class EtlBase(ETLTool):
         selector = query(data, self.selector);
         if isinstance(self.selector,ETLTask):
             return self.selector
-        if selector not in self._proj.modules:
+        if selector not in self._proj.env:
             sys.stderr.write('sub task %s  not in current project' % selector);
-        sub_etl = self._proj.modules[selector];
+        sub_etl = self._proj.env[selector];
         return sub_etl;
 
 
@@ -1344,7 +1377,7 @@ class TextTF(XPathTF):
 
     def init(self):
         self._m_yield = False
-        self.script='//*'
+        self.script='//*[0]'
         self.mode='text'
 
 class SampleTF(Transformer):
@@ -1381,9 +1414,12 @@ class RotateTF(Transformer):
 class DictTF(Transformer):
     def __init__(self):
         super(DictTF, self).__init__();
-        self.mode= CONV_ENCODE
+        self.mode= CONV_DECODE
         self.script=''
         self._m_yield = True;
+    def init(self):
+        if self.script!='':
+            self.mode=CONV_ENCODE
 
     def m_transform(self, data, col):
         if self.mode==CONV_ENCODE:
@@ -1413,6 +1449,7 @@ class TakeTF(Transformer):
     def process(self,data):
         for r in get_mount(data,self.take,self.skip):
             yield r;
+
 
 
 class DelayTF(Transformer):
@@ -1454,13 +1491,10 @@ class SaveFileEX(Executor):
 class Project(EObject):
     def __init__(self):
         self.env={};
-        self.env={};
-        self.edit_time= time.time();
+        self.__cache=[]
         self.desc="edit project description here";
-        self.author='desert';
 
     def clear(self):
-        self.env.clear()
         self.env.clear()
         return self;
 
@@ -1745,8 +1779,8 @@ class ETLTask(EObject):
 
 
 
-    def get(self,take=10, format='print', etl_count=100, skip=0,execute=False,paras=None):
-        datas= get_keys(get_mount(self.query(etl_count,execute=execute), take, skip),cols);
+    def get(self,take=10, format='print', etl=100, skip=0,execute=False,paras=None):
+        datas= get_keys(get_mount(self.query(etl,execute=execute), take, skip),cols);
         return get(datas,format,count=take,paras=paras);
 
     def m_execute(self, thread_count=10, execute=True, take=999999, skip=0):
