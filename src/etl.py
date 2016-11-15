@@ -1055,8 +1055,9 @@ class ListTF(Transformer):
         root = data[col];
         if self.mode== CONV_DECODE:
             for r in root:
+                r={col:r}
                 my = merge_query(r, data, self.script);
-                yield {col:my}
+                yield my
 
 
 class XPathTF(Transformer):
