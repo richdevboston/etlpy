@@ -1068,6 +1068,7 @@ class XPathTF(Transformer):
 
     def _trans(self,data):
         from lxml import etree
+        root=None
         if isinstance(data, (str, unicode)):
             root = spider._get_etree(data);
             tree = etree.ElementTree(root)
