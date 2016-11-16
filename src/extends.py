@@ -196,7 +196,7 @@ def para_to_dict(para, split1, split2):
 
 
 def merge_query(d1, d2, columns):
-    if isinstance(columns, str) and columns.strip() != "":
+    if is_str(columns) and columns.strip() != "":
         if columns.find(":")>0:
             columns=para_to_dict(columns,',',':')
         else:

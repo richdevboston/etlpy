@@ -220,6 +220,7 @@ class Slave:
                     task_result=Task(job_id,i,task);
                     count=0;
                     try:
+
                         generator= etl.ex_generate(reducer, generator=[task], execute= execute)
                         for r in generator:
                             #print(r.keys())
