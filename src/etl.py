@@ -444,6 +444,7 @@ class AddNewTF(Transformer):
     def __init__(self):
         super(AddNewTF, self).__init__()
         self.script= ''
+        self._m_yield=True
 
 
     def m_transform(self, data, col):
@@ -791,7 +792,8 @@ class PythonTF(Transformer):
 
     def transform(self, data,col,ncol):
         js = self._get_data( data,col)
-        data[ncol]=js
+        if ncol!='':
+            data[ncol]=js
 
 class PythonGE(Generator):
     def __init__(self):
@@ -1052,6 +1054,8 @@ class ListTF(Transformer):
         self.script=''
 
     def m_transform(self, data, col):
+
+
         root = data[col];
         if self.mode== CONV_DECODE:
             for r in root:

@@ -9,7 +9,7 @@ import extends
 extends.enable_progress=False
 import requests
 # In[2]:
-execute=False
+execute= False
 if len(sys.argv)>1 and sys.argv[1]=="true":
     execute = True
 
@@ -18,7 +18,7 @@ def get_xpath(s):
     if s=='guokr':
         return '//div[1]/div'
     else:
-        return ''
+        return None
 
 
 def get_content(s):
@@ -31,6 +31,9 @@ def get_content(s):
         s['content'] = s['summary']
     return
 
+def get_hash(s):
+    t=hash(s['title']+s['link'])
+    s['hash']=t
 
 # In[42]:
 
@@ -67,7 +70,7 @@ for item in rlist.split('\n'):
     v=kv[1].strip()
     rlist2.append({'app_id':k,'rss':v})
 
-print rlist2
+#print rlist2
 
 ins= task('insert')
 ins.nullft('error',revert=True)
@@ -79,34 +82,30 @@ ins.dbex(sl='mongo',table=table_name)
 rss = task('rss')
 # rss.pyge('rss',sc=[r for r in rss_list.split('\n') if r!='' and r.startswith('#')==False])
 rss.pyge(sc=rlist2[:])
-rss.matchft('rss', sc='haibao', mode='re')
-rss.split('rss:source', sc='.' ).at(sc='1')
+#rss.matchft('rss', sc='haibao', mode='re')
+rss.split('rss:source',  sc='.' ).at('source',sc='1')
 rss.py('source:xpath', sc=get_xpath)
-rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='rss source xpath app_id')
-rss.py('link:hash', sc='hash(data["title"]+data["link"])')
+rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id').dict()
+rss.py( sc=get_hash)
 rss.nullft('hash')
-if False: #True:#execute:
+if  True:#True: #True:#execute:
     rss.joindb('hash', sl='mongo', table=table_name, sc='title:title2', mode='doc')
     rss.nullft('title2', revert=True)
 rss.py(sc=get_content)
-rss.keep('author,hash,content,description:desc,published:publish_time,link,title,rss,source,xpath,app_id')
-rss.xpath('content', sc='[xpath]', mode='html')
-rss.delete('xpath')
-rss.html('content', mode='decode')
-rss.pyft('content', sc='len(value)>100')
-rss.replace('content', sc='https://', new_value='http://')
-rss.replace('content',sc='href=\".*?\"',new_value='',mode='re')
-rss.replace('content',sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
+rss.keep('author,hash,content,description:desc,published:publish_time,link,title,source,xpath,app_id')
+rss.xpath('content', sc='[xpath]', mode='html').html(mode='decode').pyft( sc='len(content)>100')
+rss.replace( sc='https://', new_value='http://')
+rss.replace(sc='href=\".*?\"',new_value='',mode='re')
+rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
 rss.xpath('content:cover', sc='//img[1]/@src')
-rss.nullft('cover')
-rss.pyft('cover',sc='len(value)<300')
-rss.matchft('cover', mode='re', sc='data:', revert=True)
-rss.matchft('cover', mode='re', sc='http:')
-rss.replace('cover', sc='https', new_value='http')
+rss.nullft('cover').pyft('cover',sc='len(value)<300')
+rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
+rss.replace( sc='https', new_value='http')
 #rss.addnew('app_id', sc='2016092601973157')
 rss.addnew('r_url', sc=remote)
 rss.addnew('invoke_method', sc='send')
 rss.addnew('comment', sc='true')
+rss.delete('xpath')
 rss.repeatft('title')
 rss.rename('source:author,link:url')
 if execute:
@@ -115,9 +114,10 @@ if execute:
     rss.json('resp', mode='doc')
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
-send_result=rss.get(2,etl=100,execute=execute)
-
-#send_result[['title','url','hash']]
+send_result=rss.get(2,etl=100,execute=execute,format='df')
+#rss.check()
+#rss.get(etl=100)
+print send_result[['title','url','hash']]
 
 
 
