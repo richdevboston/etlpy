@@ -41,7 +41,7 @@ mongo=get_default_connector()
 mongo.db="ant_temp"
 table_name='life_rss_online'
 table_name_all='life_rss_all'
-count_per_id= 1
+count_per_id= 3
 #remote='http://recproxy.cz00b.alipay.net/recommend.json?_sid_=44040'
 remote='http://recproxy-pre.alipay.com/recommend.json?_sid_=9457'
 
@@ -110,11 +110,11 @@ rss.repeatft('title')
 rss.rename('source:author,link:url')
 if execute:
     rss.dict('post', sc="title desc comment content cover url app_id invoke_method")
-    rss.crawler('r_url:resp', sc='[post]')
+    rss.crawler('r_url:resp', sc='[post]',mode='post')
     rss.json('resp', mode='doc')
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
-send_result=rss.get(2,etl=100,execute=execute,format='df')
+send_result=rss.get(100,etl=100,execute=execute,format='df')
 #rss.check()
 #rss.get(etl=100)
 print send_result[['title','url','hash']]
