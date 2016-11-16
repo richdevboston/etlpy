@@ -1073,7 +1073,7 @@ class XPathTF(Transformer):
             tree = etree.ElementTree(root)
         else:
             tree = data
-        return tree;
+        return tree,root
 
     def _transform(self, nodes):
         if len(nodes) < 1:
@@ -1100,15 +1100,22 @@ class XPathTF(Transformer):
         return res
 
     def transform(self,data,col,ncol):
-        tree= self._trans(data[col]);
+        tree,root= self._trans(data[col]);
         if tree is None:
             return
         node_path = query(data, self.script);
         if node_path is None:
             return
-        if node_path == '' or node_path is None:
+        if node_path is None:
             return
-        nodes = tree.xpath(self.script);
+
+        elif node_path == '':
+            node= spider.search_text_root(tree, root);
+            if node==None:
+                return
+            nodes=[node]
+        else:
+            nodes = tree.xpath(self.script);
         if len(nodes)<1:
             return
         data[ncol]= self._transform(nodes)
@@ -1347,7 +1354,8 @@ class EtlTF(Transformer, EtlBase):
             yield result.copy();
         else:
             for r in self._generate(data):
-                yield r
+                if r is not None:
+                    yield r
     def transform(self,data,col,ncol):
         if self.mode==GENERATE_DOC:
             for r in self._generate(data):

@@ -216,24 +216,18 @@ def search_text_root(tree, node):
     class ParaClass(object):
         def __init__(self):
             self.tlen = 0;
-            self.path = ''
+            self.node = ''
     para=ParaClass();
-    __search_text_root(tree, node, para);
-    if para.path=='':
-        return None;
-    path=para.path.split('/');
-    if len(path)<2:
-        return para.path;
-    path='/'.join(path[:-1])
-    return path;
+    __search_text_root(tree,None, node, para);
+    return para.node
 
 
-def __search_text_root(tree, node, para):
+def __search_text_root(tree, father,node, para):
     if  hasattr(node,'tag')  and  isinstance(node.tag,str) and node.tag.lower() not in ['script','style','comment']:
         child_nodes=[n for n in node.iterchildren()];
         if len(child_nodes)>0:
             for child in child_nodes:
-                __search_text_root(tree, child, para);
+                __search_text_root(tree, node,child, para);
         else:
             text = node.text;
             if text ==None:
@@ -241,7 +235,7 @@ def __search_text_root(tree, node, para):
             tlen = len(text)
             if tlen > para.tlen:
                 para.tlen = tlen;
-                para.path = tree.getpath(node);
+                para.node = father
 
 
 

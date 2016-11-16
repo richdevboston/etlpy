@@ -246,8 +246,9 @@ if __name__ == '__main__':
 
     manager = BaseManager(address=('0.0.0.0', rpc_port), authkey=authkey)
     ip= '127.0.0.1' #'10.101.167.107'
+    #ip= '10.101.167.107'
     port=rpc_port;
-    mode='server'
+    mode='client'
     argv=sys.argv;
     if len(argv) > 1:
         mode = argv[1];
@@ -262,7 +263,6 @@ if __name__ == '__main__':
 
         if len(argv)>3:
             port=int(argv[3]);
-
         slave= Slave();
         slave.start(True,ip,port);
 
