@@ -320,7 +320,7 @@ class DbEX(Executor,DBBase):
 class DbGE(Generator,DBBase):
     def __init__(self):
         super(DbGE, self).__init__();
-
+        self.script=''
     def generate(self,data):
         for data in self._table.find():
             yield data;
