@@ -803,6 +803,7 @@ class PythonGE(Generator):
         return  is_str(self.script);
     def generate(self,generator):
         import inspect;
+        import copy
         if is_str(self.script):
             result = self._eval_script();
         elif inspect.isfunction(self.script):
@@ -815,7 +816,7 @@ class PythonGE(Generator):
                     break;
                 yield {self.column:r};
             else:
-                yield r;
+                yield copy.copy( r)
 
 class PythonFT(Filter):
     def __init__(self):
