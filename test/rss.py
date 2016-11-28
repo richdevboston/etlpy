@@ -41,7 +41,7 @@ mongo=get_default_connector()
 mongo.db="ant_temp"
 table_name='life_rss_online'
 table_name_all='life_rss_all'
-count_per_id= 3
+count_per_id= 5
 #remote='http://recproxy.cz00b.alipay.net/recommend.json?_sid_=44040'
 remote='http://recproxy-pre.alipay.com/recommend.json?_sid_=9457'
 
@@ -76,13 +76,10 @@ ins= task('insert')
 ins.nullft('error',revert=True)
 ins.dbex(sl='mongo',table=table_name)
 
-
-
-
 rss = task('rss')
 # rss.pyge('rss',sc=[r for r in rss_list.split('\n') if r!='' and r.startswith('#')==False])
-rss.pyge(sc=rlist2[:])
-rss.matchft('rss', sc='haibao', mode='re',revert=True)
+rss.pyge(sc=[r for r in rlist2])
+#rss.matchft('rss', sc='haibao', mode='re',revert=True)
 rss.split('rss:source',  sc='.' ).at('source',sc='1')
 rss.py('source:xpath', sc=get_xpath)
 rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id').dict()
@@ -94,7 +91,7 @@ if  True:#True: #True:#execute:
 rss.py(sc=get_content)
 rss.keep('author,hash,content,description:desc,published:publish_time,link,title,source,xpath,app_id')
 rss.xpath('content', sc='[xpath]', mode='html').html(mode='decode').pyft( sc='len(content)>100')
-rss.replace( sc='https://', new_value='http://')
+rss.replace('content', sc='https://', new_value='http://')
 rss.replace(sc='href=\".*?\"',new_value='',mode='re')
 rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
 rss.xpath('content:cover', sc='//img[1]/@src')
@@ -105,16 +102,20 @@ rss.replace( sc='https', new_value='http')
 rss.addnew('r_url', sc=remote)
 rss.addnew('invoke_method', sc='send')
 rss.addnew('comment', sc='true')
+rss.addnew('liked', sc='true')
 rss.delete('xpath')
 rss.repeatft('title')
 rss.rename('source:author,link:url')
 if execute:
-    rss.dict('post', sc="title desc comment content cover url app_id invoke_method")
+    rss.dict('post', sc="title desc liked comment content cover url app_id invoke_method")
     rss.crawler('r_url:resp', sc='[post]',mode='post')
-    rss.json('resp', mode='doc')
+    rss.json('resp', mode='decode').dict()
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
-send_result=rss.get(100,etl=100,execute=execute,format='df')
+#result=rss.get(10)
+
+
+send_result=rss.get(500,etl=100,execute=execute,format='df')
 #rss.check()
 #rss.get(etl=100)
 print send_result[['title','url','hash']]

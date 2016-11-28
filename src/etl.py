@@ -237,50 +237,7 @@ class MongoDBConnector(EObject):
 
 
 
-class FileConnector(EObject):
-    def __init__(self,path=None,encoding='utf-8',work_type='r'):
-        super(FileConnector, self).__init__()
-        self.path=path;
-        self.encoding= encoding;
-        self.work_type=work_type;
 
-    def init(self):
-        path=self.path;
-        self._file = open(path, self.work_type, encoding=self.encoding)
-
-class CsvConnector(FileConnector):
-    def __init__(self, path=None, encoding='utf-8',sp=','):
-        super(FileConnector, self).__init__()
-        self.sp=sp;
-
-    def write(self, datas):
-        field = get_keys(datas);
-        self._writer = csv.DictWriter(self._file, field, delimiter=self.sp, lineterminator='\n')
-        self._writer.writeheader()
-        for data in datas:
-            self._writer.writerow(data);
-        self._file.close();
-
-    def read(self):
-        reader = csv.DictReader(self._file, delimiter=self.sp)
-        for r in reader:
-            yield r;
-
-class JsonConnector(FileConnector):
-
-    def write(self,datas):
-        self._file.write('[')
-        for data in datas:
-            json.dump(data, self.file, ensure_ascii=False)
-            self._file.write(',');
-            yield data;
-        self._file.write(']');
-        self._file.close()
-
-    def read(self):
-        items = json.load(self._file);
-        for r in items:
-            yield r;
 
 
 class DBBase(ETLTool):
