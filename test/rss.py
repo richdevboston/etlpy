@@ -6,10 +6,13 @@ sys.path.insert(0,parentdir)
 from spider import *
 from repl import  *
 import extends
+import time
+import feedparser
 extends.enable_progress=False
 import requests
 # In[2]:
 execute= False
+
 if len(sys.argv)>1 and sys.argv[1]=="true":
     execute = True
 
@@ -35,6 +38,22 @@ def get_hash(s):
     t=hash(s['title']+s['link'])
     s['hash']=t
 
+
+def filterhtml(data):
+    source = data['link']
+    html = data['content']
+    if source.find('hupu')>0:
+        hh = html.split(u'[来源')
+        if len(hh) == 2:
+            hh = hh[0] + '</body>'
+            html = hh
+    elif source.find('mafengwo')>0:
+        html = html.replace(u'99%的人在看的旅游攻略，关注蚂蜂窝微信：mafengwo2006', '')
+    elif source.find('haibao')>0:
+        html = html.replace(u'图片延伸阅读：', '')
+    data['content'] = html
+    return data
+
 # In[42]:
 
 mongo=get_default_connector()
@@ -44,15 +63,6 @@ table_name_all='life_rss_all'
 count_per_id= 5
 #remote='http://recproxy.cz00b.alipay.net/recommend.json?_sid_=44040'
 remote='http://recproxy-pre.alipay.com/recommend.json?_sid_=9457'
-
-
-# In[4]:
-
-import feedparser
-
-
-# In[5]:
-
 rlist=requests.get(remote+'&invoke_method=get_rss_list')
 rlist=rlist.json()
 rlist= rlist.get('rss_list','')
@@ -76,22 +86,20 @@ ins= task('insert')
 ins.nullft('error',revert=True)
 ins.dbex(sl='mongo',table=table_name)
 
+if execute:
+    current=time.localtime(time.time());
+    logfile='log_'+ time.strftime('%Y-%m-%d',current)
+    log_file= extends.open(logfile,'a',encoding='utf-8')
+    log_file.write('##'+time.strftime('%H-%M',current)+'\n')
 
 
-def filterhtml(data):
-    source = data['link']
-    html = data['content']
-    if source.find('hupu')>0:
-        hh = html.split(u'[来源')
-        if len(hh) == 2:
-            hh = hh[0] + '</body>'
-            html = hh
-    elif source.find('mafengwo')>0:
-        html = html.replace(u'99%的人在看的旅游攻略，关注蚂蜂窝微信：mafengwo2006', '')
-    elif source.find('haibao')>0:
-        html = html.replace(u'图片延伸阅读：', '')
-    data['content'] = html
-    return data
+
+def write_log(data):
+    keys='app_id title url'.split(' ')
+    values='\t'.join([data[key] for key in keys]);
+    log_file.write(values+'\n')
+
+
 
 
 
@@ -130,6 +138,7 @@ if execute:
     rss.dict('post', sc="title desc liked comment content cover url app_id invoke_method")
     rss.crawler('r_url:resp', sc='[post]',mode='post')
     rss.json('resp', mode='decode').dict()
+    rss.py(sc=write_log)
 rss.dbex(sl='mongo',table=table_name_all)
 rss.etlex(sl='insert')
 #result=rss.get(10)
@@ -139,6 +148,10 @@ send_result=rss.get(500,etl=100,execute=execute,format='df')
 #rss.check()
 #rss.get(etl=100)
 print send_result[['title','url','hash']]
+
+if execute:
+    log_file.close()
+
 
 
 
