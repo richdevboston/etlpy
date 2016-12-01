@@ -76,6 +76,25 @@ ins= task('insert')
 ins.nullft('error',revert=True)
 ins.dbex(sl='mongo',table=table_name)
 
+
+
+def filterhtml(data):
+    source = data['link']
+    html = data['content']
+    if source.find('hupu')>0:
+        hh = html.split(u'[来源')
+        if len(hh) == 2:
+            hh = hh[0] + '</body>'
+            html = hh
+    elif source.find('mafengwo')>0:
+        html = html.replace(u'99%的人在看的旅游攻略，关注蚂蜂窝微信：mafengwo2006', '')
+    elif source.find('haibao')>0:
+        html = html.replace(u'图片延伸阅读：', '')
+    data['content'] = html
+    return data
+
+
+
 rss = task('rss')
 # rss.pyge('rss',sc=[r for r in rss_list.split('\n') if r!='' and r.startswith('#')==False])
 rss.pyge(sc=[r for r in rlist2])
@@ -96,6 +115,7 @@ rss.replace(sc='href=\".*?\"',new_value='',mode='re')
 rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
 rss.xpath('content:cover', sc='//img[1]/@src')
 rss.nullft('cover').pyft('cover',sc='len(value)<300')
+rss.py(sc=filterhtml)
 rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
 rss.replace( sc='https', new_value='http')
 #rss.addnew('app_id', sc='2016092601973157')
