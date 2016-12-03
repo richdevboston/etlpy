@@ -1521,6 +1521,8 @@ class Project(EObject):
                         task.tools.append(etl)
                 else:
                     dict_copy_poco(task,item);
+            else:
+                task=item
             self.env[key]=task
         return self;
 
