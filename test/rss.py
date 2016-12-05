@@ -38,6 +38,14 @@ def get_hash(s):
     t=hash(s['title']+s['link'])
     s['hash']=t
 
+def get_cover(s):
+    if 'cover' in s:
+        return
+    elif 'cover2' in s:
+        s['cover']=s['cover2']
+        del s['cover2']
+
+
 
 def filterhtml(data):
     source = data['link']
@@ -84,6 +92,7 @@ for item in rlist.split('\n'):
 
 ins= task('insert')
 ins.nullft('error',revert=True)
+ins.nullft('msg_id')
 ins.dbex(sl='mongo',table=table_name)
 
 if execute:
@@ -102,17 +111,15 @@ def write_log(data):
 
 
 
-
 rss = task('rss')
-# rss.pyge('rss',sc=[r for r in rss_list.split('\n') if r!='' and r.startswith('#')==False])
 rss.pyge(sc=[r for r in rlist2])
-#rss.matchft('rss', sc='haibao', mode='re',revert=True)
+#rss.matchft('rss', sc='east', mode='re')
 rss.split('rss:source',  sc='.' ).at('source',sc='1')
 rss.py('source:xpath', sc=get_xpath)
-rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id').dict()
+rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id cover').dict()
 rss.py( sc=get_hash)
 rss.nullft('hash')
-if  True:#True: #True:#execute:
+if  True:#True:
     rss.joindb('hash', sl='mongo', table=table_name, sc='title:title2', mode='doc')
     rss.nullft('title2', revert=True)
 rss.py(sc=get_content)
@@ -121,16 +128,17 @@ rss.xpath('content', sc='[xpath]', mode='html').html(mode='decode').pyft( sc='le
 rss.replace('content', sc='https://', new_value='http://')
 rss.replace(sc='href=\".*?\"',new_value='',mode='re')
 rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
-rss.xpath('content:cover', sc='//img[1]/@src')
+rss.xpath('content:cover2', sc='//img[1]/@src')
+rss.py(sc=get_cover)
 rss.nullft('cover').pyft('cover',sc='len(value)<300')
 rss.py(sc=filterhtml)
 rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
 rss.replace( sc='https', new_value='http')
 #rss.addnew('app_id', sc='2016092601973157')
-rss.addnew('r_url', sc=remote)
-rss.addnew('invoke_method', sc='send')
-rss.addnew('comment', sc='true')
-rss.addnew('liked', sc='true')
+rss.set('r_url', sc=remote)
+rss.set('invoke_method', sc='send')
+rss.set('comment', sc='true')
+rss.set('liked', sc='true')
 rss.delete('xpath')
 rss.repeatft('title')
 rss.rename('source:author,link:url')
