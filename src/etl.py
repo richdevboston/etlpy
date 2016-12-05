@@ -397,9 +397,9 @@ class RequestTF(Transformer):
         data[ncol]=url+'?'+ url_p
 
 
-class AddNewTF(Transformer):
+class SetTF(Transformer):
     def __init__(self):
-        super(AddNewTF, self).__init__()
+        super(SetTF, self).__init__()
         self.script= ''
         self._m_yield=True
 
@@ -1626,6 +1626,8 @@ class ETLTask(EObject):
         dic = convert_dict(self)
         return yaml.dump(dic)
 
+    def eval(self,script=''):
+        pass
     def to_graph(self,path='etl.jpg'):
         import pygraphviz as pgv
         A = pgv.AGraph(directed=True, strict=True);
@@ -1696,7 +1698,7 @@ class ETLTask(EObject):
                 if  isinstance(v,dict) and v.get('Type',None)=='ETLTask' and v['name'] not in tasks:
                     del n_proj[k]
             id=0;
-            for task in self._pl_generator(take,skip):
+            for task in progress_indicator( self._pl_generator(take,skip)):
                 job={'proj':n_proj,'name':self.name,'tasks':task,'id':id}
                 id+=1
                 res=requests.post(url,json=job)
