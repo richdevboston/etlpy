@@ -124,6 +124,7 @@ def error_code_ft(cont):
 
 
 
+
 rss = task('rss')
 rss.pyge(sc=[r for r in rlist2])
 #rss.matchft('rss', sc='east', mode='re')
@@ -145,8 +146,8 @@ rss.xpath('content:cover2', sc='//img[1]/@src')
 rss.py(sc=get_cover)
 rss.nullft('cover').pyft('cover',sc='len(value)<300')
 rss.py(sc=filterhtml)
-rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
 rss.pyft('content',sc=error_code_ft)
+rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
 rss.replace( sc='https', new_value='http')
 #rss.addnew('app_id', sc='2016092601973157')
 rss.set('r_url', sc=remote)
