@@ -10,6 +10,7 @@ import time
 import feedparser
 extends.enable_progress=False
 import requests
+import re
 # In[2]:
 execute= False
 
@@ -110,6 +111,18 @@ def write_log(data):
 
 
 
+error_str=u"([\w\s\u4e00-\u9fa5]+)"
+error_re= re.compile(error_str)
+
+def error_code_ft(cont):
+    res=error_re.findall(cont)
+    right_len= sum([len(r) for r in res])
+    total=float(len(cont))
+    r=right_len/total;
+    return r>0.65
+
+
+
 
 rss = task('rss')
 rss.pyge(sc=[r for r in rlist2])
@@ -133,6 +146,7 @@ rss.py(sc=get_cover)
 rss.nullft('cover').pyft('cover',sc='len(value)<300')
 rss.py(sc=filterhtml)
 rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
+rss.pyft('content',sc=error_code_ft)
 rss.replace( sc='https', new_value='http')
 #rss.addnew('app_id', sc='2016092601973157')
 rss.set('r_url', sc=remote)
