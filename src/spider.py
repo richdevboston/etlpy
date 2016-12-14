@@ -84,15 +84,15 @@ def get_xpath_data(node, path, is_html=False,only_one=True):
         results.append(result);
     return results;
 
-extract = re.compile('\[(\w+)\]');
-charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
-charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
+_extract = re.compile('\[(\w+)\]');
+_charset = re.compile('<meta[^>]*?charset="?(\\w+)[\\W]*?>');
+_charset = re.compile('charset="?([A-Za-z0-9-]+)"?>');
 
 default_encodings=['utf-8','gbk'];
 
 
 def get_encoding(html):
-    encoding = charset.search(html)
+    encoding = _charset.search(html)
     if encoding is not None:
         encoding = encoding.group(1);
     if encoding is None:

@@ -1,3 +1,6 @@
+
+
+
 # coding=utf-8
 
 
@@ -8,8 +11,8 @@ proj= etl.Project();
 import inspect
 import extends
 
-__base_type = [etl.ETLTool, etl.Filter, etl.EtlBase, etl.Generator, etl.Executor, etl.Transformer];
-__ignore_paras = ['one_input', 'multi', 'column'];
+__base_type = [etl.ETLTool, etl.Filter, etl.CrawlerTF,etl.EtlBase, etl.Generator, etl.Executor, etl.Transformer];
+__ignore_paras = ['one_input', 'multi', 'column','p'];
 
 tool_dict={}
 
@@ -29,16 +32,6 @@ def html(text):
     from IPython.core.display import HTML, display
     display(HTML(text));
 
-def spider(name='_crawler'):
-    import spider
-    sp= spider.SmartCrawler();
-    proj.env[name]=sp;
-    sp.name=name;
-    sp._proj=proj
-    return sp;
-
-def set(key,value):
-    proj.env[key]=value
 
 def quote(string):
     if extends.PY2:
@@ -54,7 +47,7 @@ def get_default_connector():
     mongo = etl.MongoDBConnector();
     mongo.connect_str = 'mongodb://10.244.0.112'
     mongo.db = 'ant_temp'
-    set('mongo',mongo)
+    proj.env['mongo']=mongo
     return mongo
 
 
@@ -77,34 +70,21 @@ def task(name='etl'):
                 continue
             dv=default[key]
             value = dic.get(key,dv)
-
             if value==dv:
                 if key in para_dict:
                     key2=para_dict[key]
                     value= dic.get(key2,None)
             if value is not None:
                 setattr(val, key, value)
-        pos=val.column.find(":")
-        column = val.column;
-        column0=column
-        if pos==0:
-            column=my_task._last_column+val.column
-            column0=column.split(':')[0]
 
-        if column == '' and my_task._last_column != '' and not str(type(val)).lower().find('python') >= 0:
-            val.column = my_task._last_column
-        else:
-            val.column=column
-        if column0!='':
-            my_task._last_column = column0
     def _rename(module):
-        repl={'TF':'','Python':'py','Parallel':'pl'}
+        repl={'TF':'','Python':'py','Parallel':'pl','Remove':'rm','Move':'mv','Copy':'cp'}
         for k,v in repl.items():
             module= module.replace(k,v)
         return module.lower();
 
 
-    dynaimc_method = '''def __%s(column='',%s):
+    dynaimc_method = '''def __%s(p='',%s):
         import etl as etl
         new_tool=etl.%s();
         new_tool._proj=proj
@@ -135,12 +115,10 @@ def task(name='etl'):
         new_name=_rename(name)
         method_str= dynaimc_method%(new_name,paras,name);
         locals()['proj']=proj
-        locals()['cols']=etl.cols;
         exec(method_str,locals());
         func= locals()['__'+ new_name];
         setattr(my_task,new_name,func);
     return my_task;
-
 
 
 

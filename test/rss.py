@@ -91,10 +91,9 @@ for item in rlist.split('\n'):
 
 #print rlist2
 
-ins= task('insert')
-ins.nullft('error',revert=True)
-ins.nullft('msg_id')
-ins.dbex(sl='mongo',table=table_name)
+
+ins= task('insert').let('error').nullft(revert=True).let('msg_id').dbex('mongo',table=table_name)
+
 
 if execute:
     current=time.localtime(time.time());
@@ -122,49 +121,69 @@ def error_code_ft(cont):
     return r>0.65
 
 
-
+keep1='author hash content description:desc published:publish_time link title source xpath app_id'
+dict1='title desc liked comment content cover url app_id invoke_method'
+rss_button='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />'
 
 
 rss = task('rss')
-rss.pyge(sc=[r for r in rlist2])
-#rss.matchft('rss', sc='east', mode='re')
-rss.split('rss:source',  sc='.' ).at('source',sc='1')
-rss.py('source:xpath', sc=get_xpath)
-rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id cover').dict()
-rss.py( sc=get_hash)
-rss.nullft('hash')
-if  True:#True:
-    rss.joindb('hash', sl='mongo', table=table_name, sc='title:title2', mode='doc')
-    rss.nullft('title2', revert=True)
-rss.py(sc=get_content)
-rss.keep('author,hash,content,description:desc,published:publish_time,link,title,source,xpath,app_id')
-rss.xpath('content', sc='[xpath]', mode='html').html(mode='decode').pyft( sc='len(content)>100')
-rss.replace('content', sc='https://', new_value='http://')
-rss.replace(sc='href=\".*?\"',new_value='',mode='re')
-rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
-rss.xpath('content:cover2', sc='//img[1]/@src')
-rss.py(sc=get_cover)
-rss.nullft('cover').pyft('cover',sc='len(value)<300')
-rss.py(sc=filterhtml)
-rss.pyft('content',sc=error_code_ft)
-rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
-rss.replace( sc='https', new_value='http')
-#rss.addnew('app_id', sc='2016092601973157')
-rss.set('r_url', sc=remote)
-rss.set('invoke_method', sc='send')
-rss.set('comment', sc='true')
-rss.set('liked', sc='true')
-rss.delete('xpath')
-rss.repeatft('title')
-rss.rename('source:author,link:url')
+rss.pyge([r for r in rlist2]).cp('rss:source').split('.').at(1).cp('source:xpath').py(get_xpath).let('rss').py(lambda d: feedparser.parse(d)['entries'][:count_per_id])
+rss.list('source xpath app_id cover').dict().let('').py(get_hash).cp('hash:hash2').nullft().joindb('mongo',index='hash',mapper='title', table=table_name).at(0)
+rss.dict(col='title:title2').let('title2')  #
+# . nullft(revert=True)
+rss.let('').py(get_content).keep(keep1)
+rss.let('content').tree().xpath('[xpath]').at(0).html().htmlclean().pyft('len(value)>100').pyft(error_code_ft)
+rss.replace('https://',value='http://').replace('href=\".*?\"',mode='re').replace(rss_button,mode='str').cp('content:cover2')
+rss.xpath('//img[1]/@src').at(0).let('').py(get_cover).let('cover').nullft().pyft('len(value)<300').matchft('data:',revert=True).matchft('http:')
+rss.let('r_url',remote).let('invoke_method','send').let('comment','true').let('liked','true').rm('xpath').let('title').repeatft().mv('link:url')
 if execute:
-    rss.dict('post', sc="title desc liked comment content cover url app_id invoke_method")
-    rss.crawler('r_url:resp', sc='[post]',mode='post')
-    rss.json('resp', mode='decode').dict()
-    rss.py(sc=write_log)
-rss.dbex(sl='mongo',table=table_name_all)
-rss.etlex(sl='insert')
-#result=rss.get(10)
+    rss.let('post').dict('encode',col=dict1).cp('r_url:resp').crawler(mode='post',value='[post]').json().dict()
+    rss.py(write_log)
+rss.dbex('mongo',table=table_name_all).etlex('insert')
+
+rss.get(etl=50)
+exit()
+
+# rss = task('rss')
+# rss.pyge(sc=[r for r in rlist2])
+# #rss.matchft('rss', sc='east', mode='re')
+# rss.split('rss:source',  sc='.' ).at('source',sc='1')
+# rss.py('source:xpath', sc=get_xpath)
+# rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id cover').dict()
+# rss.py( sc=get_hash)
+# rss.nullft('hash')
+# if  True:#True:
+#     rss.joindb('hash', sl='mongo', table=table_name, sc='title:title2', mode='doc')
+#     rss.nullft('title2', revert=True)
+# rss.py(sc=get_content)
+# rss.keep('author,hash,content,description:desc,published:publish_time,link,title,source,xpath,app_id')
+# rss.xpath('content', sc='[xpath]', mode='html').html(mode='decode').pyft( sc='len(content)>100')
+# rss.replace('content', sc='https://', new_value='http://')
+# rss.replace(sc='href=\".*?\"',new_value='',mode='re')
+# rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
+# rss.xpath('content:cover2', sc='//img[1]/@src')
+# rss.py(sc=get_cover)
+# rss.nullft('cover').pyft('cover',sc='len(value)<300')
+# rss.py(sc=filterhtml)
+# rss.pyft('content',sc=error_code_ft)
+# rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
+# rss.replace( sc='https', new_value='http')
+# #rss.addnew('app_id', sc='2016092601973157')
+# rss.set('r_url', sc=remote)
+# rss.set('invoke_method', sc='send')
+# rss.set('comment', sc='true')
+# rss.set('liked', sc='true')
+# rss.delete('xpath')
+# rss.repeatft('title')
+# rss.rename('source:author,link:url')
+# if execute:
+#     rss.dict('post', sc="title desc liked comment content cover url app_id invoke_method")
+#     rss.crawler('r_url:resp', sc='[post]',mode='post')
+#     rss.json('resp', mode='decode').dict()
+#     rss.py(sc=write_log)
+# rss.dbex(sl='mongo',table=table_name_all)
+# rss.etlex(sl='insert')
+# #result=rss.get(10)
 
 
 send_result=rss.get(500,etl=100,execute=execute,format='df')
