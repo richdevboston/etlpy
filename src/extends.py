@@ -46,6 +46,29 @@ def to_str(s):
         return 'to_str error:' + str(e);
 
 
+def get_range_mount(generator, start=None, end=None,interval=1):
+    i=0;
+    i2=0
+    if interval==0:
+        interval=1
+    if isinstance(generator,list):
+        generator= generator[start:end]
+        for r in generator:
+            yield r
+    else:
+        if start is None:
+            start=-1
+        if end is None:
+            end=-1
+        for r in generator:
+            i += 1
+            if i<start+1:
+                continue
+            if end>0 and  i>end:
+                break
+            i2+=1
+            if i2%interval==0:
+                yield r
 
 
 def get_mount(generator,take=None,skip=0):
@@ -64,7 +87,7 @@ def force_generate(generator,max_count=None):
         count+=1
         if max_count is not None and count>=max_count:
             break
-    return count;
+    return count
 
 def foreach(generator,func):
     for r in generator:
@@ -114,7 +137,7 @@ def revert_invoke(item,funcs):
         item=funcs[i](item);
     return item;
 
-def get(generator, format='print', count=20,paras=None):
+def fetch(generator, format='print', count=20,paras=None):
     if format == 'print' and not is_ipynb:
         import pprint
         for d in generator:
@@ -195,11 +218,13 @@ def para_to_dict(para, split1, split2):
     return r;
 
 
-def get_int(x, default=0):
+def get_num(x, method=int,default=None):
     try:
-        return int(x)
+        return method(x)
     except:
-        return default;
+        if default is None:
+            return x
+        return default
 
 
 
@@ -238,15 +263,46 @@ def first_or_default(generator):
 def query(data, key):
     if data is None:
         return key;
-    if is_str(key) and key.startswith('[') and key.endswith(']'):
-        key = key[1:-1];
-        if key in data:
-            return data[key];
-        else:
-            return None
+    if isinstance(data,dict):
+        if is_str(key) and key.startswith('[') and key.endswith(']'):
+            key = key[1:-1];
+            if key in data:
+                return data[key];
+            else:
+                return None
     return key;
 
+def get_value(data,key):
+    if key in ['',None]:
+        return data
+    if isinstance(data,dict):
+        return data.get(key,None)
+    else:
+        if hasattr(data,key):
+            return getattr(data,key)
+        return None
 
+def set_value(data,key,value):
+    if key in ['', None]:
+        return data
+    if isinstance(data,dict):
+        data[key]=value
+    else:
+        setattr(data,key,value)
+    return data
+def has(data,key):
+    if isinstance(data, dict):
+        return key in data
+    else:
+        return key in data.__dict__
+
+def del_value(data,key):
+    if key in ['', None]:
+        return
+    if isinstance(data, dict):
+        del data[key]
+    else:
+        del data.__dict__[key]
 
 def variance(n_list):
     sum1=0.0
@@ -338,11 +394,30 @@ def get_type_name(obj):
     r= s[p+1:].split('\'')[0]
     return r;
 
+def copy(x):
+    if hasattr(x,'copy'):
+        return x.copy()
+    return x
 
 class EObject(object):
     pass;
 
+def get_range(range,env=None):
+    def get(key):
+        if isinstance(env,dict):
+            return env.get(key,key)
+    buf = [r for r in range.split(':')]
+    start=end=interval=1
+    if len(buf)>0:
+        start= get_num(get(buf[0]))
+        return start,start,1
+    elif len(buf)>1:
+        end= get_num(get(buf[1]))
+        return start,end,1
+    else:
+        interval=get_num(get(buf[2]))
 
+    return start,end,interval
 
 def convert_to_builtin_type(obj):
     d=  { key:value for key,value in obj.__dict__.items() if isinstance(value,(str,int,float,list,dict,tuple,EObject) or value is None)};
@@ -358,7 +433,6 @@ def dict_to_poco_type(obj):
     elif isinstance(obj,list):
         for i in range(len(obj)):
             obj[i]=dict_to_poco_type(obj[i]);
-
     return obj;
 
 

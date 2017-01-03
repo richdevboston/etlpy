@@ -11,7 +11,7 @@ proj= etl.Project();
 import inspect
 import extends
 
-__base_type = [etl.ETLTool, etl.Filter, etl.CrawlerTF,etl.EtlBase, etl.Generator, etl.Executor, etl.Transformer];
+__base_type = [etl.ETLTool, etl.Filter, etl.CrawlerTF, etl.SubBase, etl.Generator, etl.Executor, etl.Transformer];
 __ignore_paras = ['one_input', 'multi', 'column','p'];
 
 tool_dict={}
@@ -52,10 +52,12 @@ def get_default_connector():
 
 
 def task(name='etl'):
-    my_task= etl.ETLTask();
-    my_task._proj=proj;
-    my_task.name=name
-    proj.env[name]=my_task
+    _task= etl.ETLTask();
+    _task._proj=proj;
+    _task.name=name
+    proj.env[name]=_task
+
+
 
     def attr_filler(attr):
         if attr.startswith('_'):
@@ -70,6 +72,8 @@ def task(name='etl'):
                 continue
             dv=default[key]
             value = dic.get(key,dv)
+            if key=='p' and value=='':
+                continue
             if value==dv:
                 if key in para_dict:
                     key2=para_dict[key]
@@ -89,8 +93,8 @@ def task(name='etl'):
         new_tool=etl.%s();
         new_tool._proj=proj
         set_attr(new_tool,locals())
-        my_task.tools.append(new_tool);
-        return my_task;
+        _task.tools.append(new_tool);
+        return _task;
     '''
     para_dict={'selector':'sl','script':'sc'}
     def merge_func(k, v):
@@ -117,8 +121,9 @@ def task(name='etl'):
         locals()['proj']=proj
         exec(method_str,locals());
         func= locals()['__'+ new_name];
-        setattr(my_task,new_name,func);
-    return my_task;
+        setattr(_task,new_name,func)
+
+    return _task;
 
 
 
