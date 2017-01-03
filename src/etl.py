@@ -296,7 +296,7 @@ class DbEX(Executor,DBBase):
             table =self.get_table(data)
             work={EXECUTE_INSERT: lambda d: table.save(d), EXECUTE_UPDATE: lambda d: table.save(d)};
             new_data= copy(data)
-            etype=self.get_p(data)
+            etype=query(data,self.mode)
             work[etype](new_data);
             yield data;
 
