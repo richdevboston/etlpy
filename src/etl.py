@@ -1259,9 +1259,9 @@ class DelayTF(Transformer):
 class Read(Generator):
     pass
 
-class SaveFileEX(Executor):
+class DownloadEX(Executor):
     def __init__(self):
-        super(SaveFileEX, self).__init__()
+        super(DownloadEX, self).__init__()
         self.path= '';
 
 
@@ -1277,7 +1277,7 @@ class SaveFileEX(Executor):
         if req is None:
             return
         target.write(req.content);
-        target.close();
+        target.close()
         return data
 
 
@@ -1557,7 +1557,7 @@ class ETLTask(EObject):
             url="http://%s:%s/task/query/%s"%(server,port,method);
             data= json.loads(requests.get(url).content)
             print 'remain: %s'%(data['remain'])
-            return get(data[method],count=1000000)
+            return fetch(data[method],count=1000000)
         elif method=='insert':
             url="http://%s:%s/task/%s"%(server,port,method);
             tasks=self.get_related_tasks()

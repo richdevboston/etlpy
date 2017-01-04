@@ -221,7 +221,7 @@ class Slave:
                     count=0;
                     try:
 
-                        generator= etl.ex_generate(reducer, generator=[task], execute= execute)
+                        generator= etl.ex_generate(reducer, generator=[task], execute= execute,init=False)
                         for r in generator:
                             #print(r.keys())
                             count+=1;
