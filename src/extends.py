@@ -151,7 +151,12 @@ def fetch(generator, format='print', count=20,paras=None):
         import pprint
         for d in generator:
             pprint.pprint(d.keys())
-        return ;
+        return
+    elif format == 'count':
+        count=0
+        for d in generator:
+            count+=1
+        print 'total count is '+ str(count)
     list_datas= to_list(progress_indicator(generator, count=count), max_count=count);
     if is_ipynb or format=='df':
         from  pandas import DataFrame

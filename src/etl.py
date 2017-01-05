@@ -462,8 +462,20 @@ class LetTF(Transformer):
 
     def transform(self, data, col, ncol):
         if self.value is not None:
-            data[col] = self.value;
+            data[col] = self.value
 
+class CountTF(Transformer):
+    def __init__(self):
+        super(CountTF, self).__init__()
+        self._m_process = True
+
+    def m_process(self, datas, col):
+        count=0
+        for data in datas:
+            yield data
+            count+=1
+            if count%self.p==0:
+                print count
 
 class IncrTF(Transformer):
     '''
