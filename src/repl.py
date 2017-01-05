@@ -33,15 +33,6 @@ def html(text):
     display(HTML(text));
 
 
-def quote(string):
-    if extends.PY2:
-        import urllib
-        s= urllib.quote(string.encode('utf-8'))
-        s=str (s);
-        return s;
-    else:
-        import urllib
-        return urllib.request.quote(string);
 
 def get_default_connector():
     mongo = etl.MongoDBConnector();
@@ -56,8 +47,6 @@ def task(name='etl'):
     _task._proj=proj;
     _task.name=name
     proj.env[name]=_task
-
-
 
     def attr_filler(attr):
         if attr.startswith('_'):
@@ -105,6 +94,22 @@ def task(name='etl'):
             k=para_dict[k]
             yield '%s=%s'% (k, v)
 
+    def etl_help():
+        import inspect
+        for k,v in _task.__dict__.items():
+            if inspect.isfunction(v):
+                doc= v.__doc__
+                if doc is None:
+                    doc='doc is invalid'
+                else:
+                    doc= doc.split('\n')
+                    for d in doc:
+                        d=d.strip()
+                        if d!='':
+                            doc=d
+                            break
+                print k+':\t'+doc
+
     for name,tool_type in etl.__dict__.items():
         if not inspect.isclass(tool_type):
             continue;
@@ -112,17 +117,18 @@ def task(name='etl'):
             continue
         if tool_type in __base_type:
             continue;
-        tool=tool_type();
+        tool=tool_type()
         paras= to_list(concat((merge_func(k,v) for k,v in tool.__dict__.items() if not attr_filler(k))))
         paras.sort()
         paras=','.join(paras);
         new_name=_rename(name)
-        method_str= dynaimc_method%(new_name,paras,name);
+        method_str= dynaimc_method%(new_name,paras,name)
         locals()['proj']=proj
-        exec(method_str,locals());
-        func= locals()['__'+ new_name];
+        exec(method_str,locals())
+        func= locals()['__'+ new_name]
+        func.__doc__= tool.__doc__
         setattr(_task,new_name,func)
-
+    setattr(_task,'help',etl_help)
     return _task;
 
 

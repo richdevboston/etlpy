@@ -400,6 +400,9 @@ def copy(x):
     return x
 
 class EObject(object):
+    '''
+      empty class, which mark a class to be a dict.
+      '''
     pass;
 
 def get_range(range,env=None):

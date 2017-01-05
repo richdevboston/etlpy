@@ -25,21 +25,17 @@ MERGE_MIX= 'mix'
 CONV_ENCODE='e'
 CONV_DECODE='d'
 
-GET_HTML='html'
-GET_NODE='node'
-GET_TEXT='text'
-GET_COUNT='count'
-GET_ARRAY='list'
 
 
 def __get_match_counts(mat):
     return mat.lastindex if mat.lastindex is not None else 1;
 
 class ETLTool(EObject):
+    '''
+    base class for all tool
+    '''
     def __init__(self):
         super(ETLTool, self).__init__()
-        self.enabled=True;
-        self.debug = False
         self.p=''
 
     def process(self, data,column):
@@ -84,7 +80,11 @@ class ETLTool(EObject):
         return get_type_name(self)+'\t'+to_str(self.p)
 
 
+
 class Transformer(ETLTool):
+    '''
+      base class for all transformer
+    '''
     def __init__(self):
         super(Transformer, self).__init__()
         self.one_input = False;
@@ -142,9 +142,12 @@ class Transformer(ETLTool):
             yield res;
 
 class Executor(ETLTool):
+    '''
+        base class for all executor
+      '''
     def __init__(self):
         super(Executor, self).__init__()
-
+        self.debug=False
     def execute(self,data,column):
         pass;
     def process(self,data,column):
@@ -155,11 +158,14 @@ class Executor(ETLTool):
 
 
 class Filter(ETLTool):
+    '''
+        base class for all filter
+    '''
     def __init__(self):
         super(Filter, self).__init__()
-        self.reverse=False;
-        self.stop_while=False;
-        self.one_input=True;
+        self.reverse=False
+        self.stop_while=False
+        self.one_input=True
     def filter(self,data):
         return True;
     def process(self, data,column):
@@ -195,6 +201,10 @@ class Filter(ETLTool):
 
 
 class Ascend(ETLTool):
+    '''
+    ascend sorter
+    :param p: sort lambda function or str
+    '''
     def __init__(self):
         super(Ascend, self).__init__()
         self._reverse= False
@@ -222,6 +232,11 @@ class Ascend(ETLTool):
             yield r
 
 class Descend(Ascend):
+    '''
+      descend sorter
+      :param p: sort lambda function or str
+    '''
+
     def __init__(self):
         super(Descend, self).__init__()
         self._reverse =True
@@ -286,6 +301,10 @@ class DBBase(ETLTool):
 
 
 class DbEX(Executor,DBBase):
+    '''
+    db writer and updater
+    :param p:  env connector name
+    '''
     def __init__(self):
         super(DbEX, self).__init__();
 
@@ -302,6 +321,10 @@ class DbEX(Executor,DBBase):
 
 
 class DbGE(Generator,DBBase):
+    '''
+    db reader
+    :param p:  env connector name
+    '''
     def generate(self,data,column):
         table = self.get_table(self.table)
         for data in table.find():
@@ -309,6 +332,12 @@ class DbGE(Generator,DBBase):
 
 
 class JoinDBTF(Transformer,DBBase):
+    '''
+    db join
+    :param p:  env connector name
+    :param mapper: column value mapper
+    :param index:  join index key
+    '''
     def __init__(self):
         super(JoinDBTF, self).__init__();
         self.index = ''
@@ -336,12 +365,13 @@ class JoinDBTF(Transformer,DBBase):
 
 
 
-def _set_value(data, value, col, ncol=None):
-    if ncol!='' and ncol is not None:
-        set_value(data,ncol,value)
-    else:
-        set_value(data,col,value)
 class MatchFT(Filter):
+    '''
+      filter that match keyword or regex
+      :param p:  keyword or regex
+      :param mode: 'str' or 're'
+      :param count: min match count
+      '''
     def __init__(self):
         super(MatchFT, self).__init__();
         self.mode='str'
@@ -380,18 +410,24 @@ class InnerTF(Filter):
             return min <= item <= max
 
 class RepeatFT(Filter):
+    '''
+        filter that key column repeated
+    '''
     def __init__(self):
         super(RepeatFT, self).__init__()
     def init(self):
-        self.set=set();
+        self._set=set();
     def filter(self,data):
-        if data in self.set:
+        if data in self._set:
             return False;
         else:
-            self.set.add(data);
+            self._set.add(data);
             return True;
 
 class NullFT(Filter):
+    '''
+    filter that key column is empty or None
+    '''
     def filter(self,data):
         if data is None:
             return False;
@@ -403,6 +439,10 @@ class NullFT(Filter):
 
 
 class SetTF(Transformer):
+    '''
+    set value
+    :param p: target value
+    '''
     def __init__(self):
         super(SetTF, self).__init__()
 
@@ -412,6 +452,10 @@ class SetTF(Transformer):
 
 
 class LetTF(Transformer):
+    '''
+    make stream target on certain column.
+    :param p: column name
+    '''
     def __init__(self):
         super(LetTF, self).__init__()
         self.value=None
@@ -422,6 +466,10 @@ class LetTF(Transformer):
 
 
 class IncrTF(Transformer):
+    '''
+    add a auto increase value
+    :param p: useless
+    '''
     def init(self):
         super(IncrTF, self).__init__()
         self._index = 0;
@@ -431,9 +479,18 @@ class IncrTF(Transformer):
         return self._index;
 
 class TagTF(Transformer):
+    '''
+      add a auto increase value
+      :param p: useless
+    '''
     pass
 
 class CopyTF(Transformer):
+    '''
+    copy one or more columns to other columns, then target column will move, diff from cp2.  (cp short for copy)
+    :param p: like 'a:b c:d' means copy a to b, and copy c to d
+              if have target column a, can short as ':b', equal as 'a:b'
+    '''
     def __init__(self):
         super(CopyTF, self).__init__()
     def transform(self, data, col, ncol):
@@ -441,15 +498,28 @@ class CopyTF(Transformer):
         set_value(data, ncol, v)
 
 class Copy2TF(CopyTF):
+    '''
+       copy one or more columns to other columns, then target column will not move, diff from cp
+       :param p: like 'a:b c:d' means copy a to b, and copy c to d
+                 if have target column a, can short as ':b', equal as 'a:b'
+       '''
     pass
 
 class MoveTF(Transformer):
+    '''
+    move one or more columns to other columns, mv short for move
+    :param p: like 'a:b c:d' means move a to b, and copy c to d
+    '''
     def transform(self, data, col, ncol):
         if col !=ncol:
             set_value(data, ncol, get_value(data, col))
             del_value(data,col)
 
 class RemoveTF(Transformer):
+    '''
+    delete certain columns, rm short for move
+    :param p: like 'a b c', will delete column a,b,c
+    '''
     def __init__(self):
         super(RemoveTF, self).__init__()
 
@@ -457,6 +527,10 @@ class RemoveTF(Transformer):
         del_value(data,col)
 
 class KeepTF(Transformer):
+    '''
+    keep certain columns, delete all other columns
+    :param p: like 'a b c', will keep column a,b,c
+    '''
     def __init__(self):
         super(KeepTF, self).__init__()
         self._m_process=True
@@ -482,54 +556,64 @@ class KeepTF(Transformer):
 
 
 class EscapeTF(Transformer):
+    '''
+    escape string
+    :param p: , mode can be 'html','url' or 'text', default is 'url'
+    '''
     def __init__(self):
         super(EscapeTF, self).__init__()
         self.one_input = True;
-        self.p=CONV_DECODE
+        self.p='html'
     def transform(self, data):
         p=self.get_p(data)
-        if  p== CONV_DECODE:
+        if p=='html':
             if PY2:
-                return data.encode('utf-8').decode('string_escape').decode('utf-8').replace('\'','\"')
+                import cgi
+                return cgi.escape(data)
             else:
-                return data.decode('unicode_escape')
+                return html.escape(data)
+        elif p=='url':
+            url = data.encode('utf-8')
+            return urllib.parse.quote(url)
         return data;
 
 class CleanTF(Transformer):
+    '''
+    un_escape or clean string
+    :param p:  mode can be 'html','url' or 'text', default is 'html'
+    '''
     def __init__(self):
         super(CleanTF, self).__init__()
         self.one_input=True;
-        self.p=CONV_DECODE
+        self.p='text'
     def transform(self, data):
-        if PY2:
-            if self.p!=CONV_ENCODE:
+        p = self.get_p(data)
+        if p == 'text':
+            if PY2:
+                return data.encode('utf-8').decode('string_escape').decode('utf-8').replace('\'', '\"')
+            else:
+                return data.decode('unicode_escape')
+        elif p == 'html':
+            if PY2:
                 import HTMLParser
                 html_parser = HTMLParser.HTMLParser()
                 return html_parser.unescape(data)
             else:
-                import cgi
-                return  cgi.escape(data)
-        else:
-            return html.escape(data) if self.p == CONV_ENCODE else html.unescape(data);
+                return html.unescape(data)
+        elif p == 'url':
+            return urllib.parse.unquote(data)
+        return data;
 
 
-class UrlTF(Transformer):
+
+
+class FormatTF(Transformer):
+    '''
+    format string,like python format
+    :param p: like 'ab{0}c{column_name}def' ,'{0}' represent current column
+    '''
     def __init__(self):
-        super(UrlTF, self).__init__()
-        self.one_input = True;
-        self.p = CONV_DECODE
-    def transform(self, data):
-        p=self.get_p(data)
-        if p == CONV_ENCODE:
-            url = data.encode('utf-8');
-            return urllib.parse.quote(url);
-        else:
-            return urllib.parse.unquote(data);
-
-
-class MergeTF(Transformer):
-    def __init__(self):
-        super(MergeTF, self).__init__()
+        super(FormatTF, self).__init__()
         self.p= '{0}'
         self._re= re.compile('\{([\w_]+)\}')
     def transform(self, data, col, ncol=None):
@@ -544,6 +628,7 @@ class MergeTF(Transformer):
             else:
                 return to_str(r)
         input= self.p
+        output=input
         result = self._re.finditer(self.p);
         if result is None:
             return
@@ -552,10 +637,13 @@ class MergeTF(Transformer):
             all,key= r.regs
             all= input[all[0]:all[1]]
             key= input[key[0]:key[1]]
-            input=input.replace(all,get_value(data,key))
-        data[ncol]=input
+            output=output.replace(all,get_value(data,key))
+        data[ncol]=output
 
 class HtmlTF(Transformer):
+    '''
+    get html text from a node, if not node, will not change it
+    '''
     def __init__(self):
         super(HtmlTF, self).__init__()
         self.one_input = True;
@@ -565,16 +653,11 @@ class HtmlTF(Transformer):
         return res
 
 
-class TextTF(Transformer):
-    def __init__(self):
-        super(TextTF, self).__init__()
-        self.one_input = True;
-
-    def transform(self, data):
-        res = spider.get_node_text(data)
-        return res
 
 class RegexTF(Transformer):
+    '''
+    get regex match results from string into target array
+    '''
     def __init__(self):
         super(RegexTF, self).__init__()
         self.one_input = True;
@@ -585,6 +668,9 @@ class RegexTF(Transformer):
         return [r for r in items]
 
 class LastTF(Transformer):
+    '''
+     get last row from  stream
+    '''
     def __init__(self):
         super(LastTF,self).__init__()
         self.count=1
@@ -605,6 +691,10 @@ class LastTF(Transformer):
 
 
 class AggTF(Transformer):
+    '''
+    aggregate current row with next row
+    :param p: aggregate function, can be lambda, function or string, parameter is a,b
+    '''
     def __init__(self):
         super(AggTF, self).__init__()
         self._m_process = True
@@ -613,7 +703,6 @@ class AggTF(Transformer):
         r0=None
         import inspect
         for m in data:
-
             if column!='':
                 r=m[column]
             if r0==None:
@@ -636,6 +725,12 @@ class AggTF(Transformer):
 
 
 class ReplaceTF(RegexTF):
+    '''
+    replace string
+    :param p: match str or regex
+    :param mode: 'str' or 're'
+    :param value: new value
+    '''
     def __init__(self):
         super(ReplaceTF, self).__init__()
         self.value = '';
@@ -656,25 +751,19 @@ class ReplaceTF(RegexTF):
             else:
                 result=ndata.replace(p,new_value);
         data[ncol]=result
-class NumTF(Transformer):
+class NumTF(RegexTF):
+    '''
+    get number from str
+    '''
     def __init__(self):
         super(NumTF, self).__init__()
-        self.one_input=True;
-        self.index=0
-    def init(self):
-        self.regex=  re.compile('\d+');
-        self.index=int(self.index)
-    def transform(self, data):
-        item = re.findall(self.regex, to_str(data));
-        if self.index < 0:
-            return '';
-        if len(item) <= self.index:
-            return '';
-        else:
-            r = item[self.index];
-            return r if is_str(r) else r[0];
+        self.p='\d+'
 
 class SplitTF(Transformer):
+    '''
+    split value with certain chars
+    :param p: 'a b': split string with a,b, return str array
+    '''
     def __init__(self):
         super(SplitTF, self).__init__()
         self.one_input = True;
@@ -690,15 +779,29 @@ class SplitTF(Transformer):
             data = data.replace(i, '\001');
         r=data.split('\001');
         return r
-class TrimTF(Transformer):
+class StripTF(Transformer):
+    '''
+    strip string with certain char
+    :param p: char
+    '''
     def __init__(self):
-        super(TrimTF, self).__init__()
+        super(StripTF, self).__init__()
         self.one_input = True;
 
     def transform(self, data):
-        return data.strip();
+        p=self.get_p(data)
+        if p =='':
+            return data.strip()
+        else:
+            return data.strip(p);
 
 class ExtractTF(Transformer):
+    '''
+    get substring starts with 'start' and ends with 'end' from string
+     :param p: start string
+     :param end: end string
+     :param has_margin: bool, if contain start and end
+     '''
     def __init__(self):
         super(ExtractTF, self).__init__()
         self.has_margin=False;
@@ -1127,7 +1230,6 @@ class SubEx(Executor, SubBase):
     def __init__(self):
         super(SubEx, self).__init__()
 
-
     def process(self,data,column):
         for d in data:
             if self.debug == True:
@@ -1140,7 +1242,7 @@ class SubEx(Executor, SubBase):
 
         count=0
         try:
-            for r in self._generate( data,self.enabled):
+            for r in self._generate( data):
                 count+=1;
         except Exception as e:
             sys.stderr.write('subtask fail')
@@ -1168,6 +1270,9 @@ class SubTF(Transformer, SubBase):
 
 
 class StrTF(Transformer):
+    '''
+    get  text from a html node, if not node, will str(target)
+    '''
     def __init__(self):
         super(StrTF, self).__init__()
         self.one_input = True
@@ -1180,6 +1285,9 @@ class StrTF(Transformer):
 
 
 class RotateTF(Transformer):
+    '''
+    rotate matrix, not lazy
+    '''
     def __init__(self):
         super(RotateTF, self).__init__();
         self._m_process = True
@@ -1197,6 +1305,10 @@ class RotateTF(Transformer):
 
 
 class ToDictTF(Transformer):
+    '''
+    take certain columns merge into dict
+    :param p: columns, split by blanket
+    '''
     def __init__(self):
         super(ToDictTF, self).__init__();
         self._m_process=True
@@ -1209,6 +1321,10 @@ class ToDictTF(Transformer):
             yield data
 
 class DrillTF(Transformer):
+    '''
+    take dict value out
+    :param p: dict columns, split by blanket.  all column will be added if value is ''
+    '''
     def __init__(self):
         super(DrillTF, self).__init__();
         self._m_process = True
@@ -1225,6 +1341,10 @@ class DrillTF(Transformer):
 
 
 class TakeTF(Transformer):
+    '''
+    take top n rows
+    :param p: n
+    '''
     def __init__(self):
         super(TakeTF, self).__init__();
 
@@ -1235,6 +1355,10 @@ class TakeTF(Transformer):
             yield r;
 
 class SkipTF(Transformer):
+    '''
+    skip n rows
+    :param p: n
+    '''
     def __init__(self):
         super(SkipTF, self).__init__();
 
@@ -1245,6 +1369,10 @@ class SkipTF(Transformer):
 
 
 class DelayTF(Transformer):
+    '''
+     delay some time
+     :param p: delay n millisecond
+     '''
     def __init__(self):
         super(DelayTF, self).__init__();
         self.p=100;
@@ -1259,9 +1387,14 @@ class DelayTF(Transformer):
 class Read(Generator):
     pass
 
-class DownloadEX(Executor):
+class Download(Executor):
+    '''
+    download a file from web
+    :param p: target url
+    :param path: save path on disk
+    '''
     def __init__(self):
-        super(DownloadEX, self).__init__()
+        super(Download, self).__init__()
         self.path= '';
 
 
@@ -1283,12 +1416,18 @@ class DownloadEX(Executor):
 
 
 class Project(EObject):
+    '''
+    project that contains all tasks
+    '''
     def __init__(self):
         self.env={};
-        self.__cache=[]
         self.desc="edit project description here";
 
     def clear(self):
+        '''
+        clear all tasks in project
+        :return: self
+        '''
         self.env.clear()
         return self;
 
@@ -1395,10 +1534,10 @@ def tools_filter(tools, init=True, executed=False, enabled=True,excluded=None):
     for tool in tools:
         if excluded==tool:
             continue
-        if tool.enabled == False and enabled == True:
-            continue
         if isinstance(tool, Executor):
             if executed == False and tool.debug == False:
+                continue
+            if tool.enabled == False and enabled == True:
                 continue
         if init:
             tool.init()
@@ -1406,6 +1545,12 @@ def tools_filter(tools, init=True, executed=False, enabled=True,excluded=None):
     return buf
 
 def tools_column(tools,start_column=''):
+    '''
+    eval columns for all tools
+    :param tools: [ETLTool]
+    :param start_column: column for first tool
+    :return:
+    '''
     buf = []
     column=start_column
     for tool in tools:
@@ -1436,6 +1581,16 @@ def tools_column(tools,start_column=''):
 
 
 def generate(tools, generator=None, init=True, execute=False, enabled=True,start_column=''):
+    '''
+    evaluate a tool stream
+    :param tools: [ETLTool]
+    :param generator: seed generator for generator
+    :param init: bool, if initiate every tool
+    :param execute: bool, if enable executors
+    :param enabled: bool, if enable those tools which enabled is False
+    :param start_column:
+    :return: a generator
+    '''
     if tools is not  None:
         for tool, column in tools_column(tools_filter(tools, init, execute, enabled),start_column):
             generator = tool.process(generator, column)
@@ -1455,6 +1610,11 @@ def count(generator):
 
 
 def parallel_map(tools):
+    '''
+    split tool into mapper and reducer
+    :param tools:  a list for tool
+    :return: mapper, reducer and parallel parameter
+    '''
     index= get_index(tools, lambda x:isinstance(x, ParallelTF))
     if index==-1:
         return tools,None,None;
@@ -1540,6 +1700,7 @@ class ETLTask(EObject):
         for r in task_generator:
             yield r
 
+
     def _get_related_tasks(self,tasks):
         for r in self.tools:
             if isinstance(r, SubBase) and r not in tasks:
@@ -1570,6 +1731,7 @@ class ETLTask(EObject):
                 job={'proj':n_proj,'name':self.name,'tasks':task,'id':id}
                 id+=1
                 res=requests.post(url,json=job)
+                print 'task insert %s'%(id)
             print 'total push tasks: %s'%(id);
 
 
