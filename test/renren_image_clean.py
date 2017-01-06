@@ -26,6 +26,8 @@ def copy(data):
         return
     files = os.listdir(folder)
     nfolder = '/gruntdata/desert.zym/dev/renren_album/%s/%s' % (id[:2], id)
+    if os.path.exists(nfolder):
+        return
     os.makedirs(nfolder)
     for f in files:
         if f.find(album) > 0:
