@@ -36,5 +36,11 @@ def copy(data):
 
 
 b=task('pic')
-b.dbge('mongo',table='renren_album').rm('_id').let('url').map(get_header).nullft().cp('id:fo').\
-    map('value[:2]').format('/gruntdata/desert.zym/dev/renren_large/{0}/{id}/').let('').map(copy).count(1000).fetch(10000000000,format='count')
+b.dbge('mongo',table='renren_album').rm('_id').let('url').map(get_header).nullft().count(1000)
+
+with open('header_album.txt','w') as f:
+    for r in b.query():
+        f.write(r['id']+'\t'+r['url']+'\n')
+
+    #.cp('id:fo').\
+    #map('value[:2]').format('/gruntdata/desert.zym/dev/renren_large/{0}/{id}/').let('').map(copy).count(1000).fetch(10000000000,format='count')
