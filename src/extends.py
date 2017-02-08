@@ -1,6 +1,9 @@
 # encoding: UTF-8
-import re;
-import sys;
+import multiprocessing
+import re
+import sys
+import logging
+import cgitb
 PY2 = sys.version_info[0] == 2
 
 enable_progress=True
@@ -21,7 +24,38 @@ def is_in_ipynb():
     except NameError:
         return False
 
-is_ipynb=is_in_ipynb();
+def set_level(level):
+    debug_level=level
+    if level>0:
+        cgitb.enable(format='text')
+
+is_ipynb=is_in_ipynb()
+
+
+def _run(generators,queue):
+    for gene in generators:
+        for r in gene:
+            queue.put(r)
+
+
+def multi_yield(generators, p_num):
+    queue = multiprocessing.Queue(1000)
+    gene=group_by_mount(generators,p_num)
+    total=0
+    for gene2 in gene:
+        total+=1
+        p=multiprocessing.Process(name='process_%s'%(total),target= _run, args=(gene2,queue))
+        p.start()
+    count=0
+    while True:
+        data=queue.get()
+        if data is None:
+            count+=1
+        if count==total:
+            return
+        else:
+            yield data
+
 
 
 def is_str(s):
@@ -30,24 +64,24 @@ def is_str(s):
             return True
     else:
         if isinstance(s, (str)):
-            return True;
-    return False;
+            return True
+    return False
 
 
 def to_str(s):
     if PY2 and isinstance(s,unicode):
-        return s;
+        return s
 
     try:
-        return str(s);
+        return str(s)
     except Exception as e:
         if PY2:
-            return unicode(s);
-        return 'to_str error:' + str(e);
+            return unicode(s)
+        return 'to_str error:' + str(e)
 
 
 def get_range_mount(generator, start=None, end=None,interval=1):
-    i=0;
+    i=0
     i2=0
     if interval==0:
         interval=1
@@ -72,17 +106,17 @@ def get_range_mount(generator, start=None, end=None,interval=1):
 
 
 def get_mount(generator,take=None,skip=0):
-    i=0;
+    i=0
     for r in generator:
-        i += 1;
+        i += 1
         if i<skip:
-            continue;
+            continue
         if isinstance( take,int) and i>0  and i>take+skip:
-            break;
-        yield r;
+            break
+        yield r
 
 def force_generate(generator,max_count=None):
-    count=0;
+    count=0
     for r in generator:
         count+=1
         if max_count is not None and count>=max_count:
@@ -92,7 +126,7 @@ def force_generate(generator,max_count=None):
 def foreach(generator,func):
     for r in generator:
         func(r)
-        yield r;
+        yield r
 
 def concat(generators):
     for g in generators:
@@ -101,13 +135,13 @@ def concat(generators):
 
 def to_list(generator, max_count=None):
     datas=[]
-    count = 0;
+    count = 0
     for r in generator:
         count += 1
-        datas.append(r);
+        datas.append(r)
         if max_count is not None and count >= max_count:
             break
-    return datas;
+    return datas
 
 
 
@@ -119,30 +153,46 @@ def progress_indicator(generator,title='Position Indicator',count=2000):
     if is_ipynb:
         from ipy_progressbar import ProgressBar
         generator = ProgressBar(generator, title=title)
-        generator.max = count;
+        generator.max = count
         generator.start()
         for data in generator:
-            yield data;
+            yield data
         generator.finish()
     else:
-        id=0;
+        id=0
         for data in generator:
             print(title+' '+str(id))
-            id+=1;
-            yield data;
-        print('task finished');
+            id+=1
+            yield data
+        print('task finished')
 
 def revert_invoke(item,funcs):
     for i in range(0,len(funcs),-1):
-        item=funcs[i](item);
-    return item;
+        item=funcs[i](item)
+    return item
 
-def fetch(generator, format='print', count=20,paras=None):
+def s_invoke(func,**param):
+    try:
+        if debug_level>2:
+            logging.info('invoke'+ str(func))
+        return func(param)
+    except Exception as e:
+        p_expt(e)
+
+def p_expt(e):
+    if debug_level>= 3:
+        logging.exception(e)
+    elif debug_level < 2 and debug_level > 0:
+        logging.error(e)
+    else:
+        pass
+
+def fetch(generator, format='print', paras=None):
     if format == 'print' and not is_ipynb:
         import pprint
         for d in generator:
-            pprint.pprint(d);
-        return ;
+            pprint.pprint(d)
+        return 
     elif format=='keys':
         for d in generator:
             for k in paras:
@@ -157,22 +207,22 @@ def fetch(generator, format='print', count=20,paras=None):
         for d in generator:
             count+=1
         print 'total count is '+ str(count)
-    list_datas= to_list(progress_indicator(generator, count=count), max_count=count);
+    list_datas= to_list(progress_indicator(generator))
     if is_ipynb or format=='df':
         from  pandas import DataFrame
-        return DataFrame(list_datas);
+        return DataFrame(list_datas)
     else:
-        return list_datas;
+        return list_datas
 
 def format(form,keys):
-    res=form;
+    res=form
     for i in range(len(keys)):
         res = res.replace('{' + to_str(i) + '}', to_str(keys[i]))
-    return res;
+    return res
 def get_keys(generator,s):
-    count=0;
+    count=0
     for r in generator:
-        count+=1;
+        count+=1
         if count<5:
             for key in r.keys():
                 if not key.startswith('_'):
@@ -183,17 +233,17 @@ def get_keys(generator,s):
         yield r
 
 def repl_long_space(txt):
-    spacere = re.compile("[ ]{2,}");
+    spacere = re.compile("[ ]{2,}")
     spacern = re.compile("(^\r\n?)|(\r\n?$)")
     r = spacere.subn(' ', txt)[0]
     r = spacern.subn('', r)[0]
-    return r;
+    return r
 
 
 def merge(d1, d2):
     for r in d2:
-        d1[r] = d2[r];
-    return d1;
+        d1[r] = d2[r]
+    return d1
 
 def conv_dict(dic,para_dic):
     import copy
@@ -207,20 +257,20 @@ def conv_dict(dic,para_dic):
     return dic
 
 def para_to_dict(para, split1, split2):
-    r = {};
+    r = {}
     for s in para.split(split1):
-        s=s.strip();
-        rs = s.split(split2);
+        s=s.strip()
+        rs = s.split(split2)
 
-        key = rs[0].strip();
+        key = rs[0].strip()
         if len(rs) < 2:
             value=key
         else:
-            value = s[len(key) + 1:].strip();
+            value = s[len(key) + 1:].strip()
         if key=='':
             continue
-        r[key] = value;
-    return r;
+        r[key] = value
+    return r
 
 
 def get_num(x, method=int,default=None):
@@ -238,17 +288,17 @@ def merge_query(d1, d2, columns):
         if columns.find(":")>0:
             columns=para_to_dict(columns,' ',':')
         else:
-            columns = columns.split(' ');
+            columns = columns.split(' ')
     if columns is None:
-        return d1;
+        return d1
     if isinstance(columns,list):
         for r in columns:
             if r in d2:
-                d1[r] = d2[r];
+                d1[r] = d2[r]
     elif isinstance(columns,dict):
         for k,v in columns.items():
             d1[v]=d2[k]
-    return d1;
+    return d1
 
 import types
 
@@ -259,23 +309,29 @@ def tramp(gen, *args, **kwargs):
     return g
 
 
+import  inspect
+def is_iter(item):
+    if isinstance(item,list):
+        return True
+    if inspect.isgenerator(item):
+        return True
 
 def first_or_default(generator):
     for r in generator:
-        return r;
-    return None;
+        return r
+    return None
 
 def query(data, key):
     if data is None:
-        return key;
+        return key
     if isinstance(data,dict):
         if is_str(key) and key.startswith('[') and key.endswith(']'):
-            key = key[1:-1];
+            key = key[1:-1]
             if key in data:
-                return data[key];
+                return data[key]
             else:
                 return None
-    return key;
+    return key
 
 def get_value(data,key):
     if key in ['',None]:
@@ -312,56 +368,56 @@ def del_value(data,key):
 def variance(n_list):
     sum1=0.0
     sum2=0.0
-    N=len(n_list);
+    N=len(n_list)
     for i in range(N):
         sum1+=n_list[i]
         sum2+= n_list[i] ** 2
     mean=sum1/N
     var=sum2/N-mean**2
-    return var;
+    return var
 
 
 def find_any(iter, filter):
     for r in iter:
         if filter(r):
-            return True;
-    return False;
+            return True
+    return False
 
 
 def get_index(iter, filter):
     for r in range(len(iter)):
         if filter(iter[r]):
-            return r;
-    return -1;
+            return r
+    return -1
 
 def get_indexs(iter, filter):
     res=[]
     for r in range(len(iter)):
         if filter(iter[r]):
-            res.append(r);
+            res.append(r)
     return res
 
 def cross(a, gene_func):
     for r1 in a:
-        r1=dict.copy(r1);
+        r1=dict.copy(r1)
         for r2 in gene_func(r1):
             for key in r2:
                 r1[key] = r2[key]
-                yield dict.copy(r1);
+                yield dict.copy(r1)
 
 
 def mix(g1,g2):
     while True:
         t1 = g1.next()
         if t1 is None:
-            pass;
+            pass
         else:
             yield t1
         t2 = g2.next()
         if t2 is None:
             pass
         else:
-            yield t2;
+            yield t2
         if t1 is None and t2 is None:
             return
 
@@ -375,29 +431,29 @@ def merge_all(a, b):
     while True:
         t1 = a.__next__()
         if t1 is None:
-            return;
+            return
         t2 = b.__next__()
         if t2 is not None:
             for t in t2:
-                t1[t] = t2[t];
-        yield t1;
+                t1[t] = t2[t]
+        yield t1
 
 
 def append(a, b):
     for r in a:
-        yield r;
+        yield r
     for r in b:
-        yield r;
+        yield r
 
 def get_type_name(obj):
     import inspect
     if inspect.isclass(obj):
-        s=str(obj);
+        s=str(obj)
     else:
-        s=str(obj.__class__);
-    p=s.find('.');
+        s=str(obj.__class__)
+    p=s.find('.')
     r= s[p+1:].split('\'')[0]
-    return r;
+    return r
 
 def copy(x):
     if hasattr(x,'copy'):
@@ -406,9 +462,9 @@ def copy(x):
 
 class EObject(object):
     '''
-      empty class, which mark a class to be a dict.
-      '''
-    pass;
+        empty class, which mark a class to be a dict.
+    '''
+    pass
 
 def get_range(range,env=None):
     def get(key):
@@ -428,20 +484,20 @@ def get_range(range,env=None):
     return start,end,interval
 
 def convert_to_builtin_type(obj):
-    d=  { key:value for key,value in obj.__dict__.items() if isinstance(value,(str,int,float,list,dict,tuple,EObject) or value is None)};
+    d=  { key:value for key,value in obj.__dict__.items() if isinstance(value,(str,int,float,list,dict,tuple,EObject) or value is None)}
     return d
 
 def dict_to_poco_type(obj):
     if isinstance(obj,dict):
-        result=  EObject();
+        result=  EObject()
         for key in obj:
             v= obj[key]
             setattr(result,key,dict_to_poco_type(v))
         return result
     elif isinstance(obj,list):
         for i in range(len(obj)):
-            obj[i]=dict_to_poco_type(obj[i]);
-    return obj;
+            obj[i]=dict_to_poco_type(obj[i])
+    return obj
 
 
 def dict_copy_poco(obj,dic):
@@ -452,25 +508,19 @@ def dict_copy_poco(obj,dic):
 
 
 
-def group_by_mount(generator, group_count=10, take=-1, skip=0):
-    tasks = [];
+def group_by_mount(generator, group_count=10):
+    tasks = []
     task_id=0
-
+    if isinstance(generator,list):
+        generator= (r for r in generator)
     while True:
-        task = next(generator, None);
+        task = next(generator, None)
         if task is None:
             yield tasks[:]
             return
         tasks.append(task)
         if len(tasks) >= group_count:
-            yield tasks[:];
+            yield tasks[:]
             task_id = task_id + 1
             tasks=[]
-        if task_id < skip:
-            continue
-        if take>=0 and task_id > take:
-            break
 
-if __name__ == '__main__':
-    res= is_in_ipynb();
-    print(res)

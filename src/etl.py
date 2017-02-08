@@ -1,22 +1,21 @@
 # coding=utf-8
-import csv
-import json;
-import os;
-import time;
+import json
+import os
 import traceback
 import urllib
 import xml.etree.ElementTree as ET
 
 import spider
 import extends
+import logging
 from extends import *
 
 if PY2:
-    pass;
+    pass
 else:
     import html
 
-MERGE_APPEND= '+';
+MERGE_APPEND= '+'
 MERGE_CROSS= '*'
 MERGE_MERGE= '|'
 MERGE_MIX= 'mix'
@@ -28,7 +27,7 @@ CONV_DECODE='d'
 
 
 def __get_match_counts(mat):
-    return mat.lastindex if mat.lastindex is not None else 1;
+    return mat.lastindex if mat.lastindex is not None else 1
 
 class ETLTool(EObject):
     '''
@@ -41,7 +40,7 @@ class ETLTool(EObject):
     def process(self, data,column):
         return data
     def init(self):
-        pass;
+        pass
 
     def get_p(self,data):
         return query(data,self.p)
@@ -56,24 +55,22 @@ class ETLTool(EObject):
             return True
         if not is_str(p):
             return p(self)
-        result=None;
+        result=None
         from datetime import datetime
-
-        from time import mktime,strptime,strftime
+        from time import mktime
         def get_time(mtime):
             from pytz import utc
             if mtime == '':
                 mtime = datetime.now()
             ts = mktime(utc.localize(mtime).utctimetuple())
-            return int(ts);
+            return int(ts)
         try:
             if global_para is not None:
                 result = eval(p,global_para,locals())
-
             else:
-                result=eval(p);
+                result=eval(p)
         except Exception as e:
-            traceback.print_exc()
+            p_expt(e)
         return result
 
     def __str__(self):
@@ -87,10 +84,10 @@ class Transformer(ETLTool):
     '''
     def __init__(self):
         super(Transformer, self).__init__()
-        self.one_input = False;
+        self.one_input = False
         self._m_process=False
     def transform(self,data):
-        pass;
+        pass
 
     def m_process(self,data,column):
         for r in data:
@@ -98,22 +95,19 @@ class Transformer(ETLTool):
 
     def _process(self,data,column,transform_func):
         def edit_data(col, n_col=None):
-            n_col = n_col if n_col != '' and n_col is not None  else col;
+            n_col = n_col if n_col != '' and n_col is not None  else col
             if col != '' and not has(data,col)  and (not isinstance(self, (SetTF, MapTF))):
                 return data
             if self.one_input:
                 res = transform_func(get_value(data,col))
                 return set_value(data,n_col,res)
             else:
-                n_col = n_col if n_col != '' and n_col is not None else col;
+                n_col = n_col if n_col != '' and n_col is not None else col
                 try:
-                    transform_func(data, col, n_col);
+                    transform_func(data, col, n_col)
                     return data
                 except Exception as e:
-                    if extends.debug_level==0:
-                        print e
-                    else:
-                        traceback.print_exc()
+                    p_expt(e)
         if is_str(column):
             if column.find(u':') >= 0:
                 column = para_to_dict(column, ' ', ':')
@@ -121,25 +115,29 @@ class Transformer(ETLTool):
                 column = [r.strip() for r in column.split(' ')]
         if isinstance(column, dict):
             for k, v in column.items():
-                edit_data(k, v);
+                edit_data(k, v)
         elif isinstance(column, (list, set)):
             for k in column:
                 edit_data(k)
         else:
             return edit_data(column, None)
         return data
+
     def process(self,data,column,_m_process=True):
         if self._m_process==True and _m_process:
             for r  in self.m_process(data,column):
-                yield r;
+                yield r
             return
         if data is None:
             return
         for d in data:
             if d is None:
                 continue
-            res= self._process(d,column,self.transform);
-            yield res;
+            if debug_level>3:
+                logging.debug(d)
+                logging.debug('transformer:'+ get_type_name(self))
+            res= self._process(d,column,self.transform)
+            yield res
 
 class Executor(ETLTool):
     '''
@@ -149,10 +147,10 @@ class Executor(ETLTool):
         super(Executor, self).__init__()
         self.debug=False
     def execute(self,data,column):
-        pass;
+        pass
     def process(self,data,column):
         for r in data:
-            yield self.execute(r,column);
+            yield self.execute(r,column)
     def init(self):
         pass
 
@@ -167,9 +165,9 @@ class Filter(ETLTool):
         self.stop_while=False
         self.one_input=True
     def filter(self,data):
-        return True;
+        return True
     def process(self, data,column):
-        error=0;
+        error=0
         for r in data:
             item = None
             result=False
@@ -178,24 +176,24 @@ class Filter(ETLTool):
                     item = r[column]
                     result = self.filter(item)
                 if item is None and self.__class__ != NullFT:
-                    continue;
+                    continue
             else:
-                item=r;
+                item=r
                 result = self.filter(item, column)
 
             if result == True and self.reverse == False:
-                yield r;
+                yield r
             elif result == False and self.reverse == True:
-                yield r;
+                yield r
             else:
                 error+=1
                 if self.stop_while==False:
                     continue
                 elif  self.stop_while==True:
-                    sys.stdout.write('stop iter \n')
-                    break;
+                    logging.info('stop iter \n')
+                    break
                 elif isinstance(self.stop_while, int) and error >= self.stop_while:
-                    sys.stdout.write('stop iter \n')
+                    logging.info('stop iter \n')
                     break
 
 
@@ -209,7 +207,7 @@ class Ascend(ETLTool):
         super(Ascend, self).__init__()
         self._reverse= False
         self.p='value'
-        self.one_input=True;
+        self.one_input=True
 
     def process(self, data,column):
         all_data= [r for r in data]
@@ -247,18 +245,18 @@ class Generator(ETLTool):
     def __init__(self):
         super(Generator, self).__init__()
         self.mode= MERGE_APPEND
-        self.pos= 0;
+        self.pos= 0
     def generate(self,generator,column):
-        pass;
+        pass
 
     def process(self, generator,column):
         if generator is None:
-            return  self.generate(None,column);
+            return  self.generate(None,column)
         else:
             if self.p== MERGE_APPEND:
-                return append(generator, self.process(None,column));
+                return append(generator, self.process(None,column))
             elif self.p==MERGE_MERGE:
-                return merge(generator, self.process(None,column));
+                return merge(generator, self.process(None,column))
             elif self.p==MERGE_CROSS:
                 return cross(generator, self.generate,column)
             else:
@@ -273,13 +271,13 @@ EXECUTE_UPDATE='update'
 class MongoDBConnector(EObject):
     def __init__(self):
         super(MongoDBConnector, self).__init__()
-        self.connect_str='';
+        self.connect_str=''
         self.db=''
 
     def init(self):
         import pymongo
-        client = pymongo.MongoClient(self.connect_str);
-        self._db = client[self.db];
+        client = pymongo.MongoClient(self.connect_str)
+        self._db = client[self.db]
 
 
 
@@ -288,15 +286,15 @@ class MongoDBConnector(EObject):
 
 class DBBase(ETLTool):
     def __init__(self):
-        super(DBBase, self).__init__();
-        self.table = '';
+        super(DBBase, self).__init__()
+        self.table = ''
         self.mode= EXECUTE_INSERT
     def get_table(self,data):
-        c= query(data,self.p);
+        c= query(data,self.p)
         t= query(data,self.table)
-        connector = self._proj.env[c];
+        connector = self._proj.env[c]
         connector.init()
-        table = connector._db[t];
+        table = connector._db[t]
         return table
 
 
@@ -306,18 +304,18 @@ class DbEX(Executor,DBBase):
     :param p:  env connector name
     '''
     def __init__(self):
-        super(DbEX, self).__init__();
+        super(DbEX, self).__init__()
 
     def init(self):
         DBBase.init(self)
     def process(self,datas,column):
         for data in datas:
             table =self.get_table(data)
-            work={EXECUTE_INSERT: lambda d: table.save(d), EXECUTE_UPDATE: lambda d: table.save(d)};
+            work={EXECUTE_INSERT: lambda d: table.save(d), EXECUTE_UPDATE: lambda d: table.save(d)}
             new_data= copy(data)
             etype=query(data,self.mode)
-            work[etype](new_data);
-            yield data;
+            work[etype](new_data)
+            yield data
 
 
 class DbGE(Generator,DBBase):
@@ -328,7 +326,7 @@ class DbGE(Generator,DBBase):
     def generate(self,data,column):
         table = self.get_table(self.table)
         for data in table.find():
-            yield data;
+            yield data
 
 
 class JoinDBTF(Transformer,DBBase):
@@ -339,7 +337,7 @@ class JoinDBTF(Transformer,DBBase):
     :param index:  join index key
     '''
     def __init__(self):
-        super(JoinDBTF, self).__init__();
+        super(JoinDBTF, self).__init__()
         self.index = ''
         self.mapper=''
     def transform(self, data, col,ncol):
@@ -349,7 +347,7 @@ class JoinDBTF(Transformer,DBBase):
         else:
             value = data[self.index]
             mapper= query(data,self.mapper)
-            mapper=para_to_dict(mapper,' ',':');
+            mapper=para_to_dict(mapper,' ',':')
 
             def db_filter(d):
                 if '_id' in d:
@@ -373,21 +371,21 @@ class MatchFT(Filter):
       :param count: min match count
       '''
     def __init__(self):
-        super(MatchFT, self).__init__();
+        super(MatchFT, self).__init__()
         self.mode='str'
     def init(self):
         if self.mode=='re':
-            self.regex = re.compile(self.p);
-        self.count=1;
+            self.regex = re.compile(self.p)
+        self.count=1
 
     def filter(self,data):
         p= self.get_p(data)
         if self.mode=='str':
             return data.find(p)>=0
         else:
-            v = self.regex.findall(data);
+            v = self.regex.findall(data)
             if v is None:
-                return False;
+                return False
 
         return self.count <= len(v)
 
@@ -416,13 +414,13 @@ class RepeatFT(Filter):
     def __init__(self):
         super(RepeatFT, self).__init__()
     def init(self):
-        self._set=set();
+        self._set=set()
     def filter(self,data):
         if data in self._set:
-            return False;
+            return False
         else:
-            self._set.add(data);
-            return True;
+            self._set.add(data)
+            return True
 
 class NullFT(Filter):
     '''
@@ -430,10 +428,10 @@ class NullFT(Filter):
     '''
     def filter(self,data):
         if data is None:
-            return False;
+            return False
         if is_str(data):
-            return data.strip() != '';
-        return True;
+            return data.strip() != ''
+        return True
 
 
 
@@ -484,11 +482,11 @@ class IncrTF(Transformer):
     '''
     def init(self):
         super(IncrTF, self).__init__()
-        self._index = 0;
+        self._index = 0
 
     def transform(self, data):
-        self._index += 1;
-        return self._index;
+        self._index += 1
+        return self._index
 
 class TagTF(Transformer):
     '''
@@ -550,7 +548,7 @@ class KeepTF(Transformer):
     def m_process(self,datas,col):
 
         if col.find(':') > 0:
-            col = para_to_dict(col, ' ', ':');
+            col = para_to_dict(col, ' ', ':')
             for data in datas:
                 doc={}
                 for k, v in data.items():
@@ -558,7 +556,7 @@ class KeepTF(Transformer):
                         doc[col[k]] = v
                 yield doc
         else:
-            col = col.split(' ');
+            col = col.split(' ')
             for data in datas:
                 doc={}
                 for k, v in data.items():
@@ -574,7 +572,7 @@ class EscapeTF(Transformer):
     '''
     def __init__(self):
         super(EscapeTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
         self.p='html'
     def transform(self, data):
         p=self.get_p(data)
@@ -587,7 +585,7 @@ class EscapeTF(Transformer):
         elif p=='url':
             url = data.encode('utf-8')
             return urllib.parse.quote(url)
-        return data;
+        return data
 
 class CleanTF(Transformer):
     '''
@@ -596,7 +594,7 @@ class CleanTF(Transformer):
     '''
     def __init__(self):
         super(CleanTF, self).__init__()
-        self.one_input=True;
+        self.one_input=True
         self.p='text'
     def transform(self, data):
         p = self.get_p(data)
@@ -614,7 +612,7 @@ class CleanTF(Transformer):
                 return html.unescape(data)
         elif p == 'url':
             return urllib.parse.unquote(data)
-        return data;
+        return data
 
 
 
@@ -641,7 +639,7 @@ class FormatTF(Transformer):
                 return to_str(r)
         input= self.p
         output=input
-        result = self._re.finditer(self.p);
+        result = self._re.finditer(self.p)
         if result is None:
             return
 
@@ -658,7 +656,7 @@ class HtmlTF(Transformer):
     '''
     def __init__(self):
         super(HtmlTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
 
     def transform(self, data):
         res = spider.get_node_html(data)
@@ -672,11 +670,11 @@ class RegexTF(Transformer):
     '''
     def __init__(self):
         super(RegexTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
 
     def transform(self, data):
-        regex = re.compile(self.p);
-        items = re.findall(regex, to_str(data));
+        regex = re.compile(self.p)
+        items = re.findall(regex, to_str(data))
         return [r for r in items]
 
 class LastTF(Transformer):
@@ -728,7 +726,7 @@ class AggTF(Transformer):
             if r2 != None:
                 r =r2
             if column!='':
-                m[column]=r;
+                m[column]=r
             else:
                 m=r
             yield m
@@ -745,8 +743,8 @@ class ReplaceTF(RegexTF):
     '''
     def __init__(self):
         super(ReplaceTF, self).__init__()
-        self.value = '';
-        self.mode='str';
+        self.value = ''
+        self.mode='str'
         self.one_input=False
 
     def transform(self, data,col,ncol):
@@ -756,12 +754,12 @@ class ReplaceTF(RegexTF):
         new_value= query(data,self.value)
         p=self.get_p(data)
         if self.mode=='re':
-            result= re.sub(p, new_value, ndata);
+            result= re.sub(p, new_value, ndata)
         else:
             if ndata is None:
                 result= None
             else:
-                result=ndata.replace(p,new_value);
+                result=ndata.replace(p,new_value)
         data[ncol]=result
 class NumTF(RegexTF):
     '''
@@ -778,18 +776,18 @@ class SplitTF(Transformer):
     '''
     def __init__(self):
         super(SplitTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
 
     def init(self):
-        self.splits = self.p.split(' ');
+        self.splits = self.p.split(' ')
         if '' in self.splits:
             self.splits.remove('')
     def transform(self, data):
         if len(self.splits)==0:
-            return data;
+            return data
         for i in self.splits:
-            data = data.replace(i, '\001');
-        r=data.split('\001');
+            data = data.replace(i, '\001')
+        r=data.split('\001')
         return r
 class StripTF(Transformer):
     '''
@@ -798,14 +796,14 @@ class StripTF(Transformer):
     '''
     def __init__(self):
         super(StripTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
 
     def transform(self, data):
         p=self.get_p(data)
         if p =='':
             return data.strip()
         else:
-            return data.strip(p);
+            return data.strip(p)
 
 class ExtractTF(Transformer):
     '''
@@ -816,22 +814,22 @@ class ExtractTF(Transformer):
      '''
     def __init__(self):
         super(ExtractTF, self).__init__()
-        self.has_margin=False;
-        self.one_input=True;
+        self.has_margin=False
+        self.one_input=True
         self.end= ''
 
     def transform(self, data):
-        start = data.find(self.p);
+        start = data.find(self.p)
         if start == -1:
             return
-        end = data.find(self.end, start);
+        end = data.find(self.end, start)
         if end == -1:
-            return;
+            return
         if self.has_margin:
-            end += len(self.end);
+            end += len(self.end)
         if not self.has_margin:
-            start += len(self.p);
-        return data[start:end];
+            start += len(self.p)
+        return data[start:end]
 
 class MapTF(Transformer):
     def __init__(self):
@@ -844,18 +842,18 @@ class MapTF(Transformer):
         if col=='':
             if is_str(p):
                 dic = merge({'data': data}, data)
-                self._eval_script(p,dic);
+                self._eval_script(p,dic)
             else:
-                p(data);
+                p(data)
             return None
         else:
             value = data[col]
             if is_str(p ):
                 dic = merge({'value': value, 'data': data}, data)
-                result = self._eval_script(p,dic);
+                result = self._eval_script(p,dic)
             else:
-                result =p(value);
-        return result;
+                result =p(value)
+        return result
 
     def transform(self, data,col,ncol):
         js = self._get_data( data,col)
@@ -867,30 +865,30 @@ class Create(Generator):
         super(Create, self).__init__()
         self.p='xrange(1,20,1)'
     def can_dump(self):
-        return  is_str(self.p);
+        return  is_str(self.p)
     def generate(self,generator,column):
         p=self.get_p(generator)
-        import inspect;
+        import inspect
         import copy
         if is_str(p):
-            result = self._eval_script(p);
+            result = self._eval_script(p)
         elif inspect.isfunction(p):
             result= p()
         else:
-            result= p;
+            result= p
         for r in result:
             if column!= '':
-                yield {column:r};
+                yield {column:r}
             else:
                 yield copy.copy( r)
 
 class Where(Filter):
     def __init__(self):
         super(Where, self).__init__()
-        self.p='True';
-        self.one_input=False;
+        self.p='True'
+        self.one_input=False
     def can_dump(self):
-        return  is_str(self.p);
+        return  is_str(self.p)
     def filter(self, data,column):
         p=self.get_p(data)
         import inspect
@@ -898,20 +896,20 @@ class Where(Filter):
         if column=='':
             value=data
         else:
-            value = data[column] if column in data else '';
+            value = data[column] if column in data else ''
         if is_str(p):
             dic=merge({'value': value, 'data': data},data)
-            result = self._eval_script(p,dic);
+            result = self._eval_script(p,dic)
         elif inspect.isfunction(p):
             result = p(value)
         if result==None:
             return False
-        return result;
+        return result
 
 class DetectTF(Transformer):
     def __init__(self):
         super(DetectTF, self).__init__()
-        self.index=0;
+        self.index=0
         self.attr=False
 
 
@@ -925,7 +923,7 @@ class DetectTF(Transformer):
         if is_str(root):
             from lxml import etree
             root = spider._get_etree(root)
-        tree = etree.ElementTree(root);
+        tree = etree.ElementTree(root)
         if p!='':
             xpaths= spider.get_diff_nodes(tree,root,self.p,self.attr)
             root_path=p
@@ -937,12 +935,12 @@ class DetectTF(Transformer):
                 return
             root_path, xpaths = result
         for r in xpaths:
-            r.path= spider.get_sub_xpath(root_path,r.path);
+            r.path= spider.get_sub_xpath(root_path,r.path)
 
         code0=  '\n.'.join((u"cp(':{col}').xpath('/{path}')\\" .format(col=r.name,path=r.path,sample=r.sample) for r in xpaths))
-        code= u".xpath('%s').list().html().tree()\\\n.%s" %(root_path,code0 );
+        code= u".xpath('%s').list().html().tree()\\\n.%s" %(root_path,code0 )
         print code
-        code2= '\n'.join(u"#{key} : #{value}".format(key=r.name,value=r.sample.strip()) for r in xpaths);
+        code2= '\n'.join(u"#{key} : #{value}".format(key=r.name,value=r.sample.strip()) for r in xpaths)
         print code2
         datas = get_datas(root, xpaths, True, root_path=root_path)
         data[ncol]=datas
@@ -965,7 +963,7 @@ class CacheTF(Transformer):
         del cache[:]
         for r in datas:
             cache.append(r)
-            yield r;
+            yield r
 
 
 class CrawlerTF(Transformer):
@@ -974,6 +972,7 @@ class CrawlerTF(Transformer):
         self.encoding = 'utf-8'
         self._mode='get'
         self.header=''
+        self.verify=False
 
 
     def transform(self, data, col,ncol):
@@ -982,12 +981,13 @@ class CrawlerTF(Transformer):
         url=data[col]
         paras = {}
         paras['url']=url
+        paras['verify']= self.verify
         if self.header in self._proj.env:
             headers = self._proj.env[self.header]
             paras['headers']=headers
         if self.p != '':
             para_data = self.get_p(data)
-            key = 'data' if self._mode == 'post' else 'params';
+            key = 'data' if self._mode == 'post' else 'params'
             paras[key] = para_data
         if self._mode == 'get':
             r = requests.get(**paras)
@@ -1000,38 +1000,38 @@ class CrawlerTF(Transformer):
 class GetTF(CrawlerTF):
     def __init__(self):
         super(GetTF, self).__init__()
-        self._mode = 'get';
+        self._mode = 'get'
 
 class PostTF(CrawlerTF):
     def __init__(self):
         super(PostTF, self).__init__()
-        self._mode = 'post';
+        self._mode = 'post'
 
 
 class TreeTF(Transformer):
     def __init__(self):
         super(TreeTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
 
     def transform(self, data):
-        root = spider._get_etree(data);
+        root = spider._get_etree(data)
         return root
 
 
 class SearchTF(Transformer):
     def __init__(self):
         super(SearchTF, self).__init__()
-        self._m_yield=False;
-        self.one_input=True;
+        self._m_yield=False
+        self.one_input=True
         self.mode='str'
     def transform(self, data):
         from spider import search_xpath
         if data is None:
-            return None;
+            return None
         if is_str(data):
             from lxml import etree
-            tree = spider._get_etree(data);
-        result = search_xpath(tree, self.p,self.mode, True);
+            tree = spider._get_etree(data)
+        result = search_xpath(tree, self.p,self.mode, True)
         print result
         return result
 
@@ -1054,7 +1054,7 @@ class XPathTF(Transformer):
         from lxml import etree
         root=None
         if isinstance(data, (str, unicode)):
-            root = spider._get_etree(data);
+            root = spider._get_etree(data)
             tree = etree.ElementTree(root)
         else:
             tree = data
@@ -1066,14 +1066,14 @@ class XPathTF(Transformer):
         tree,root= self._trans(target)
         if tree is None:
             return
-        node_path = query(data, self.p);
+        node_path = query(data, self.p)
         if node_path is None or node_path=='':
             nodes=[target]
         else:
-            nodes = tree.xpath(self.p);
+            nodes = tree.xpath(self.p)
             if nodes is None:
                 nodes=[target]
-        data[ncol]= nodes;
+        data[ncol]= nodes
 
 
 
@@ -1084,20 +1084,20 @@ class PyQTF(XPathTF):
 
     def transform(self, data, col,ncol):
         from pyquery import PyQuery as pyq
-        root = pyq(data[col]);
+        root = pyq(data[col])
         if root is None:
-            return;
+            return
         node_path = self.get_p(data)
         if node_path == '' or node_path is None:
             return
-        nodes = root(node_path);
+        nodes = root(node_path)
         data[ncol]= nodes if nodes is not None else []
 
 
 class AtTF(Transformer):
     def __init__(self):
         super(AtTF, self).__init__()
-        self.one_input = True;
+        self.one_input = True
 
     def transform(self, data):
 
@@ -1116,8 +1116,8 @@ class TnTF(Transformer):
 
     def __init__(self):
         super(TnTF,self).__init__()
-        self.rule=None;
-        self.one_input=True;
+        self.rule=None
+        self.one_input=True
 
     def init(self):
         import codecs
@@ -1128,7 +1128,6 @@ class TnTF(Transformer):
         if not hasattr(TnTF,'core'):
             TnTF.core = tn()
             core=TnTF.core
-
             core.init_tn_rule('src/tn_py/cnext', True)
             core.init_py_rule(tnnlp)
             core.init_py_rule(custom)
@@ -1136,21 +1135,35 @@ class TnTF(Transformer):
                 core.log_file= codecs.open("../test/log.txt", 'w', encoding='utf-8')
             core.rebuild()
     def transform(self,data):
-        core=TnTF.core;
+        core=TnTF.core
         data=to_str(data)
-        result=core.extract(data, entities=[self.rule]);
+        result=core.extract(data, entities=[self.rule])
         if any(result):
-            result= result[0]['#rewrite'];
+            result= result[0]['#rewrite']
             return result
         if TnTF.log:
             core.log_file.flush()
-        return '';
+        return ''
 
 
 class ParallelTF(Transformer):
     def __init__(self):
         super(ParallelTF, self).__init__()
         self.p=1
+
+
+class MultiYieldTF(Transformer):
+    def __init__(self):
+        super(MultiYieldTF, self).__init__()
+        self.p=3
+        self._m_process=True
+
+    def m_transform(self,data,column):
+        pass
+
+
+
+
 
 
 class DumpTF(Transformer):
@@ -1197,7 +1210,7 @@ class Range(Generator):
         for i in values:
 
             item= {column:i}
-            yield item;
+            yield item
 
 
 
@@ -1211,22 +1224,22 @@ class SubBase(ETLTool):
         if isinstance(p,ETLTask):
             return p
         if p not in self._proj.env:
-            sys.stderr.write('sub task %s  not in current project' % p);
-        sub_etl = self._proj.env[p];
-        return sub_etl;
+            sys.stderr.write('sub task %s  not in current project' % p)
+        sub_etl = self._proj.env[p]
+        return sub_etl
 
 
     def _get_tools(self,data,column):
         sub_etl = self._get_task(data)
         start,end,interval= get_range(self.range)
-        tools=  tools_column(tools_filter(sub_etl.tools[start:end:interval],excluded=self))
+        tools=  tools_filter(tools_column(sub_etl.tools[start:end:interval]),excluded=self)
         return tools
 
-    def _generate(self, data,column,execute=False,init=False):
+    def _generate(self, data,column,execute=False):
         doc=copy(data)
         generator=[doc] if doc is not None else None
-        for r in ex_generate(self._get_tools(doc,column),generator,execute=execute,init=init):
-            yield r;
+        for r in ex_generate(self._get_tools(doc,column),generator,execute=execute):
+            yield r
 
 
 
@@ -1246,7 +1259,7 @@ class SubEx(Executor, SubBase):
         for d in data:
             if self.debug == True:
                 for r in self._generate(d, False):
-                    yield r;
+                    yield r
             else:
                 yield self.execute(d)
 
@@ -1254,27 +1267,17 @@ class SubEx(Executor, SubBase):
 
         count=0
         try:
-            for r in self._generate( data):
-                count+=1;
+            for r in self._generate(data):
+                count+=1
         except Exception as e:
-            sys.stderr.write('subtask fail')
+            p_expt(e)
         print('subtask:'+to_str(count))
-        return data;
+        return data
 
 class SubTF(Transformer, SubBase):
 
     def __init__(self):
         super(SubTF, self).__init__()
-    # def m_transform(self,data,col):
-    #     if self.cycle:
-    #         result = first_or_default(self._generate(data))
-    #         if result is None:
-    #             return
-    #         yield copy(result)
-    #     else:
-    #         for r in self._generate(data):
-    #             if r is not None:
-    #                 yield r
 
 
     def transform(self,data,col,ncol):
@@ -1290,7 +1293,7 @@ class StrTF(Transformer):
         self.one_input = True
     def transform(self,node):
         if hasattr(node, 'text'):
-            res = spider.get_node_text(node);
+            res = spider.get_node_text(node)
         else:
             res = to_str(node)
         return res
@@ -1301,7 +1304,7 @@ class RotateTF(Transformer):
     rotate matrix, not lazy
     '''
     def __init__(self):
-        super(RotateTF, self).__init__();
+        super(RotateTF, self).__init__()
         self._m_process = True
 
     def m_process(self, datas,column):
@@ -1311,7 +1314,7 @@ class RotateTF(Transformer):
             key= data.get(column,None)
             if key is None:
                 continue
-            value = query(data,p);
+            value = query(data,p)
             result[key]=value
         yield result
 
@@ -1322,7 +1325,7 @@ class ToDictTF(Transformer):
     :param p: columns, split by blanket
     '''
     def __init__(self):
-        super(ToDictTF, self).__init__();
+        super(ToDictTF, self).__init__()
         self._m_process=True
 
     def m_process(self,datas,col):
@@ -1338,7 +1341,7 @@ class DrillTF(Transformer):
     :param p: dict columns, split by blanket.  all column will be added if value is ''
     '''
     def __init__(self):
-        super(DrillTF, self).__init__();
+        super(DrillTF, self).__init__()
         self._m_process = True
 
     def m_process(self, datas, col):
@@ -1358,13 +1361,13 @@ class TakeTF(Transformer):
     :param p: n
     '''
     def __init__(self):
-        super(TakeTF, self).__init__();
+        super(TakeTF, self).__init__()
 
 
     def process(self,data,column):
-        p= get_num(self.get_p(data));
+        p= get_num(self.get_p(data))
         for r in get_mount(data,p):
-            yield r;
+            yield r
 
 class SkipTF(Transformer):
     '''
@@ -1372,12 +1375,12 @@ class SkipTF(Transformer):
     :param p: n
     '''
     def __init__(self):
-        super(SkipTF, self).__init__();
+        super(SkipTF, self).__init__()
 
     def process(self,data,column):
-        p = get_num(self.get_p(data));
+        p = get_num(self.get_p(data))
         for r in get_mount(data,None, p):
-            yield r;
+            yield r
 
 
 class DelayTF(Transformer):
@@ -1386,15 +1389,16 @@ class DelayTF(Transformer):
      :param p: delay n millisecond
      '''
     def __init__(self):
-        super(DelayTF, self).__init__();
-        self.p=100;
+        super(DelayTF, self).__init__()
+        self.p=100
+        self._m_process=True
 
     def m_process(self,datas,col):
         import time
         for data in datas:
             p=get_num(self.get_p(data),default=0)
             time.sleep(float(p)/1000.0)
-            yield data;
+            yield data
 
 class Read(Generator):
     pass
@@ -1407,21 +1411,21 @@ class Download(Executor):
     '''
     def __init__(self):
         super(Download, self).__init__()
-        self.path= '';
+        self.path= ''
 
 
     def execute(self,data,column):
         import requests
         p=self.get_p(data)
-        (folder,file)=os.path.split(p);
+        (folder,file)=os.path.split(p)
         if not os.path.exists(folder):
-            os.makedirs(folder);
-        url= data[column];
-        target= open(p,'wb');
+            os.makedirs(folder)
+        url= data[column]
+        target= open(p,'wb')
         req = requests.get(url)
         if req is None:
             return
-        target.write(req.content);
+        target.write(req.content)
         target.close()
         return data
 
@@ -1432,8 +1436,8 @@ class Project(EObject):
     project that contains all tasks
     '''
     def __init__(self):
-        self.env={};
-        self.desc="edit project description here";
+        self.env={}
+        self.desc="edit project description here"
 
     def clear(self):
         '''
@@ -1441,7 +1445,7 @@ class Project(EObject):
         :return: self
         '''
         self.env.clear()
-        return self;
+        return self
 
     def dumps_json(self):
         dic = convert_dict(self )
@@ -1454,49 +1458,49 @@ class Project(EObject):
 
     def dump_yaml(self, path):
         with extends.open(path, 'w', encoding='utf-8') as f:
-            f.write(self.dumps_yaml());
+            f.write(self.dumps_yaml())
     def load_yaml(self, path):
         import yaml
         with open(path, 'r', encoding='utf-8') as f:
-            d = yaml.load(f);
+            d = yaml.load(f)
             return self.load_dict(d)
 
 
     def loads_json(self, js):
-        d = json.loads(js);
+        d = json.loads(js)
         return self.load_dict(d)
 
     def dump_json(self,path):
         with extends.open(path,'w',encoding='utf-8') as f:
-            f.write(self.dumps_json());
+            f.write(self.dumps_json())
 
     def load_json(self,path):
         with extends.open(path,'r',encoding='utf-8') as f:
-            js= f.read();
+            js= f.read()
             return self.loads_json(js)
 
 
     def load_dict(self,dic):
-        items =dic.get('env',{});
+        items =dic.get('env',{})
         for key, item in items.items():
             if 'Type' in item:
                 obj_type = item['Type']
-                task = eval('%s()' % obj_type);
+                task = eval('%s()' % obj_type)
                 if obj_type == 'ETLTask':
                     for r in item['tools']:
-                        etl = eval('%s()' % r['Type']);
+                        etl = eval('%s()' % r['Type'])
                         for attr, value in r.items():
                             if attr in ['Type']:
-                                continue;
-                            setattr(etl, attr, value);
-                        etl._proj = self;
+                                continue
+                            setattr(etl, attr, value)
+                        etl._proj = self
                         task.tools.append(etl)
                 else:
-                    dict_copy_poco(task,item);
+                    dict_copy_poco(task,item)
             else:
                 task=item
             self.env[key]=task
-        return self;
+        return self
 
 
 
@@ -1506,55 +1510,49 @@ def convert_dict(obj):
         return None
     if isinstance(obj, EObject):
         d={}
-        obj_type= type(obj);
+        obj_type= type(obj)
         typename= get_type_name(obj)
-        default= obj_type().__dict__;
+        default= obj_type().__dict__
         for key, value in obj.__dict__.items():
             if value== default.get(key,None):
-                    continue;
+                    continue
             if key.startswith('_'):
-                continue;
+                continue
             p =convert_dict(value)
             if p is not None:
                 d[key]=p
-        d['Type']= typename;
-        return d;
+        d['Type']= typename
+        return d
 
     elif isinstance(obj, list):
-       return [convert_dict(r) for r in obj];
+       return [convert_dict(r) for r in obj]
     elif isinstance(obj,dict):
         return {key: convert_dict(value) for key,value in obj.items()}
-    return obj;
+    return obj
 
 
-def ex_generate(tools, generator=None, init=True, execute=False, enabled=True):
+def ex_generate(tools, generator=None,  execute=False):
 
-    mapper, reducer, tolist = parallel_map(tools_filter(tools,init,execute,enabled))
-    for r in generate(mapper, generator, init=False, execute=execute):
+    mapper, reducer, _ = parallel_map(tools_filter(tools,execute))
+    for r in generate(mapper, generator):
         if reducer is None:
             yield r
         else:
-            if isinstance(r, dict):
+            if not is_iter(r):
                 r = [r]
-            for p in ex_generate(reducer, r, init=False, execute=execute):
+            for p in ex_generate(reducer, r):
                 yield p
 
 
-def tools_filter(tools, init=True, executed=False, enabled=True,excluded=None):
-
-    buf=[]
-    for tool in tools:
-        if excluded==tool:
-            continue
-        if isinstance(tool, Executor):
-            if executed == False and tool.debug == False:
-                continue
-            if tool.enabled == False and enabled == True:
-                continue
-        if init:
-            tool.init()
-        buf.append(tool)
-    return buf
+def tools_filter(tool,  executed=False, excluded=None):
+    if excluded==tool:
+        return False
+    if isinstance(tool, Executor):
+        if executed == False and tool.debug == False:
+            return False
+        if tool.enabled == False:
+            return False
+    return True
 
 def tools_column(tools,start_column=''):
     '''
@@ -1592,32 +1590,31 @@ def tools_column(tools,start_column=''):
     return buf
 
 
-def generate(tools, generator=None, init=True, execute=False, enabled=True,start_column=''):
+def generate(tools, generator=None,start_column=''):
     '''
     evaluate a tool stream
     :param tools: [ETLTool]
     :param generator: seed generator for generator
     :param init: bool, if initiate every tool
     :param execute: bool, if enable executors
-    :param enabled: bool, if enable those tools which enabled is False
     :param start_column:
     :return: a generator
     '''
     if tools is not  None:
-        for tool, column in tools_column(tools_filter(tools, init, execute, enabled),start_column):
+        for tool, column in tools_column(tools,start_column):
             generator = tool.process(generator, column)
     if generator is None:
         return []
-    return generator;
+    return generator
 
 
 def count(generator):
     if isinstance(generator,list):
-        return len(generator);
+        return len(generator)
     if isinstance(generator,Generator):
         if hasattr(generator,'_mount'):
-            return generator._mount;
-    return 100;
+            return generator._mount
+    return 100
 
 
 
@@ -1629,30 +1626,29 @@ def parallel_map(tools):
     '''
     index= get_index(tools, lambda x:isinstance(x, ParallelTF))
     if index==-1:
-        return tools,None,None;
+        return tools,None,None
     mapper = tools[:index]
     reducer=tools[index+1:]
-    parameter= tools[index];
-    return mapper,reducer,parameter;
-
+    parameter= tools[index]
+    return mapper,reducer,parameter
 
 
 
 class ETLTask(EObject):
     def __init__(self):
-        self.tools = [];
+        self.tools = []
         self.name=''
-        self._master=None;
+        self._master=None
         self._last_column=''
     def clear(self):
         self.tools=[]
-        return self;
+        return self
 
     def __getitem__(self, item):
         tool = AtTF()
         tool._proj = self._proj
         tool.p = item
-        self.tools.append(tool);
+        self.tools.append(tool)
         return self
 
     def to_json(self):
@@ -1668,7 +1664,7 @@ class ETLTask(EObject):
         pass
     def to_graph(self,path='etl.jpg'):
         import pygraphviz as pgv
-        A = pgv.AGraph(directed=True, strict=True);
+        A = pgv.AGraph(directed=True, strict=True)
         last = "root"
         A.add_node(last)
         i=0
@@ -1685,29 +1681,29 @@ class ETLTask(EObject):
         A.layout('dot')  # layout with dot
         A.draw(path)  # write to file
 
-    def check(self,count=10):
+    def check(self):
         tools=  force_generate(tools_filter(self.tools))
         for i in range(1,len(tools)):
             attr=EObject()
-            tool=tools[i];
-            title= get_type_name(tool).replace('etl.','')+' '+tool.column;
-            list_datas =  to_list(progress_indicator(get_keys(get_mount(ex_generate(tools[:i],init=False), start=count), attr), count=count, title=title));
+            tool=tools[i]
+            title= get_type_name(tool).replace('etl.','')+' '+tool.column
+            list_datas =  to_list(progress_indicator(get_keys(get_mount(ex_generate(tools[:i])), attr),  title=title))
             keys= ','.join(attr.__dict__.keys())
             print('%s, %s, %s'%(str(i),title,keys))
 
-    def distribute(self ,take=90999999,skip=0,port= None,monitor_connector_name=None,table_name=None):
+    def distribute(self ,port= None,monitor_connector_name=None,table_name=None):
         import distributed
         self._master= distributed.Master(
-        self._master.start_project(self._proj, self.name,take,skip,port,monitor_connector_name,table_name))
+        self._master.start_project(self._proj, self.name,port,monitor_connector_name,table_name))
 
-    def _pl_generator(self,take=-1,skip=0):
+    def _pl_generator(self):
         mapper, reducer, parallel = parallel_map(self.tools)
         if parallel is None:
             print 'this script do not support pl...'
             return
 
-        count_per_group = parallel.p if parallel is not None else 1;
-        task_generator = extends.group_by_mount(ex_generate(mapper), count_per_group, take, skip);
+        count_per_group = parallel.p if parallel is not None else 1
+        task_generator = extends.group_by_mount(ex_generate(mapper), count_per_group )
         task_generator = extends.progress_indicator(task_generator, 'Task Dispatcher', count(mapper))
         for r in task_generator:
             yield r
@@ -1727,119 +1723,147 @@ class ETLTask(EObject):
         import requests
 
         if method in ['finished','dispatched','clean']:
-            url="http://%s:%s/task/query/%s"%(server,port,method);
+            url="http://%s:%s/task/query/%s"%(server,port,method)
             data= json.loads(requests.get(url).content)
             print 'remain: %s'%(data['remain'])
             return fetch(data[method],count=1000000)
         elif method=='insert':
-            url="http://%s:%s/task/%s"%(server,port,method);
+            url="http://%s:%s/task/%s"%(server,port,method)
             tasks=self.get_related_tasks()
-            n_proj=convert_dict(self._proj);
+            n_proj=convert_dict(self._proj)
             for k,v in n_proj.items():
                 if  isinstance(v,dict) and v.get('Type',None)=='ETLTask' and v['name'] not in tasks:
                     del n_proj[k]
-            id=0;
-            for task in progress_indicator( self._pl_generator(take,skip)):
+            id=0
+            for task in get_mount(progress_indicator( self._pl_generator()),take,skip):
                 job={'proj':n_proj,'name':self.name,'tasks':task,'id':id}
                 id+=1
                 res=requests.post(url,json=job)
                 print 'task insert %s'%(id)
-            print 'total push tasks: %s'%(id);
+            print 'total push tasks: %s'%(id)
 
 
 
     def stop_server(self):
         if self._master is None:
-            return 'server is not exist';
-        self._master.manager.shutdown();
+            return 'server is not exist'
+        self._master.manager.shutdown()
     def __str__(self):
         def conv_value(value):
             if is_str(value):
-                value= value.replace('\n',' ').replace('\r','');
+                value= value.replace('\n',' ').replace('\r','')
                 sp="'"
                 if value.find("'")>=0:
                     if value.find('"')>=0:
                         sp="'''"
                     else:
                         sp='"'
-                return "%s%s%s"%(sp,value,sp);
-            return value;
-        array = [];
-        array.append('##task name:%s'%self.name);
+                return "%s%s%s"%(sp,value,sp)
+            return value
+        array = []
+        array.append('##task name:%s'%self.name)
         array.append('.clear()')
         for t in self.tools:
-            typename = get_type_name(t);
-            s = ".%s(%s" % (typename, conv_value(t.column));
-            attrs = [];
-            defaultdict = type(t)().__dict__;
+            typename = get_type_name(t)
+            s = ".%s(%s" % (typename, conv_value(get_value( t,'column')))
+            attrs = []
+            defaultdict = type(t)().__dict__
             for att in t.__dict__:
-                value = t.__dict__[att];
+                value = t.__dict__[att]
                 if att in ['one_input','OneOutput', 'column', '_m_yield']:
                     continue
                 if not isinstance(value, ( int, bool, float)) and not is_str(value):
-                    continue;
+                    continue
                 if value is None or att not in defaultdict or defaultdict[att] == value:
-                    continue;
+                    continue
                 attrs.append(',%s=%s' % (att.lower(), conv_value(value)))
             if any(attrs):
                 s += ''.join(attrs)
             s+=')\\'
             array.append(s)
-        return '\n'.join(array);
+        return '\n'.join(array)
 
-    def query(self, etl=100, execute=False):
-        tools= self.tools[:etl];
-        for r in ex_generate(tools,execute=execute):
-            yield r;
+    def m_yield(tools, multi=False, execute=False):
+        if multi:
+            mapper, reducer, parallel = parallel_map(tools)
+            count_per_group = parallel.p if parallel is not None else 1
+            mapper_generator = ex_generate(mapper, execute=execute)
+            generators = (ex_generate(reducer, item, execute) for item in mapper_generator)
+            for r in multi_yield(generators, count_per_group):
+                yield r
+        else:
+            for r in ex_generate(tools, execute=execute):
+                yield r
+
+    def init(self):
+        for tool in self.tools:
+            tool.init()
+        return self
+
+
+    def query(self, etl=100, multi=False,  execute=False):
+        tools= self.init().tools[:etl]
+        if multi:
+            mapper, reducer, parallel = parallel_map(tools)
+            count_per_group = parallel.p if parallel is not None else 1
+            mapper_generator = ex_generate(mapper, execute=execute)
+            generators = (ex_generate(reducer, item, execute) for item in mapper_generator)
+            final= multi_yield(generators, count_per_group)
+        else:
+            final=ex_generate(tools, execute=execute)
+        for r in final:
+            yield r
 
     def run(self, etl=100, execute=True):
-        count= force_generate(progress_indicator(self.query(etl, execute)))
+        count= force_generate(progress_indicator(self.init().query(etl, execute)))
         print('task finished,total count is %s'%(count))
 
 
-
-    def fetch(self,take=10, format='print', etl=100, skip=0,execute=False,paras=None):
-        datas= get_mount(self.query(etl,execute=execute), take, skip)
+    def fetch(self, format='print', etl=100, execute=False,paras=None):
+        datas= get_mount(self.init().query(etl,execute=execute))
         if etl<len(self.tools):
             print 'current position: '+ str(self.tools[etl])
-        return fetch(datas,format,count=take,paras=paras);
+        return fetch(datas,format,paras=paras)
 
-    def run_m(self, thread_count=10, execute=True, take=999999, skip=0):
+    def run_m(self, thread_count=10, execute=True):
         import threadpool
         pool = threadpool.ThreadPool(thread_count)
-        mapper,reducer,parallel= parallel_map(self.tools);
-        count_per_group = parallel.p if parallel is not None else 1;
-        mapper_generator= generate(mapper,execute=execute);
+        mapper,reducer,parallel= parallel_map(self.tools)
+        count_per_group = parallel.p if parallel is not None else 1
+        mapper_generator= generate(mapper,execute=execute)
         def function(item):
             def get_task_name():
                 if parallel is None:
-                    return 'sub task';
-                return query(item,parallel.column);
-            generator= generate(reducer, item, execute);
+                    return 'sub task'
+                return query(item,parallel.column)
+            generator= generate(reducer, item, execute)
             count = force_generate(progress_indicator(generator,title=get_task_name()))
 
-        requests = threadpool.makeRequests(function, to_list(group_by_mount(mapper_generator, count_per_group, skip=skip, take=take)));
+        requests = threadpool.makeRequests(function, to_list(group_by_mount(mapper_generator, count_per_group)))
         [pool.putRequest(req) for req in requests]
         pool.wait()
+
+
+
     def run_async(self, max_size=10, execute=True):
         from gevent import monkey
         monkey.patch_socket()
         import gevent
         from gevent.queue import Queue, Empty
-        mapper, reducer, parallel = parallel_map(self.tools);
+        mapper, reducer, parallel = parallel_map(self.init().tools)
         tasks = Queue(max_size)
         def worker(n):
             try:
                 while True:
                     task = tasks.get(timeout=5)
-                    generator = generate(reducer, task, execute);
+                    generator = generate(reducer, task, execute)
                     count = force_generate(progress_indicator(generator, title="sub task"))
                     gevent.sleep(0)
                     print count
-            except Empty:
-                pass
+            except Exception as e:
+                p_expt(e)
         def boss():
-            mapper_generator = generate(mapper, execute=execute);
+            mapper_generator = generate(mapper, execute=execute)
             for task in mapper_generator:
                 tasks.put([task])
         joins= [gevent.spawn(boss)]

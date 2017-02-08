@@ -79,7 +79,7 @@ class Master:
         self.server_init(port)
         app.run(host='0.0.0.0', port=60007, debug=True, use_reloader=False)
 
-    def start_project(self,project, job_name,take=100000,skip=0,port=None, monitor_connector_name=None,table_name=None):
+    def start_project(self,project, job_name,port=None, monitor_connector_name=None,table_name=None):
         self.server_init(port)
         self.max_process = 10;
         self.monitor = None;
@@ -104,7 +104,7 @@ class Master:
             while True:
                 while True:
                     i = 0;
-                    for task in  self._pl_generator(take,skip):
+                    for task in  self._pl_generator():
                         i += 1;
                         job_id = job_id + 1
                         job = {'proj':proj,'name':job_name,'tasks':task,'id':job_id}
