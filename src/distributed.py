@@ -94,7 +94,7 @@ class Master:
         proj= etl.convert_dict(project);
         mapper, reducer, parallel = etl.parallel_map(module.tools)
         if parallel is None:
-            print 'this script do not support pl...'
+            print ('this script do not support pl...')
             return
         dispatched_count = 10;
         dispatched_jobs = self.manager.get_dispatched_job_queue()

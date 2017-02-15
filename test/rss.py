@@ -12,10 +12,14 @@ extends.enable_progress=False
 import requests
 import re
 # In[2]:
+
+extends.debug_level=100
 execute= False
 
 if len(sys.argv)>1 and sys.argv[1]=="true":
     execute = True
+
+
 
 
 def get_xpath(s):
@@ -26,17 +30,29 @@ def get_xpath(s):
 
 
 def get_content(s):
+    content=''
+    buf=[]
     if 'content' in s:
-        s['content'] = s['content'][0]["value"]
-    elif 'desc' in s:
-        s['content'] = s['desc']
+        buf.append(s['content'][0]["value"])
+    if 'desc' in s:
+        buf.append(s['desc'])
+    if 'description' in s:
+        buf.append(s['description'])
+    if 'summary' in s:
+        buf.append(s['summary'])
 
-    elif 'summary' in s:
-        s['content'] = s['summary']
+    if 'summary_detail' in s:
+        buf.append(s['summary_detail']['value'])
+    for b in buf:
+        b=to_str(b)
+        if len(content)<len(b):
+            content=to_str(b)
+    s['content']=content
     return
 
 def get_hash(s):
-    t=hash(s['title']+s['link'])
+    link= s.get('link','')
+    t=hash(s['title']+link)
     s['hash']=t
 
 def get_cover(s):
@@ -51,6 +67,7 @@ def get_cover(s):
 def filterhtml(data):
     source = data['link']
     html = data['content']
+    html= html.replace(u'来自新浪新闻','').replace(u'[微博]','')
     if source.find('hupu')>0:
         hh = html.split(u'[来源')
         if len(hh) == 2:
@@ -72,6 +89,7 @@ table_name_all='life_rss_all'
 count_per_id= 5
 #remote='http://recproxy.cz00b.alipay.net/recommend.json?_sid_=44040'
 remote='http://recproxy-pre.alipay.com/recommend.json?_sid_=9457'
+#remote='https://recproxy.alipay.com/recommend.json?appid=4250'
 rlist=requests.get(remote+'&invoke_method=get_rss_list')
 rlist=rlist.json()
 rlist= rlist.get('rss_list','')
@@ -89,10 +107,10 @@ for item in rlist.split('\n'):
     v=kv[1].strip()
     rlist2.append({'app_id':k,'rss':v})
 
-#print rlist2
+#print '\n'.join([r['rss'] for r in rlist2])
+#exit()
 
-
-ins= task('insert').let('error').nullft(revert=True).let('msg_id').dbex('mongo',table=table_name)
+ins= task('insert').let('error').nullft(reverse=True).let('msg_id').dbex('mongo',table=table_name)
 
 
 if execute:
@@ -118,81 +136,62 @@ def error_code_ft(cont):
     right_len= sum([len(r) for r in res])
     total=float(len(cont))
     r=right_len/total;
-    return r>0.65
+    return r>0.3
 
 
 keep1='author hash content description:desc published:publish_time link title source xpath app_id'
-dict1='title desc liked comment content cover url app_id invoke_method'
+dict1='title desc liked comment content cover url app_id invoke_method source_from'
 rss_button='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />'
 
 
-rss = task('rss')
-rss.pyge([r for r in rlist2]).cp('rss:source').split('.').at(1).cp('source:xpath').py(get_xpath).let('rss').py(lambda d: feedparser.parse(d)['entries'][:count_per_id])
-rss.list('source xpath app_id cover').dict().let('').py(get_hash).cp('hash:hash2').nullft().joindb('mongo',index='hash',mapper='title', table=table_name).at(0)
-rss.dict(col='title:title2').let('title2')  #
-# . nullft(revert=True)
-rss.let('').py(get_content).keep(keep1)
-rss.let('content').tree().xpath('[xpath]').at(0).html().htmlclean().pyft('len(value)>100').pyft(error_code_ft)
-rss.replace('https://',value='http://').replace('href=\".*?\"',mode='re').replace(rss_button,mode='str').cp('content:cover2')
-rss.xpath('//img[1]/@src').at(0).let('').py(get_cover).let('cover').nullft().pyft('len(value)<300').matchft('data:',revert=True).matchft('http:')
-rss.let('r_url',remote).let('invoke_method','send').let('comment','true').let('liked','true').rm('xpath').let('title').repeatft().mv('link:url')
-if execute:
-    rss.let('post').dict('encode',col=dict1).cp('r_url:resp').crawler(mode='post',value='[post]').json().dict()
-    rss.py(write_log)
-rss.dbex('mongo',table=table_name_all).etlex('insert')
+b= task('back')
+b.create([{'public_id':'2016092601973157', 'msg_id':'2016092601973157e2d600be-1f56-4736-a0a7-ee617fc0bdab'}]).let('r_url').set(remote).let('invoke_method').set('recall').let('post').todict('invoke_method public_id msg_id')
+b.cp('r_url:resp').post('[post]').dump('json').drill('recall_result error').rm('resp post')
+#b.get(1,etl=100)
 
-rss.get(etl=50)
+
+def get_rss(address):
+    if address.find('yaolan')>0:
+        data = requests.get('http://open.api.yaolan.com/api/v1/rss/knowledge')
+        c= feedparser.parse(data.content)
+    else:
+        c= feedparser.parse(address)
+    return c['entries'][:count_per_id]
+
+
+rss = task('rss')
+#rss.create([r for r in rlist2]).let('rss').matchft('mafengwo')
+rss.create().let('rss').set('http://open.api.yaolan.com/api/v1/rss/knowledge').let('appid').set('2016111702925166')
+rss.cp('rss:source').split('.')[0].cp('source:xpath').map(get_xpath).let('rss').map(get_rss)
+rss.list('source xpath app_id cover').drill().let('').map(get_hash).cp('hash:hash2').nullft().joindb('mongo',index='hash',mapper='title:title2', table=table_name).at(0).let('title2')  #
+# . nullft(reverse=True)
+rss.let('').map(get_content).keep(keep1)
+rss.let('content').tree().xpath('[xpath]')[0].html().clean().where('len(value)>100').where(error_code_ft)
+rss.replace('https://',value='http://').replace('href=\".*?\"',mode='re').replace(rss_button,mode='str').cp('content:cover2')
+rss.xpath('//img[1]/@src').at(0).let('').map(get_cover).let('cover').nullft().where('len(value)<300').matchft('data:',reverse=True).matchft('http:')
+rss.let('r_url').set(remote).let('invoke_method').set('send').let('comment').set('true').let('liked').set('true').rm('xpath').let('title').repeatft().mv('link:url')
+rss.let('source_from').set('RSS')
+#rss.let('app_id').set('2016092601973157') #.let('content title').set("artical"+str(id)*100)
+if execute: #True:  # execute:
+    rss.let('post').todict(dict1).cp('r_url:resp').post('[post]').dump('json').drill('error app_id msg_id success store_id')
+    #rss.py(write_log)
+rss.rm('r_url resp post')
+rss.dbex('mongo',table=table_name_all).subex('insert')
+rss.let('error').nullft(reverse=True).take(10)
+r=rss.collect(etl=50, format='sd')
+print r[0] #['summary_detail']['value']
 exit()
 
-# rss = task('rss')
-# rss.pyge(sc=[r for r in rlist2])
-# #rss.matchft('rss', sc='east', mode='re')
-# rss.split('rss:source',  sc='.' ).at('source',sc='1')
-# rss.py('source:xpath', sc=get_xpath)
-# rss.py('rss', sc=lambda d: feedparser.parse(d)['entries'][:count_per_id]).list(sc='source xpath app_id cover').dict()
-# rss.py( sc=get_hash)
-# rss.nullft('hash')
-# if  True:#True:
-#     rss.joindb('hash', sl='mongo', table=table_name, sc='title:title2', mode='doc')
-#     rss.nullft('title2', revert=True)
-# rss.py(sc=get_content)
-# rss.keep('author,hash,content,description:desc,published:publish_time,link,title,source,xpath,app_id')
-# rss.xpath('content', sc='[xpath]', mode='html').html(mode='decode').pyft( sc='len(content)>100')
-# rss.replace('content', sc='https://', new_value='http://')
-# rss.replace(sc='href=\".*?\"',new_value='',mode='re')
-# rss.replace(sc='<img src="http://ocpk3ohd2.qnssl.com/rss_bottom.jpg" />',new_value='',mode='str')
-# rss.xpath('content:cover2', sc='//img[1]/@src')
-# rss.py(sc=get_cover)
-# rss.nullft('cover').pyft('cover',sc='len(value)<300')
-# rss.py(sc=filterhtml)
-# rss.pyft('content',sc=error_code_ft)
-# rss.matchft('cover', mode='re', sc='data:', revert=True).matchft( mode='re', sc='http:')
-# rss.replace( sc='https', new_value='http')
-# #rss.addnew('app_id', sc='2016092601973157')
-# rss.set('r_url', sc=remote)
-# rss.set('invoke_method', sc='send')
-# rss.set('comment', sc='true')
-# rss.set('liked', sc='true')
-# rss.delete('xpath')
-# rss.repeatft('title')
-# rss.rename('source:author,link:url')
-# if execute:
-#     rss.dict('post', sc="title desc liked comment content cover url app_id invoke_method")
-#     rss.crawler('r_url:resp', sc='[post]',mode='post')
-#     rss.json('resp', mode='decode').dict()
-#     rss.py(sc=write_log)
-# rss.dbex(sl='mongo',table=table_name_all)
-# rss.etlex(sl='insert')
-# #result=rss.get(10)
 
 
-send_result=rss.get(500,etl=100,execute=execute,format='df')
+send_result=rss.collect(500, etl=100, execute=execute, format='df')
 #rss.check()
 #rss.get(etl=100)
 print send_result[['title','url','hash']]
 
 if execute:
     log_file.close()
+
 
 
 

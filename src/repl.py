@@ -55,7 +55,7 @@ def task(name='etl'):
                 continue
             dv=default[key]
             value = dic.get(key,dv)
-            if key=='p' and value=='':
+            if key=='p' and is_str(value) and value=='':
                 continue
             if value is not None:
                 setattr(val, key, value)
@@ -72,6 +72,7 @@ def task(name='etl'):
         new_tool=etl.%s()
         new_tool._proj=proj
         _task.tools.append(new_tool)
+        set_attr(new_tool,locals())
         return _task
     '''
     def merge_func(k, v):
@@ -93,7 +94,7 @@ def task(name='etl'):
                         if d!='':
                             doc=d
                             break
-                print k+':\t'+doc
+                print (k+':\t'+doc)
 
     for name,tool_type in etl.__dict__.items():
         if not inspect.isclass(tool_type):

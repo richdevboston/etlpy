@@ -4,16 +4,25 @@ import re
 import sys
 import logging
 import cgitb
+
+
+
+thread_mode ='thread'
+process_mode ='process'
+async_mode='async'
+
 PY2 = sys.version_info[0] == 2
 
 enable_progress=True
 
 if PY2:
     import codecs
+    from Queue import Queue, Empty
 
     open = codecs.open
 else:
     open = open
+    from queue import Queue
 
 debug_level= 1
 
@@ -32,26 +41,76 @@ def set_level(level):
 is_ipynb=is_in_ipynb()
 
 
-def _run(generators,queue):
-    for gene in generators:
-        for r in gene:
-            queue.put(r)
+def worker(task_queue, result_queue,gene_func):
+    import time
+    try:
+        while True:
+            if task_queue.empty():
+                time.sleep(0.01)
+                continue
+            task = task_queue.get()
+            if task==Empty:
+                result_queue.put(Empty)
+                return
+            for item in gene_func(task):
+                result_queue.put(item)
+    except Exception as e:
+        p_expt(e)
 
 
-def multi_yield(generators, p_num):
-    queue = multiprocessing.Queue(1000)
-    gene=group_by_mount(generators,p_num)
-    total=0
-    for gene2 in gene:
-        total+=1
-        p=multiprocessing.Process(name='process_%s'%(total),target= _run, args=(gene2,queue))
-        p.start()
+def boss(task_generator, task_queue,worker_count):
+    for task in task_generator:
+        task_queue.put(task)
+    for i in range(worker_count):
+        task_queue.put(Empty)
+
+
+def multi_yield(generators,  mode=thread_mode,workers=1,seeds=None):
+    def factory(func,args=None,name='task'):
+        if args is None:
+            args=()
+        if mode==process_mode:
+            return multiprocessing.Process(name=name,target=func,args= args)
+        if mode==thread_mode:
+            return threading.Thread(name=name,target=func,args=args)
+        if mode==async_mode:
+            import gevent
+            return gevent.spawn(func,*args)
+
+    def queue_factory(size):
+        if mode==process_mode:
+            return multiprocessing.Queue(size)
+        elif mode==thread_mode:
+            return Queue(size)
+        elif mode==async_mode:
+            from gevent import queue
+            return  queue.Queue(size)
+    queue_size=1000
+    import threading
+    result_queue =  queue_factory(queue_size)
+    task_queue= queue_factory(100)
+    processors=[]
+    if seeds is None:
+        main= factory(boss,args=(generators,task_queue,workers),name='boss')
+    else:
+        main = factory(boss, args=(seeds, task_queue,workers), name='boss')
+    for process_id in range(0,workers):
+        name='worker_%s'%(process_id)
+        if seeds is None:
+            p= factory(worker,args=(task_queue,result_queue),name=name)
+        else:
+            p = factory(worker, args=(task_queue, result_queue, lambda task: generators(task)), name=name)
+        processors.append(p)
+    processors.append(main)
+    for r in processors:
+        r.start()
     count=0
     while True:
-        data=queue.get()
-        if data is None:
+        data=result_queue.get()
+        if data is Empty:
             count+=1
-        if count==total:
+            continue
+        if count==workers:
             return
         else:
             yield data
@@ -161,7 +220,6 @@ def progress_indicator(generator,title='Position Indicator',count=2000):
     else:
         id=0
         for data in generator:
-            print(title+' '+str(id))
             id+=1
             yield data
         print('task finished')
@@ -187,7 +245,7 @@ def p_expt(e):
     else:
         pass
 
-def fetch(generator, format='print', paras=None):
+def collect(generator, format='print', paras=None):
     if format == 'print' and not is_ipynb:
         import pprint
         for d in generator:
@@ -206,7 +264,7 @@ def fetch(generator, format='print', paras=None):
         count=0
         for d in generator:
             count+=1
-        print 'total count is '+ str(count)
+        print ('total count is '+ str(count))
     list_datas= to_list(progress_indicator(generator))
     if is_ipynb or format=='df':
         from  pandas import DataFrame
@@ -256,6 +314,27 @@ def conv_dict(dic,para_dic):
             del dic[k]
     return dic
 
+def replace_paras(item,old_value):
+    def get_short(v):
+        if v == '_':
+            return old_value
+        return v
+    if isinstance(item,dict):
+        p = {}
+        for k, v in item.items():
+            p[get_short(k)] = get_short(v)
+        return p
+    elif isinstance(item,list):
+        for i in range(len(item)):
+            item[i] = get_short(item[i])
+        return item
+    return item
+
+
+
+
+
+
 def para_to_dict(para, split1, split2):
     r = {}
     for s in para.split(split1):
@@ -272,6 +351,14 @@ def para_to_dict(para, split1, split2):
         r[key] = value
     return r
 
+def split(string,char):
+    sp= string.split(char)
+    result=[]
+    for r in sp:
+        if r=='':
+            continue
+        result.append(r)
+    return result
 
 def get_num(x, method=int,default=None):
     try:
