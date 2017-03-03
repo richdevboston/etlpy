@@ -1,4 +1,3 @@
-
 # etlpy: Python编写的流式爬虫系统
 
 ## 简介
@@ -80,8 +79,8 @@ task().create(datas).p.set(',').a.split('[p]')   #等价于上面的值，方括
 
 下面的表，整理了算子的使用方法：
 
-| 名称 |  参数 | 功能  | 执行后结果 | 例子  | 类型 | 
-| -- |  --  |   --   |  --  |---| --  | 
+| 名称 | 参数 | 功能 | 执行后结果 |  例子   | 类型 |
+| -------- | ------ | -------- | ------ |-------- | ------ |
 |   |    |     | 设定目标列   |  |   | 
 | let | 'new' | 设置目标列为new |  new | let('new') |TF-data |
 | mv | 'old:new' | 从原始列移动到新列 |  new | mv('a:b') |TF-data |
@@ -148,6 +147,10 @@ task().create(datas).p.set(',').a.split('[p]')   #等价于上面的值，方括
 | subge | 子任务名称或实例 | 以生成器方式调用| 不变 | subge(task().create()..) |GE-stream |
 | subex | 子任务名称或实例 | 以执行器方式调用| 不变 | subex('task_name') | EX-stream |
 | sub | 子任务名称或实例 | 以转换器方式调用| 不变 | sub('task_name') | TF-stream |
+
+
+
+
 
 
 #### 算子和列
