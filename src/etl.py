@@ -3,7 +3,6 @@ import json
 import os
 import urllib
 import spider
-import extends
 from extends import *
 
 if PY2:
@@ -91,8 +90,11 @@ class Transformer(ETLTool):
             if col != '' and not has(data,col)  and (not isinstance(self, (SetTF, MapTF))):
                 return data
             if self.one_input:
-                res = transform_func(get_value(data,col))
-                return set_value(data,n_col,res)
+                try:
+                    res = transform_func(get_value(data,col))
+                    return set_value(data,n_col,res)
+                except Exception as e:
+                    p_expt(e)
             else:
                 n_col = n_col if n_col != '' and n_col is not None else col
                 try:
@@ -251,7 +253,7 @@ class Generator(ETLTool):
             elif p==MERGE_MERGE:
                 return merge(generator, self.process(None,column))
             elif p==MERGE_CROSS:
-                return cross(generator, self.generate,column)
+                return cross(generator,  self.generate,column)
             else:
                 return mix(generator, self.process(None,column))
 
@@ -537,9 +539,7 @@ class KeepTF(Transformer):
         self._m_process=True
 
     def m_process(self,datas,col):
-
-        if col.find(':') > 0:
-            col = para_to_dict(col, ' ', ':')
+        if isinstance(col, dict):
             for data in datas:
                 doc={}
                 for k, v in data.items():
@@ -547,7 +547,6 @@ class KeepTF(Transformer):
                         doc[col[k]] = v
                 yield doc
         else:
-            col = col.split(' ')
             for data in datas:
                 doc={}
                 for k, v in data.items():
@@ -618,27 +617,11 @@ class FormatTF(Transformer):
         self.p= '{0}'
         self._re= re.compile('\{([\w_]+)\}')
     def transform(self, data, col, ncol=None):
-        def get_value(data, k):
-            r=None
-            if k== '0':
-                r= data[col]
-            if k in data:
-                r= data[k]
-            if r is None:
-                return ''
-            else:
-                return to_str(r)
         input= self.p
-        output=input
-        result = self._re.finditer(self.p)
-        if result is None:
-            return
-
-        for r in result:
-            all,key= r.regs
-            all= input[all[0]:all[1]]
-            key= input[key[0]:key[1]]
-            output=output.replace(all,get_value(data,key))
+        if col == '':
+            output= input.format(data)
+        else:
+            output = input.format(data[col])
         data[ncol]=output
 
 class HtmlTF(Transformer):
@@ -653,7 +636,19 @@ class HtmlTF(Transformer):
         res = spider.get_node_html(data)
         return res
 
+class TextTF(Transformer):
+    '''
+    get html text from a node, if not node, will not change it
+    '''
+    def __init__(self):
+        super(TextTF, self).__init__()
+        self.one_input = True
 
+    def transform(self, data):
+        res = spider.get_node_text(data)
+        if res=='':
+            return to_str(data)
+        return res
 
 class RegexTF(Transformer):
     '''
@@ -663,10 +658,20 @@ class RegexTF(Transformer):
         super(RegexTF, self).__init__()
         self.one_input = True
 
+    def m_str(self,data):
+        if is_str(data):
+            return data
+        elif isinstance(data,(list,tuple)):
+            return ''.join(data)
+        return data
+
+    def _conv(self,x):
+        return x
+
     def transform(self, data):
         regex = re.compile(self.p)
-        items = re.findall(regex, to_str(data))
-        return [r for r in items]
+        items = re.findall(regex, data)
+        return [self.conv(self.m_str(r)) for r in items]
 
 class LastTF(Transformer):
     '''
@@ -757,7 +762,13 @@ class NumTF(RegexTF):
     '''
     def __init__(self):
         super(NumTF, self).__init__()
-        self.p='\d+'
+        self.p='(-?\d+)(\.\dt+)?'
+
+    def _conv(self, x):
+        try:
+            return int(x)
+        except Exception as e:
+            return float(x)
 
 class SplitTF(Transformer):
     '''
@@ -768,21 +779,9 @@ class SplitTF(Transformer):
         super(SplitTF, self).__init__()
         self.one_input = True
 
-    def init(self):
-        if self.p==' ':
-            self.splits=[' ']
-            return
-        self.splits = self.p.split(' ')
-        for r in self.splits:
-            if r=='':
-                self.splits.remove(r)
+
     def transform(self, data):
-        if len(self.splits)==0:
-            return data
-        for i in self.splits:
-            data = data.replace(i, '\001')
-        r=data.split('\001')
-        return r
+        return re.split(self.p, data)
 
 
 class IntoTF(Transformer):
@@ -806,6 +805,8 @@ class StripTF(Transformer):
         self.one_input = True
 
     def transform(self, data):
+        if data is None:
+            return None
         p=self.get_p(data)
         if p =='':
             return data.strip()
@@ -919,44 +920,55 @@ class Where(Filter):
             return False
         return result
 
+
+
 class DetectTF(Transformer):
     def __init__(self):
         super(DetectTF, self).__init__()
-        self.index=0
         self.attr=False
+        self.index=0
+        self._m_process=True
 
-
-    def transform(self, data, col,ncol):
-        p=self.get_p(data)
-        from spider import search_properties,get_datas
-        root = data[col]
-        if root is None:
-            return
-
-        if is_str(root):
-            from lxml import etree
-            root = spider._get_etree(root)
-        tree = etree.ElementTree(root)
-        if p!='':
-            xpaths= spider.get_diff_nodes(tree,root,self.p,self.attr)
-            root_path=p
-        else:
-            result = first_or_default(get_mount(search_properties(root, None, self.attr), start=1, end=self.index))
-            if result is None:
-                print ('great hand failed')
-                yield data
+    def m_process(self,datas,column):
+        is_first=True
+        for data in datas:
+            p = self.get_p(data)
+            root = data[column]
+            if root is None:
                 return
-            root_path, xpaths = result
-        for r in xpaths:
-            r.path= spider.get_sub_xpath(root_path,r.path)
+            from spider import search_properties, get_datas
+            if is_str(root):
+                from lxml import etree
+                root = spider._get_etree(root)
+            tree = etree.ElementTree(root)
+            if p != '':
+                xpaths = spider.get_diff_nodes(tree, root, self.p, self.attr)
+                root_path = p
+            else:
+                result = first_or_default(get_mount(search_properties(root, None, self.attr), take=1, skip=self.index))
 
-        code0=  '\n.'.join((u"cp(':{col}').xpath('/{path}')\\" .format(col=r.name,path=r.path,sample=r.sample) for r in xpaths))
-        code= u".xpath('%s').list().html().tree()\\\n.%s" %(root_path,code0 )
-        print(code)
-        code2= '\n'.join(u"#{key} : #{value}".format(key=r.name,value=r.sample.strip()) for r in xpaths)
-        print(code2)
-        datas = get_datas(root, xpaths, True, root_path=root_path)
-        data[ncol]=datas
+                if result is None:
+                    print('great hand failed')
+                    return
+                root_path, xpaths = result
+            for r in xpaths:
+                r.path = spider.get_sub_xpath(root_path, r.path)
+
+            code0 = '\n.'.join((u"cp('{ncol}:{col}').xpath('/{path}')[0].text()\\".format(col=r.name, ncol=column,
+                                                                                           path=r.path, sample=r.sample)
+                                for r in xpaths))
+            if is_first:
+                code = u".xpath('%s').list().html().tree()\\\n.%s" % (root_path, code0)
+                print(code)
+                code2 = '\n'.join(u"#{key} : #{value}".format(key=r.name, value=r.sample.strip()) for r in xpaths)
+                print(code2)
+                is_first=False
+            result = get_datas(root, xpaths, True, root_path=root_path)
+            for r in result:
+                yield r
+
+
+
 class CacheTF(Transformer):
     def __init__(self):
         super(CacheTF, self).__init__()
@@ -979,13 +991,14 @@ class CacheTF(Transformer):
             yield r
 
 
-class CrawlerTF(Transformer):
+class WebTF(Transformer):
     def __init__(self):
-        super(CrawlerTF, self).__init__()
+        super(WebTF, self).__init__()
         self.encoding = 'utf-8'
         self._mode='get'
         self.header=''
         self.verify=False
+        self.proxy='proxy'
 
 
     def transform(self, data, col,ncol):
@@ -1002,20 +1015,27 @@ class CrawlerTF(Transformer):
             para_data = self.get_p(data)
             key = 'data' if self._mode == 'post' else 'params'
             paras[key] = para_data
-        if self._mode == 'get':
-            r = requests.get(**paras)
-        else:
-            r = requests.post(**paras)
+        if  self.proxy in self._proj.env:
+            proxy =self._proj.env[self.proxy]
+            proxy.process_req(paras)
+        try:
+            if self._mode == 'get':
+                r = requests.get(**paras)
+            else:
+                r = requests.post(**paras)
+            r.raise_for_status()  # 如果响应状态码不是 200，就主动抛出异常
+        except requests.RequestException as e:
+            p_expt(e)
         if r is not None:
             result = get_encoding(r.content)
         data[ncol]=result
 
-class GetTF(CrawlerTF):
+class GetTF(WebTF):
     def __init__(self):
         super(GetTF, self).__init__()
         self._mode = 'get'
 
-class PostTF(CrawlerTF):
+class PostTF(WebTF):
     def __init__(self):
         super(PostTF, self).__init__()
         self._mode = 'post'
@@ -1065,7 +1085,7 @@ class XPathTF(Transformer):
     def _trans(self,data):
         from lxml import etree
         root=None
-        if isinstance(data, (str, unicode)):
+        if is_str(data):
             root = spider._get_etree(data)
             tree = etree.ElementTree(root)
         else:
@@ -1112,7 +1132,6 @@ class AtTF(Transformer):
         self.one_input = True
 
     def transform(self, data):
-
         if isinstance(data,(list,tuple)):
             p=get_num(self.get_p(data),0)
             if len(data)<=p:
@@ -1204,7 +1223,7 @@ class Range(Generator):
         self.p = ':'
     def generate(self,generator,column):
         p=self.get_p(generator)
-        start,end,interval= get_range(p)
+        start,end,interval= get_range(p,generator)
         if start==end:
             yield {column:start}
 
@@ -1267,7 +1286,6 @@ class SubEx(Executor, SubBase):
                 yield self.execute(d)
 
     def execute(self,data,column):
-
         count=0
         try:
             for r in self._generate(data):
@@ -1287,19 +1305,8 @@ class SubTF(Transformer, SubBase):
         data[ncol]= (r for r in self._generate(data,col))
 
 
-class StrTF(Transformer):
-    '''
-    get  text from a html node, if not node, will str(target)
-    '''
-    def __init__(self):
-        super(StrTF, self).__init__()
-        self.one_input = True
-    def transform(self,node):
-        if hasattr(node, 'text'):
-            res = spider.get_node_text(node)
-        else:
-            res = to_str(node)
-        return res
+
+
 
 
 class RotateTF(Transformer):
@@ -1508,30 +1515,7 @@ class Project(EObject):
 
 
 
-def convert_dict(obj):
-    if not isinstance(obj, ( int, float, list, dict, tuple, EObject)) and not is_str(obj):
-        return None
-    if isinstance(obj, EObject):
-        d={}
-        obj_type= type(obj)
-        typename= get_type_name(obj)
-        default= obj_type().__dict__
-        for key, value in obj.__dict__.items():
-            if value== default.get(key,None):
-                    continue
-            if key.startswith('_'):
-                continue
-            p =convert_dict(value)
-            if p is not None:
-                d[key]=p
-        d['Type']= typename
-        return d
 
-    elif isinstance(obj, list):
-       return [convert_dict(r) for r in obj]
-    elif isinstance(obj,dict):
-        return {key: convert_dict(value) for key,value in obj.items()}
-    return obj
 
 
 def ex_generate(tools, generator=None,env=None):
@@ -1547,7 +1531,6 @@ def ex_generate(tools, generator=None,env=None):
         for r in generator:
             yield r
         return
-
     if mode==None:
         generators = (ex_generate(reducer, g, env) for g in group_by_mount(generator, group))
         for generator in generators:
@@ -1578,7 +1561,6 @@ def tools_filter(tools, init=True, executed=False, enabled=True,excluded=None):
 
 
 def get_column(tool,env):
-
     old_column=column= env['column']
     p=tool.p
     if is_str(p):
@@ -1632,15 +1614,6 @@ def generate(tools, generator=None, env=None):
     return generator
 
 
-def count(generator):
-    if isinstance(generator,list):
-        return len(generator)
-    if isinstance(generator,Generator):
-        if hasattr(generator,'_mount'):
-            return generator._mount
-    return 100
-
-
 
 def parallel_map(tools,env):
     '''
@@ -1666,6 +1639,9 @@ class ETLTask(EObject):
     def clear(self):
         self.tools=[]
         return self
+
+    def __len__(self):
+        return len(self.tools)
 
     def __tool_factory(self,tool_type,item):
         tool= tool_type()
@@ -1798,6 +1774,10 @@ class ETLTask(EObject):
             tool.init()
         return self
 
+    def to_df(self):
+        from pandas import DataFrame
+        list_datas = to_list(self.query())
+        return DataFrame(list_datas)
 
     def query(self, etl=100,  execute=False):
         tools= tools_filter( self.init().tools[:etl],executed=execute)

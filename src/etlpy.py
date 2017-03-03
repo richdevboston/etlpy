@@ -4,8 +4,10 @@ from extends import  *
 proj= etl.Project()
 import inspect
 import extends
-
-__base_type = [etl.ETLTool, etl.Filter, etl.CrawlerTF, etl.SubBase, etl.Generator, etl.Executor, etl.Transformer]
+import sys
+import random
+from http_proxy import USER_AGENTS
+__base_type = [etl.ETLTool, etl.Filter, etl.WebTF, etl.SubBase, etl.Generator, etl.Executor, etl.Transformer]
 __ignore_paras = ['one_input', 'multi', 'column','p']
 
 tool_dict={}
@@ -24,6 +26,40 @@ def get_etl(dic):
 get_etl(tool_dict)
 
 
+class ProxyFactory(object):
+    def __init__(self,  proxy,delay,agent,timeout,allow_local):
+        self.agent= agent
+        self.proxy= proxy
+        self.delay= delay
+        self.timeout=timeout
+        self.allow_local=allow_local
+    def process_req(self,args):
+        if self.delay!=0:
+            time.sleep(self.delay)
+        if self.agent:
+
+            if 'headers' not in  args:
+                headers= {}
+                args['headers']=headers
+            else:
+                header= args['headers']
+            headers['User-Agent']= random.choice(USER_AGENTS)
+        if self.proxy is not None and len(self.proxy)>0:
+            l= len(self.proxy)-1
+            if self.allow_local==True:
+                l+=1
+            index= random.randint(0,l)
+            if index<len(self.proxy):
+                proxy = self.proxy[index]
+                args['proxies']= {'http': proxy}
+        if self.timeout>=0:
+            args['timeout']= self.timeout
+
+def set_proxy(name='proxy',proxy=None,delay=0.1,agent=True,timeout=20,allow_local=True):
+    p= ProxyFactory(proxy,delay,agent,timeout,allow_local)
+    proj.env[name]=p
+
+
 def html(text):
     from IPython.core.display import HTML, display
     display(HTML(text))
@@ -34,6 +70,20 @@ def get_default_connector():
     mongo.db = 'ant_temp'
     proj.env['mongo']=mongo
     return mongo
+
+
+
+
+
+def proxy(port=8000):
+    from http_proxy import LoggingProxyHTTPHandler
+    import BaseHTTPServer
+    server_address = ('', port)
+    print('start proxy')
+    httpd = BaseHTTPServer.HTTPServer(server_address, LoggingProxyHTTPHandler)
+    httpd.serve_forever()
+
+
 
 
 def task(name='etl'):
@@ -48,6 +98,7 @@ def task(name='etl'):
         if attr in __ignore_paras:
             return True
         return  False
+
     def set_attr(val, dic):
         default = type(val)().__dict__
         for key in val.__dict__:
@@ -61,7 +112,7 @@ def task(name='etl'):
                 setattr(val, key, value)
 
     def _rename(module):
-        repl={'TF':'','Python':'py','Parallel':'pl','Remove':'rm','Move':'mv','Copy':'cp'}
+        repl={'TF':'','Parallel':'pl','Remove':'rm','Move':'mv','Copy':'cp'}
         for k,v in repl.items():
             module= module.replace(k,v)
         return module.lower()
@@ -114,9 +165,10 @@ def task(name='etl'):
         func= locals()['__'+ new_name]
         func.__doc__= tool.__doc__
         setattr(_task,new_name,func)
-
     setattr(_task,'help',etl_help)
     return _task
 
 
+if __name__ == '__main__':
+    proxy()
 

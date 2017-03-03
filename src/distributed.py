@@ -11,7 +11,6 @@ rpc_port=28998
 
 
 
-
 from flask import request,jsonify
 if extends.PY2:
     from Queue import Queue
@@ -69,7 +68,6 @@ class Master:
         BaseManager.register('get_finished_job_queue', callable=self.get_finished_job_queue)
         print('current port is %d' % port)
         # 监听端口和启动服务
-
         manager.start()
         print('server started');
         if extends.is_ipynb:
@@ -79,24 +77,15 @@ class Master:
         self.server_init(port)
         app.run(host='0.0.0.0', port=60007, debug=True, use_reloader=False)
 
-    def start_project(self,project, job_name,port=None, monitor_connector_name=None,table_name=None):
+    def start_project(self,project, job_name,port=None):
         self.server_init(port)
         self.max_process = 10;
-        self.monitor = None;
-        if monitor_connector_name is not None:
-            monitor = self.project.connectors.get(monitor_connector_name, None);
-            monitor.server_init();
-            if monitor is not None:
-                if table_name is None:
-                    table_name = job_name + '_monitor';
-                self.monitor = monitor._db[table_name];
         module= self.project.modules[job_name];
         proj= etl.convert_dict(project);
         mapper, reducer, parallel = etl.parallel_map(module.tools)
         if parallel is None:
             print ('this script do not support pl...')
             return
-        dispatched_count = 10;
         dispatched_jobs = self.manager.get_dispatched_job_queue()
         finished_jobs = self.manager.get_finished_job_queue()
         job_id = 0
@@ -112,20 +101,6 @@ class Master:
                             pass;
                             # print('dispatch job: {id}, count : {count} '.script (id=job.id,count=count_per_group))
                         dispatched_jobs.put(job)
-                        if i % dispatched_count == 0:
-                            while not dispatched_jobs.empty():
-                                job = finished_jobs.get(60)
-                                if self.monitor is not None:
-                                    monitor = self.monitor;
-                                    for task in job.tasks:
-                                        task_dict = task.__dict__;
-                                        item = monitor.update({'m_id': task.m_id, 'id': task.id}, task_dict,
-                                                              upsert=True);
-                                if not extends.is_ipynb:
-                                    pass;
-
-                                    # print('finish job: {id}, count : {count} '.script(id=job.id, count=job.count))
-
                 if not extends.is_ipynb:
                     key = input('press any key to repeat,c to cancel')
                     if key == 'c':
@@ -158,7 +133,6 @@ def query_task(method):
 @app.route('/task/insert', methods=['POST'])
 def insert_task():
     js = request.json;  # have no the json data ?
-
     dispatched_job_queue = manager.get_dispatched_job_queue()
 
     result=  {"status":"success","remain": manager.get_finished_job_queue().qsize()};
@@ -166,7 +140,6 @@ def insert_task():
         if r['id']==js['id'] and r['name']==js['name']:
             result['status']='repeat,ignore'
             return jsonify(**result)
-
     dispatched_job_queue.put(js)
     import copy
     js2=copy.copy(js)
@@ -187,7 +160,6 @@ class Slave:
         # 把派发作业队列和完成作业队列注册到网络上
         BaseManager.register('get_dispatched_job_queue')
         BaseManager.register('get_finished_job_queue')
-
         server = server_ip;
         print('Connect to server %s...' % server)
         manager = BaseManager(address=(server, port), authkey=authkey)
@@ -196,7 +168,6 @@ class Slave:
         dispatched_jobs = manager.get_dispatched_job_queue()
         finished_jobs = manager.get_finished_job_queue()
 
-        # 运行作业并返回结果，这里只是模拟作业运行，所以返回的是接收到的作业
         while True:
             if dispatched_jobs.empty():
                 print('task finished, delay 20s')
@@ -216,11 +187,10 @@ class Slave:
                     tasks=[tasks];
                 mapper,reducer,tool= etl.parallel_map(module.tools);
                 for i in range(len(tasks)):
-                    task=tasks[i];
+                    task=tasks[i]
                     task_result=Task(job_id,i,task);
                     count=0;
                     try:
-
                         generator= etl.ex_generate(reducer, generator=[task], execute= execute,init=False)
                         for r in generator:
                             #print(r.keys())
@@ -244,7 +214,6 @@ if __name__ == '__main__':
 
     parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src'
     sys.path.insert(0, parentdir)
-
     manager = BaseManager(address=('0.0.0.0', rpc_port), authkey=authkey)
     ip= '127.0.0.1' #'10.101.167.107'
     #ip= '10.101.167.107'

@@ -10,6 +10,7 @@ import cgitb
 thread_mode ='thread'
 process_mode ='process'
 async_mode='async'
+network_mode='machine'
 
 PY2 = sys.version_info[0] == 2
 
@@ -18,7 +19,6 @@ enable_progress=True
 if PY2:
     import codecs
     from Queue import Queue, Empty
-
     open = codecs.open
 else:
     open = open
@@ -41,7 +41,7 @@ def set_level(level):
 is_ipynb=is_in_ipynb()
 
 
-def worker(task_queue, result_queue,gene_func):
+def _worker(task_queue, result_queue, gene_func):
     import time
     try:
         while True:
@@ -58,14 +58,14 @@ def worker(task_queue, result_queue,gene_func):
         p_expt(e)
 
 
-def boss(task_generator, task_queue,worker_count):
+def _boss(task_generator, task_queue, worker_count):
     for task in task_generator:
         task_queue.put(task)
     for i in range(worker_count):
         task_queue.put(Empty)
 
 
-def multi_yield(generators,  mode=thread_mode,workers=1,seeds=None):
+def multi_yield(generators, mode=thread_mode, worker_count=1, seeds=None):
     def factory(func,args=None,name='task'):
         if args is None:
             args=()
@@ -91,15 +91,15 @@ def multi_yield(generators,  mode=thread_mode,workers=1,seeds=None):
     task_queue= queue_factory(100)
     processors=[]
     if seeds is None:
-        main= factory(boss,args=(generators,task_queue,workers),name='boss')
+        main= factory(_boss, args=(generators, task_queue, worker_count), name='_boss')
     else:
-        main = factory(boss, args=(seeds, task_queue,workers), name='boss')
-    for process_id in range(0,workers):
+        main = factory(_boss, args=(seeds, task_queue, worker_count), name='_boss')
+    for process_id in range(0, worker_count):
         name='worker_%s'%(process_id)
         if seeds is None:
-            p= factory(worker,args=(task_queue,result_queue),name=name)
+            p= factory(_worker, args=(task_queue, result_queue), name=name)
         else:
-            p = factory(worker, args=(task_queue, result_queue, lambda task: generators(task)), name=name)
+            p = factory(_worker, args=(task_queue, result_queue, lambda task: generators(task)), name=name)
         processors.append(p)
     processors.append(main)
     for r in processors:
@@ -110,7 +110,7 @@ def multi_yield(generators,  mode=thread_mode,workers=1,seeds=None):
         if data is Empty:
             count+=1
             continue
-        if count==workers:
+        if count==worker_count:
             return
         else:
             yield data
@@ -174,13 +174,6 @@ def get_mount(generator,take=None,skip=0):
             break
         yield r
 
-def force_generate(generator,max_count=None):
-    count=0
-    for r in generator:
-        count+=1
-        if max_count is not None and count>=max_count:
-            break
-    return count
 
 def foreach(generator,func):
     for r in generator:
@@ -209,8 +202,15 @@ def progress_indicator(generator,title='Position Indicator',count=2000):
         for r in generator:
             yield r
         return
-    if is_ipynb:
-        from ipy_progressbar import ProgressBar
+    load=False
+    try:
+        #from ipy_progressbar import ProgressBar
+        #load=True
+        pass
+    except Exception as e:
+        p_expt(e)
+    if is_ipynb and load:
+
         generator = ProgressBar(generator, title=title)
         generator.max = count
         generator.start()
@@ -484,10 +484,10 @@ def get_indexs(iter, filter):
             res.append(r)
     return res
 
-def cross(a, gene_func):
+def cross(a, gene_func,column):
     for r1 in a:
         r1=dict.copy(r1)
-        for r2 in gene_func(r1):
+        for r2 in gene_func(r1,column):
             for key in r2:
                 r1[key] = r2[key]
                 yield dict.copy(r1)
@@ -553,26 +553,26 @@ class EObject(object):
     '''
     pass
 
+
+
+
 def get_range(range,env=None):
     def get(key):
         if isinstance(env,dict):
             return env.get(key,key)
     buf = [r for r in range.split(':')]
     start=end=interval=1
-    if len(buf)>0:
-        start= get_num(get(buf[0]))
-        return start,start,1
-    elif len(buf)>1:
-        end= get_num(get(buf[1]))
-        return start,end,1
-    else:
-        interval=get_num(get(buf[2]))
 
+    if len(buf)>2:
+        interval = get_num(get(buf[2]))
+    if len(buf)>1:
+        end= get_num(get(buf[1]))
+    else:
+        start = get_num(get(buf[0]))
     return start,end,interval
 
 def convert_to_builtin_type(obj):
-    d=  { key:value for key,value in obj.__dict__.items() if isinstance(value,(str,int,float,list,dict,tuple,EObject) or value is None)}
-    return d
+    return  { key:value for key,value in obj.__dict__.items() if isinstance(value,(str,int,float,list,dict,tuple,EObject) or value is None)}
 
 def dict_to_poco_type(obj):
     if isinstance(obj,dict):
@@ -590,8 +590,38 @@ def dict_to_poco_type(obj):
 def dict_copy_poco(obj,dic):
     for key,value in obj.__dict__.items():
         if key in dic:
-            if isinstance(dic[key], (str,int,float,unicode)):
-                setattr(obj,key,dic[key])
+            value =dic[key]
+            if isinstance(value, (int,float)) or is_str(value):
+                setattr(obj,key,value)
+
+
+
+
+
+def convert_dict(obj):
+    if not isinstance(obj, ( int, float, list, dict, tuple, EObject)) and not is_str(obj):
+        return None
+    if isinstance(obj, EObject):
+        d={}
+        obj_type= type(obj)
+        typename= get_type_name(obj)
+        default= obj_type().__dict__
+        for key, value in obj.__dict__.items():
+            if value== default.get(key,None):
+                    continue
+            if key.startswith('_'):
+                continue
+            p =convert_dict(value)
+            if p is not None:
+                d[key]=p
+        d['Type']= typename
+        return d
+
+    elif isinstance(obj, list):
+       return [convert_dict(r) for r in obj]
+    elif isinstance(obj,dict):
+        return {key: convert_dict(value) for key,value in obj.items()}
+    return obj
 
 
 

@@ -92,7 +92,7 @@ default_encodings=['utf-8','gbk'];
 
 
 def get_encoding(html):
-    encoding = _charset.search(html)
+    encoding = _charset.search(to_str(html))
     if encoding is not None:
         encoding = encoding.group(1);
     if encoding is None:
@@ -350,7 +350,7 @@ def __get_diff_nodes(trees,nodes, xpaths, has_attr):
             return trees[i];
         return trees;
     is_child_contain_info = False;
-    index= len(nodes)/2;
+    index= int(len(nodes)/2);
     node1 = nodes[index]
     tree1 = etree.ElementTree(node1);
     node1path = get_tree(0).getpath(node1);
@@ -427,7 +427,7 @@ def __search_node_name(node, xpaths):
         name = node.attrib.get(key, None);
         if name is not None:
             break;
-    if name is None:
+    if name is None or name=='':
         return  'col%s'%(len(xpaths));
     for c in xpaths:
         if c.name == name:
