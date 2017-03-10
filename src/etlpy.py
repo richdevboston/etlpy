@@ -12,7 +12,10 @@ __ignore_paras = ['one_input', 'multi', 'column','p']
 
 tool_dict={}
 
-def get_etl(dic):
+def  set_level(level):
+    extends.set_level(level)
+
+def __get_etl(dic):
     for name, tool_type in etl.__dict__.items():
         if not inspect.isclass(tool_type):
             continue
@@ -23,7 +26,7 @@ def get_etl(dic):
         dic[name]=tool_type
 
 
-get_etl(tool_dict)
+__get_etl(tool_dict)
 
 
 class ProxyFactory(object):
@@ -112,7 +115,7 @@ def task(name='etl'):
                 setattr(val, key, value)
 
     def _rename(module):
-        repl={'TF':'','Parallel':'pl','Remove':'rm','Move':'mv','Copy':'cp'}
+        repl={'TF':'', 'Regex':'re' ,'Parallel':'pl','Remove':'rm','Move':'mv','Copy':'cp'}
         for k,v in repl.items():
             module= module.replace(k,v)
         return module.lower()

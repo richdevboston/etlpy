@@ -97,6 +97,8 @@ class Transformer(ETLTool):
                     p_expt(e)
             else:
                 n_col = n_col if n_col != '' and n_col is not None else col
+                if col!='' and col not in data:
+                    return
                 try:
                     transform_func(data, col, n_col)
                     return data
@@ -356,32 +358,28 @@ class JoinDBTF(Transformer,DBBase):
                 buf.append(r)
         data[ncol]=buf
 
-
-
 class MatchFT(Filter):
     '''
       filter that match keyword or regex
       :param p:  keyword or regex
-      :param mode: 'str' or 're'
       :param count: min match count
       '''
     def __init__(self):
         super(MatchFT, self).__init__()
-        self.mode='str'
+        self.regex=''
     def init(self):
-        if self.mode=='re':
+        if self.regex!='':
             self.regex = re.compile(self.p)
         self.count=1
 
     def filter(self,data):
         p= self.get_p(data)
-        if self.mode=='str':
+        if self.regex=='':
             return data.find(p)>=0
         else:
             v = self.regex.findall(data)
             if v is None:
                 return False
-
         return self.count <= len(v)
 
 class InnerTF(Filter):
@@ -451,6 +449,7 @@ class LetTF(Transformer):
     '''
     def __init__(self):
         super(LetTF, self).__init__()
+        self.regex=''
 
     def m_process(self, data, column):
         return data
@@ -525,6 +524,7 @@ class RemoveTF(Transformer):
     '''
     def __init__(self):
         super(RemoveTF, self).__init__()
+        self.regex=''
 
     def transform(self, data,col,ncol):
         del_value(data,col)
@@ -537,6 +537,7 @@ class KeepTF(Transformer):
     def __init__(self):
         super(KeepTF, self).__init__()
         self._m_process=True
+        self.regex=''
 
     def m_process(self,datas,col):
         if isinstance(col, dict):
@@ -670,8 +671,8 @@ class RegexTF(Transformer):
 
     def transform(self, data):
         regex = re.compile(self.p)
-        items = re.findall(regex, data)
-        return [self.conv(self.m_str(r)) for r in items]
+        items = re.findall(regex, to_str(data))
+        return [self._conv(self.m_str(r)) for r in items]
 
 class LastTF(Transformer):
     '''
@@ -762,8 +763,8 @@ class NumTF(RegexTF):
     '''
     def __init__(self):
         super(NumTF, self).__init__()
-        self.p='(-?\d+)(\.\dt+)?'
-
+        #self.p='(-?\d+)(\.\dt+)?'
+        self.p='(-?\\d+)(\\.\\d+)?'
     def _conv(self, x):
         try:
             return int(x)
@@ -855,6 +856,7 @@ class MapTF(Transformer):
                 p(data)
             return None
         else:
+
             value = data[col]
             if is_str(p ):
                 dic = merge({'value': value, 'data': data}, data)
@@ -1073,6 +1075,10 @@ class ListTF(Transformer):
         self._m_process=True
     def m_process(self, datas, col):
         for data in datas:
+            if data is None or col not in data:
+                if debug_level>0:
+                    logging.warn('data empty')
+                    continue
             root = data[col]
             p=self.get_p(data)
             for r in root:
@@ -1194,13 +1200,17 @@ class DumpTF(Transformer):
         self.one_input=True
         self.p='json'
     def transform(self, data):
-        if self.p=='json':
+        p=self.get_p(data)
+        if p=='json':
             return json.dumps(data)
 
-        elif self.p=='yaml':
+        elif p=='yaml':
             import yaml
             return yaml.dumps(data)
-
+        elif p=='html':
+            return  spider.get_node_html(data)
+        else:
+            return to_str(data)
 
 
 class LoadTF(Transformer):
@@ -1216,6 +1226,8 @@ class LoadTF(Transformer):
         elif p=='yaml':
             import yaml
             return yaml.loads(data)
+        elif p=='html':
+            return spider._get_etree(data)
 
 class Range(Generator):
     def __init__(self):
@@ -1572,6 +1584,8 @@ def get_column(tool,env):
 
         p= replace_paras(p,old_column)
     if isinstance(tool, (LetTF,RemoveTF,KeepTF)):
+        if tool.regex!='':
+            pass
         column = p
     if isinstance(tool, (CopyTF, MoveTF, Copy2TF)):
         column= p
@@ -1636,6 +1650,9 @@ class ETLTask(EObject):
         self.tools = []
         self._master=None
         self._last_column=''
+        self._count=99999
+        self._execute=False
+
     def clear(self):
         self.tools=[]
         return self
@@ -1690,6 +1707,9 @@ class ETLTask(EObject):
         self._master= distributed.Master(
         self._master.start_project(self._proj, self.name,port,monitor_connector_name,table_name))
 
+
+    def debug(self, count):
+        self._count=count
 
 
     def _get_related_tasks(self,tasks):
@@ -1783,6 +1803,7 @@ class ETLTask(EObject):
         tools= tools_filter( self.init().tools[:etl],executed=execute)
         for r in ex_generate(tools):
             yield r
+
     def __iter__(self):
         for r in self.query():
             yield r
@@ -1790,8 +1811,11 @@ class ETLTask(EObject):
     def __call__(self, *args, **kwargs):
         return self.collect(*args,**kwargs)
 
-    def collect(self, etl=100, format='print', execute=False, paras=None):
-        datas= self.init().query(etl,execute=execute)
-        if etl<len(self.tools):
-            print ('current position: '+ str(self.tools[etl]))
+    def run(self,execute=True):
+        self._execute= execute
+
+    def collect(self,  format='print',  paras=None):
+        datas= self.init().query(self._count,self._execute)
+        if self._count<len(self.tools):
+            print ('current position: '+ str(self.tools[self._count]))
         return collect(datas, format, paras=paras)

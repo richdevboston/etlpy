@@ -22,9 +22,9 @@ if PY2:
     open = codecs.open
 else:
     open = open
-    from queue import Queue
+    from queue import Queue,Empty
 
-debug_level= 1
+debug_level= 4
 
 def is_in_ipynb():
     try:
@@ -109,9 +109,9 @@ def multi_yield(generators, mode=thread_mode, worker_count=1, seeds=None):
         data=result_queue.get()
         if data is Empty:
             count+=1
+            if count==worker_count:
+                return
             continue
-        if count==worker_count:
-            return
         else:
             yield data
 
