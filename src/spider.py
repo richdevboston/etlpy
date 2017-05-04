@@ -487,22 +487,12 @@ def get_list(html,xpaths=None, has_attr=False):
     datas = get_datas(root, xpaths, True, None)
     return datas,xpaths;
 
-def get_main(html,is_html=False):
-    root= _get_etree(html);
-    tree = etree.ElementTree(root);
-    node_path = search_text_root(tree, root);
-    nodes = tree.xpath(node_path);
-    if len(nodes)==0:
-        return ''
-    node=nodes[0]
-    if is_html:
-        res = etree.tostring(node).decode('utf-8');
-    else:
-        if hasattr(node, 'text'):
-            res = get_node_text(node);
-        else:
-            res = extends.to_str(node)
-    return res;
+def get_main(html):
+    if is_str(html):
+        html= _get_etree(html);
+    tree = etree.ElementTree(html);
+    node=search_text_root(tree, html);
+    return node
 
 def get_sub_xpath(root,xpath):
     paths = xpath.split('/');

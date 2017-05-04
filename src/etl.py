@@ -28,7 +28,7 @@ class ETLTool(EObject):
         super(ETLTool, self).__init__()
         self.p=''
 
-    def process(self, data,column):
+    def process(self, data,env):
         return data
     def init(self):
         pass
@@ -97,7 +97,7 @@ class Transformer(ETLTool):
                     p_expt(e)
             else:
                 n_col = n_col if n_col != '' and n_col is not None else col
-                if col!='' and col not in data:
+                if col!='' and col not in data and isinstance(col,(SetTF,)):
                     return
                 try:
                     transform_func(data, col, n_col)
@@ -119,14 +119,15 @@ class Transformer(ETLTool):
             return edit_data(column, None)
         return data
 
-    def process(self,data,column,_m_process=True):
-        if self._m_process==True and _m_process:
-            for r  in self.m_process(data,column):
+    def process(self, generator, env ):
+        column= env['column']
+        if self._m_process==True:
+            for r  in self.m_process(generator, column):
                 yield r
             return
-        if data is None:
+        if generator is None:
             return
-        for d in data:
+        for d in generator:
             if d is None:
                 continue
             if debug_level>3:
@@ -144,11 +145,13 @@ class Executor(ETLTool):
         self.debug=False
     def execute(self,data,column):
         pass
-    def process(self,data,column):
+    def process(self,data,env):
+        column=env['column']
         for r in data:
             yield self.execute(r,column)
     def init(self):
         pass
+
 
 
 class Filter(ETLTool):
@@ -162,7 +165,8 @@ class Filter(ETLTool):
         self.one_input=True
     def filter(self,data):
         return True
-    def process(self, data,column):
+    def process(self, data,env):
+        column=env['column']
         error=0
         for r in data:
             item = None
@@ -171,7 +175,7 @@ class Filter(ETLTool):
                 if column in r:
                     item = r[column]
                     result = self.filter(item)
-                if item is None and self.__class__ != NullFT:
+                if item is None and self.__class__ != NotNull:
                     continue
             else:
                 item=r
@@ -202,10 +206,11 @@ class Ascend(ETLTool):
     def __init__(self):
         super(Ascend, self).__init__()
         self._reverse= False
-        self.p='value'
+        self.p='_'
         self.one_input=True
 
-    def process(self, data,column):
+    def process(self, data,env):
+        column= env['column']
         all_data= [r for r in data]
         p='value' if self.p=='' else  self.p
         def sort_map(data):
@@ -215,7 +220,7 @@ class Ascend(ETLTool):
             else:
                 c=data.get(column,None)
             if is_str(p):
-                dic = merge({'value': c, 'data': data}, data)
+                dic = merge({'_': c} , data)
                 result = self._eval_script(p, dic)
             elif inspect.isfunction(p):
                 result = p(c)
@@ -242,22 +247,23 @@ class Generator(ETLTool):
         super(Generator, self).__init__()
         self.mode= MERGE_APPEND
         self.pos= 0
-    def generate(self,generator,column):
+    def generate(self, data, column):
         pass
 
-    def process(self, generator,column):
+    def process(self, generator,env):
+        column= env['column']
         if generator is None:
             return  self.generate(None,column)
         else:
             p=self.mode
             if p== MERGE_APPEND:
-                return append(generator, self.process(None,column))
+                return append(generator, self.process(None,env))
             elif p==MERGE_MERGE:
-                return merge(generator, self.process(None,column))
+                return merge(generator, self.process(None,env))
             elif p==MERGE_CROSS:
                 return cross(generator,  self.generate,column)
             else:
-                return mix(generator, self.process(None,column))
+                return mix(generator, self.process(None,env))
 
 
 EXECUTE_INSERT='insert'
@@ -382,23 +388,29 @@ class MatchFT(Filter):
                 return False
         return self.count <= len(v)
 
-class InnerTF(Filter):
+class NotIn(Filter):
     def __init__(self):
-        super(InnerTF, self).__init__()
+        super(NotIn, self).__init__()
         self.one_input= False
     def filter(self,data,column):
         item=data[column]
         p=self.get_p(data)
-        if p is None:
-            return False
-        sp=to_str(p).split(':')
-        if len(sp)==1:
-            p=query(data,p)
-            return float(p)==item
+        if isinstance(p,(list,tuple)):
+            return item not in p
+        elif is_str(item):
+            sp=to_str(p).split(':')
+            if len(sp)==1:
+                p=query(data,p)
+                return p!=item
+            else:
+                min=float(query(data,sp[0]))
+                max=float(query(data,sp[1]))
+                return min <= item <= max
         else:
-            min=float(query(data,sp[0]))
-            max=float(query(data,sp[1]))
-            return min <= item <= max
+            return False
+
+
+
 
 class RepeatFT(Filter):
     '''
@@ -415,7 +427,7 @@ class RepeatFT(Filter):
             self._set.add(data)
             return True
 
-class NullFT(Filter):
+class NotNull(Filter):
     '''
     filter that key column is empty or None
     '''
@@ -426,7 +438,12 @@ class NullFT(Filter):
             return data.strip() != ''
         return True
 
-
+class DebugTF(Transformer):
+    def __init__(self):
+        super(DebugTF, self).__init__()
+    def process(self, generator, env):
+        env['execute']=not self.p
+        return super(DebugTF,self).process(generator,env)
 
 
 class SetTF(Transformer):
@@ -451,17 +468,17 @@ class LetTF(Transformer):
         super(LetTF, self).__init__()
         self.regex=''
 
-    def m_process(self, data, column):
-        return data
+    def m_process(self, generator, env):
+        return generator
 
 class CountTF(Transformer):
     def __init__(self):
         super(CountTF, self).__init__()
         self._m_process = True
 
-    def m_process(self, datas, col):
+    def m_process(self, generator, column):
         count=0
-        for data in datas:
+        for data in generator:
             yield data
             count+=1
             if count%self.p==0:
@@ -850,7 +867,7 @@ class MapTF(Transformer):
         p=self.get_p(data)
         if col=='':
             if is_str(p):
-                dic = merge({'data': data}, data)
+                dic = merge({'_': data}, data)
                 self._eval_script(p,dic)
             else:
                 p(data)
@@ -859,7 +876,7 @@ class MapTF(Transformer):
 
             value = data[col]
             if is_str(p ):
-                dic = merge({'value': value, 'data': data}, data)
+                dic = merge({'_': value}, data)
                 result = self._eval_script(p,dic)
             else:
                 result =p(value)
@@ -873,11 +890,11 @@ class MapTF(Transformer):
 class Create(Generator):
     def __init__(self):
         super(Create, self).__init__()
-        self.p=''
+        self.p=1
     def can_dump(self):
         return  is_str(self.p)
-    def generate(self,generator,column):
-        p=self.get_p(generator)
+    def generate(self, data, column):
+        p=self.get_p(data)
         import inspect
         import copy
         from pandas import DataFrame
@@ -886,6 +903,8 @@ class Create(Generator):
                 result=[{}]
             else:
                 result = self._eval_script(p)
+        elif isinstance(p,int):
+            result= ({} for i in range(p))
         elif inspect.isfunction(p):
             result= p()
         elif isinstance(p,DataFrame):
@@ -1009,10 +1028,6 @@ class WebTF(Transformer):
         url=data[col]
         paras = {}
         paras['url']=url
-        paras['verify']= self.verify
-        if self.header in self._proj.env:
-            headers = self._proj.env[self.header]
-            paras['headers']=headers
         if self.p != '':
             para_data = self.get_p(data)
             key = 'data' if self._mode == 'post' else 'params'
@@ -1020,16 +1035,18 @@ class WebTF(Transformer):
         if  self.proxy in self._proj.env:
             proxy =self._proj.env[self.proxy]
             proxy.process_req(paras)
+        result=''
         try:
             if self._mode == 'get':
                 r = requests.get(**paras)
             else:
                 r = requests.post(**paras)
             r.raise_for_status()  # 如果响应状态码不是 200，就主动抛出异常
+            if r is not None:
+                result = get_encoding(r.content)
         except requests.RequestException as e:
             p_expt(e)
-        if r is not None:
-            result = get_encoding(r.content)
+
         data[ncol]=result
 
 class GetTF(WebTF):
@@ -1047,9 +1064,15 @@ class TreeTF(Transformer):
     def __init__(self):
         super(TreeTF, self).__init__()
         self.one_input = True
-
+        self.smart=False
     def transform(self, data):
-        root = spider._get_etree(data)
+        from lxml.etree import iselement
+        if not iselement(data):
+            root = spider._get_etree(data)
+        else:
+            root=data
+        if self.smart:
+            return spider.get_main(root)
         return root
 
 
@@ -1073,8 +1096,8 @@ class ListTF(Transformer):
     def __init__(self):
         super(ListTF, self).__init__()
         self._m_process=True
-    def m_process(self, datas, col):
-        for data in datas:
+    def m_process(self, generator, col):
+        for data in generator:
             if data is None or col not in data:
                 if debug_level>0:
                     logging.warn('data empty')
@@ -1138,15 +1161,17 @@ class AtTF(Transformer):
         self.one_input = True
 
     def transform(self, data):
-        if isinstance(data,(list,tuple)):
-            p=get_num(self.get_p(data),0)
+        p=self.get_p(data)
+        if isinstance(self.p, slice):
+            return data[p]
+        elif isinstance(data,(list,tuple)):
+            p=get_num(p,0)
             if len(data)<=p:
                 return None
             return data[p]
         elif data is None:
             return None
         else:
-            p=self.get_p(data)
             return data.get(p,None)
 
 class TnTF(Transformer):
@@ -1233,9 +1258,22 @@ class Range(Generator):
     def __init__(self):
         super(Range, self).__init__()
         self.p = ':'
-    def generate(self,generator,column):
-        p=self.get_p(generator)
-        start,end,interval= get_range(p,generator)
+    def generate(self, data, column):
+        p=self.get_p(data)
+        start=0
+        interval=1
+        if is_str(p):
+            start,end,interval= get_range(p, data)
+        elif isinstance(p,int):
+            end=p
+        elif isinstance(p,(tuple,list)):
+            l=len(p)
+            if l>0:
+                start=p[0]
+            if l>1:
+                end=p[1]
+            if l>2:
+                interval=p[2]
         if start==end:
             yield {column:start}
 
@@ -1269,10 +1307,10 @@ class SubBase(ETLTool):
         tools=  tools_filter(sub_etl.tools[start:end:interval],excluded=self)
         return tools
 
-    def _generate(self, data,column,execute=False):
+    def _generate(self, data,env):
         doc=copy(data)
         generator=[doc] if doc is not None else None
-        for r in ex_generate(self._get_tools(doc),generator,execute=execute):
+        for r in ex_generate(self._get_tools(doc),generator,env):
             yield r
 
 
@@ -1281,18 +1319,17 @@ class SubGE(Generator, SubBase):
     def __init__(self):
         super(SubGE, self).__init__()
 
-
-    def generate(self, data,column):
-        return self._generate(data)
+    def generate(self, data,env):
+        return self._generate(data,env)
 
 class SubEx(Executor, SubBase):
     def __init__(self):
         super(SubEx, self).__init__()
 
-    def process(self,data,column):
+    def process(self,data,env):
         for d in data:
             if self.debug == True:
-                for r in self._generate(d, False):
+                for r in self._generate(d, env):
                     yield r
             else:
                 yield self.execute(d)
@@ -1300,7 +1337,7 @@ class SubEx(Executor, SubBase):
     def execute(self,data,column):
         count=0
         try:
-            for r in self._generate(data):
+            for r in self._generate(data,column):
                 count+=1
         except Exception as e:
             p_expt(e)
@@ -1315,10 +1352,6 @@ class SubTF(Transformer, SubBase):
 
     def transform(self,data,col,ncol):
         data[ncol]= (r for r in self._generate(data,col))
-
-
-
-
 
 
 class RotateTF(Transformer):
@@ -1532,7 +1565,7 @@ class Project(EObject):
 
 def ex_generate(tools, generator=None,env=None):
     if env is None:
-        env={'column':''}
+        env={'column':'','execute':False}
     mapper, reducer, parallel = parallel_map(tools,env)
     if parallel is None:
         group,mode,workers = 1,None,1
@@ -1543,28 +1576,24 @@ def ex_generate(tools, generator=None,env=None):
         for r in generator:
             yield r
         return
+    groups=group_by_mount(generator, group)
     if mode==None:
-        generators = (ex_generate(reducer, g, env) for g in group_by_mount(generator, group))
+        generators = (ex_generate(reducer, group, env) for group in groups)
         for generator in generators:
             for  item in generator:
                 yield item;
     else:
-        for r in multi_yield(lambda task:ex_generate(reducer,task,env) ,mode,workers, group_by_mount(generator,group)):
+        for r in multi_yield(lambda task:ex_generate(reducer,task,env) ,mode,workers, groups):
             yield r
 
 
 
 
-def tools_filter(tools, init=True, executed=False, enabled=True,excluded=None):
+def tools_filter(tools, init=True, excluded=None):
     buf=[]
     for tool in tools:
         if excluded==tool:
             continue
-        if isinstance(tool, Executor):
-            if executed == False and tool.debug == False:
-                continue
-            if tool.enabled == False and enabled == True:
-                continue
         if init:
             tool.init()
         buf.append(tool)
@@ -1613,15 +1642,15 @@ def generate(tools, generator=None, env=None):
     :param env:
     :return: a generator
     '''
-    if env is None:
-        env = {'column': ''}
     if tools is not None:
         for tool in tools:
             env= get_column(tool,env)
             if isinstance(tool,LetTF):
                 continue
-            column= env['column']
-            generator = tool.process(generator, column)
+            execute= env.get('execute',False)
+            if not execute and isinstance(tool,Executor):
+                continue
+            generator = tool.process(generator, env)
             env['column']=env['next']
     if generator is None:
         return []
@@ -1650,9 +1679,7 @@ class ETLTask(EObject):
         self.tools = []
         self._master=None
         self._last_column=''
-        self._count=99999
-        self._execute=False
-
+        self.env={}
     def clear(self):
         self.tools=[]
         return self
@@ -1673,6 +1700,21 @@ class ETLTask(EObject):
         if item=='_':
             item=''
         tool= self.__tool_factory(LetTF,item)
+        return self
+
+    def __add__(self, task):
+        tool = self.__tool_factory(SubGE, task)
+        tool.mode=MERGE_APPEND
+        return self
+
+    def __mul__(self, task):
+        tool = self.__tool_factory(SubGE, task)
+        tool.mode= MERGE_CROSS
+        return self
+
+    def __or__(self, task):
+        tool = self.__tool_factory(SubGE, task)
+        tool.mode = MERGE_MERGE
         return self
 
     def __getitem__(self, item):
@@ -1707,9 +1749,6 @@ class ETLTask(EObject):
         self._master= distributed.Master(
         self._master.start_project(self._proj, self.name,port,monitor_connector_name,table_name))
 
-
-    def debug(self, count):
-        self._count=count
 
 
     def _get_related_tasks(self,tasks):
@@ -1799,8 +1838,8 @@ class ETLTask(EObject):
         list_datas = to_list(self.query())
         return DataFrame(list_datas)
 
-    def query(self, etl=100,  execute=False):
-        tools= tools_filter( self.init().tools[:etl],executed=execute)
+    def query(self,take=999,skip=0):
+        tools= tools_filter( self.init().tools[skip:take])
         for r in ex_generate(tools):
             yield r
 
@@ -1811,11 +1850,9 @@ class ETLTask(EObject):
     def __call__(self, *args, **kwargs):
         return self.collect(*args,**kwargs)
 
-    def run(self,execute=True):
-        self._execute= execute
 
     def collect(self,  format='print',  paras=None):
-        datas= self.init().query(self._count,self._execute)
-        if self._count<len(self.tools):
-            print ('current position: '+ str(self.tools[self._count]))
+        datas= self.init().query(self._take, self._execute)
+        if self._take<len(self.tools):
+            print ('current position: ' + str(self.tools[self._take]))
         return collect(datas, format, paras=paras)

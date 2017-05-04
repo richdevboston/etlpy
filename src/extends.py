@@ -561,7 +561,8 @@ def get_range(range,env=None):
         if isinstance(env,dict):
             return env.get(key,key)
     buf = [r for r in range.split(':')]
-    start=end=interval=1
+    start=0
+    end=interval=1
 
     if len(buf)>2:
         interval = get_num(get(buf[2]))
