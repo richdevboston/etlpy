@@ -62,7 +62,7 @@ class ProxyFactory(object):
             args['timeout']= self.timeout
 
 def set_proxy(name='proxy',proxy=None,delay=0.1,agent=True,timeout=20,allow_local=True,headers='',verify=False):
-    p= ProxyFactory(proxy,delay,agent,timeout,allow_local,verify=False)
+    p= ProxyFactory(proxy,delay,agent,timeout,allow_local,headers,verify=False)
     proj.env[name]=p
 
 

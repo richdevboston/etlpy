@@ -4,6 +4,7 @@ import os
 import urllib
 import spider
 from extends import *
+from pyquery import PyQuery
 
 if PY2:
     pass
@@ -14,7 +15,6 @@ MERGE_APPEND= '+'
 MERGE_CROSS= '*'
 MERGE_MERGE= '|'
 MERGE_MIX= 'mix'
-
 
 
 def __get_match_counts(mat):
@@ -438,12 +438,12 @@ class NotNull(Filter):
             return data.strip() != ''
         return True
 
-class DebugTF(Transformer):
-    def __init__(self):
-        super(DebugTF, self).__init__()
-    def process(self, generator, env):
-        env['execute']=not self.p
-        return super(DebugTF,self).process(generator,env)
+# class DebugTF(Transformer):
+#     def __init__(self):
+#         super(DebugTF, self).__init__()
+#     def process(self, generator, env):
+#         env['execute']=not self.p
+#         return super(DebugTF,self).process(generator,env)
 
 
 class SetTF(Transformer):
@@ -516,7 +516,14 @@ class CopyTF(Transformer):
         v=get_value(data, col)
         set_value(data, ncol, v)
 
-class Copy2TF(CopyTF):
+class  Copy2TF(CopyTF):
+    '''
+       copy one or more columns to other columns, then target column will not move, diff from cp
+       :param p: like 'a:b c:d' means copy a to b, and copy c to d
+                 if have target column a, can short as ':b', equal as 'a:b'
+       '''
+    pass
+class  Copy3TF(CopyTF):
     '''
        copy one or more columns to other columns, then target column will not move, diff from cp
        :param p: like 'a:b c:d' means copy a to b, and copy c to d
@@ -636,10 +643,8 @@ class FormatTF(Transformer):
         self._re= re.compile('\{([\w_]+)\}')
     def transform(self, data, col, ncol=None):
         input= self.p
-        if col == '':
-            output= input.format(data)
-        else:
-            output = input.format(data[col])
+        dic = merge({'_': data[col]}, data)
+        output= input.format(**dic)
         data[ncol]=output
 
 class HtmlTF(Transformer):
@@ -651,6 +656,8 @@ class HtmlTF(Transformer):
         self.one_input = True
 
     def transform(self, data):
+        if isinstance(data,PyQuery):
+            return data.html()
         res = spider.get_node_html(data)
         return res
 
@@ -933,7 +940,7 @@ class Where(Filter):
         else:
             value = data[column] if column in data else ''
         if is_str(p):
-            dic=merge({'value': value, 'data': data},data)
+            dic = merge({'_': data}, data)
             result = self._eval_script(p,dic)
         elif inspect.isfunction(p):
             result = p(value)
@@ -1027,6 +1034,7 @@ class WebTF(Transformer):
         from spider import get_encoding
         url=data[col]
         paras = {}
+        paras['headers']= {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0'}
         paras['url']=url
         if self.p != '':
             para_data = self.get_p(data)
@@ -1565,7 +1573,7 @@ class Project(EObject):
 
 def ex_generate(tools, generator=None,env=None):
     if env is None:
-        env={'column':'','execute':False}
+        env= {'column':'','execute':False}
     mapper, reducer, parallel = parallel_map(tools,env)
     if parallel is None:
         group,mode,workers = 1,None,1
@@ -1602,7 +1610,7 @@ def tools_filter(tools, init=True, excluded=None):
 
 
 def get_column(tool,env):
-    old_column=column= env['column']
+    next_column=old_column=column= env['column']
     p=tool.p
     if is_str(p):
         if p.find(u':') >= 0:
@@ -1610,22 +1618,32 @@ def get_column(tool,env):
 
         elif p.find(' ') > 0:
             p = [r.strip() for r in p.split(' ')]
-
         p= replace_paras(p,old_column)
-    if isinstance(tool, (LetTF,RemoveTF,KeepTF)):
+    if isinstance(tool, Copy3TF):
+        if env.get('keep',None) is None:
+            env['keep']= old_column
+            column = {column: p}
+        else:
+            column= {env['keep']:p}
+        next_column = p
+
+    elif isinstance(tool, (LetTF,RemoveTF,KeepTF)):
         if tool.regex!='':
             pass
         column = p
-    if isinstance(tool, (CopyTF, MoveTF, Copy2TF)):
+        env['keep']=None
+    elif isinstance(tool, (CopyTF, MoveTF, Copy2TF)):
         column= p
         if isinstance(p, dict):
             if not isinstance(tool, Copy2TF):
                 p2 = p.values()
             else:
                 p2 = p.keys()
+
         next_column = ' '.join(p2)
-    else:
-        next_column=column
+        env['keep']=None
+
+
     env['next']=next_column
     env['column']=column
     return env
@@ -1650,8 +1668,8 @@ def generate(tools, generator=None, env=None):
             execute= env.get('execute',False)
             if not execute and isinstance(tool,Executor):
                 continue
-            generator = tool.process(generator, env)
-            env['column']=env['next']
+            generator = tool.process(generator, env.copy())
+            env['column'] =env['next']
     if generator is None:
         return []
     return generator
@@ -1678,11 +1696,8 @@ class ETLTask(EObject):
     def __init__(self):
         self.tools = []
         self._master=None
-        self._last_column=''
         self.env={}
-    def clear(self):
-        self.tools=[]
-        return self
+        self._tool_count=1000
 
     def __len__(self):
         return len(self.tools)
@@ -1833,7 +1848,7 @@ class ETLTask(EObject):
             tool.init()
         return self
 
-    def to_df(self):
+    def todf(self):
         from pandas import DataFrame
         list_datas = to_list(self.query())
         return DataFrame(list_datas)
@@ -1847,12 +1862,14 @@ class ETLTask(EObject):
         for r in self.query():
             yield r
 
-    def __call__(self, *args, **kwargs):
-        return self.collect(*args,**kwargs)
+    def __call__(self, count=None,format=''):
+        return self.collect(count=count,format=format)
+    def debug(self,p):
+        self._tool_count=p
+        return self
 
-
-    def collect(self,  format='print',  paras=None):
-        datas= self.init().query(self._take, self._execute)
-        if self._take<len(self.tools):
-            print ('current position: ' + str(self.tools[self._take]))
+    def collect(self,  format='', count=None, paras=None):
+        datas= get_mount( self.init().query(self._tool_count),take=count)
+        if self._tool_count<len(self.tools):
+            print ('current position: ' + str(self.tools[self._tool_count]))
         return collect(datas, format, paras=paras)

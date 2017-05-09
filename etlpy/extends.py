@@ -139,6 +139,35 @@ def to_str(s):
         return 'to_str error:' + str(e)
 
 
+def read_config( config):
+    if isinstance(config,dict):
+        new_config=Config()
+        for k, v in config.items():
+            new_config[k] =read_config(v)
+        return new_config
+    elif isinstance(config,list):
+        for i in range(len(config)):
+            config[i]=read_config(config[i])
+    return config
+
+class Config(dict):
+    def __init__(self,dic=None ):
+        if dic is not None:
+            self.read_config(dic)
+
+    def read_config(self, config):
+        dic2 = read_config(config)
+        for k, v in dic2.items():
+            self[k] =v
+
+    def __getattr__(self, item):
+        if item not in self:
+            return None
+        return self[item]
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
 def get_range_mount(generator, start=None, end=None,interval=1):
     i=0
     i2=0
