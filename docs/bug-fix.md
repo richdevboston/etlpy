@@ -113,6 +113,16 @@ IP来源？买。。。 传一个数组进去
 format体验不好，一定要{} 算了
 ```
 
+## 去掉不必要的库依赖
+
+只在必要的时候再去安装相应的库s
+flask
+ipy_notebook
+ipython
+pyquery
+simplejson : 如果只是dump的话，为何不用原生的json?
+pandas: 
+
     def process_req(self, args):
         if self.delay != 0:
             time.sleep(self.delay)
@@ -141,4 +151,5 @@ format体验不好，一定要{} 算了
     server_address = ('', port)
     print('start proxy')
     httpd = BaseHTTPServer.HTTPServer(server_address, LoggingProxyHTTPHandler)
+    
     httpd.serve_forever()

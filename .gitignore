@@ -1,3 +1,12 @@
 *.pyc
 .idea
 *.ipynb
+test
+ipynb
+etlpy.egg-info
+dist
+data
+EGG-INFO
+.vscode
+.ipynb_checkpoints
+etlpy.egg-info

@@ -982,7 +982,6 @@ class Create(Generator):
         p = self.get_p(data)
         import inspect
         import copy
-        from pandas import DataFrame
         if is_str(p):
             if p == '':
                 result = [{}]
@@ -992,8 +991,9 @@ class Create(Generator):
             result = ({} for i in range(p))
         elif inspect.isfunction(p):
             result = p()
-        elif isinstance(p, DataFrame):
-            result = (row.to_dict() for l, row in p.iterrows())
+
+        #elif isinstance(p, DataFrame):
+        #    result = (row.to_dict() for l, row in p.iterrows())
         else:
             result = p
         for r in result:
