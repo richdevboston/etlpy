@@ -1,3 +1,10 @@
+# coding=utf-8
+import sys,os
+import sys,os
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0,parentdir)
+
+
 from etlpy.etlpy import *
 from etlpy.params import RandomParam as r, ExpParam as exp,  Param, request_param
 url = 'https://www.dianping.com'
