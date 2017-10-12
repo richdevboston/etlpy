@@ -2,20 +2,22 @@
 import time;
 from multiprocessing.managers import BaseManager
 import os, sys
-import extends;
-import etl
+from etlpy.extends import PY2
+import etlpy.tools
 import json
 authkey= "etlpy".encode('utf-8')
 timeout=1;
 rpc_port=28998
 
-
-
 from flask import request,jsonify
-if extends.PY2:
+if PY2:
     from Queue import Queue
 else:
     from queue import Queue
+
+
+
+
 class ETLJob:
     def __init__(self, project, job_name, config, id):
         self.project= project;
@@ -211,12 +213,10 @@ class Slave:
 
 
 if __name__ == '__main__':
-
     parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src'
     sys.path.insert(0, parentdir)
     manager = BaseManager(address=('0.0.0.0', rpc_port), authkey=authkey)
     ip= '127.0.0.1' #'10.101.167.107'
-    #ip= '10.101.167.107'
     port=rpc_port;
     mode='client'
     argv=sys.argv;
@@ -230,7 +230,6 @@ if __name__ == '__main__':
     else:
         if len(argv) > 2:
             ip=argv[2]
-
         if len(argv)>3:
             port=int(argv[3]);
         slave= Slave();

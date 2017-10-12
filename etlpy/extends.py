@@ -5,12 +5,7 @@ import sys
 import logging
 import cgitb
 
-
-
-thread_mode ='thread'
-process_mode ='process'
-async_mode='async'
-network_mode='machine'
+from ipy_progressbar import ProgressBar
 
 PY2 = sys.version_info[0] == 2
 
@@ -28,6 +23,7 @@ debug_level= 4
 
 def is_in_ipynb():
     try:
+        from IPython import get_ipython
         cfg = get_ipython()
         return True
     except NameError:
@@ -65,55 +61,7 @@ def _boss(task_generator, task_queue, worker_count):
         task_queue.put(Empty)
 
 
-def multi_yield(generators, mode=thread_mode, worker_count=1, seeds=None):
-    def factory(func,args=None,name='task'):
-        if args is None:
-            args=()
-        if mode==process_mode:
-            return multiprocessing.Process(name=name,target=func,args= args)
-        if mode==thread_mode:
-            return threading.Thread(name=name,target=func,args=args)
-        if mode==async_mode:
-            import gevent
-            return gevent.spawn(func,*args)
 
-    def queue_factory(size):
-        if mode==process_mode:
-            return multiprocessing.Queue(size)
-        elif mode==thread_mode:
-            return Queue(size)
-        elif mode==async_mode:
-            from gevent import queue
-            return  queue.Queue(size)
-    queue_size=1000
-    import threading
-    result_queue =  queue_factory(queue_size)
-    task_queue= queue_factory(100)
-    processors=[]
-    if seeds is None:
-        main= factory(_boss, args=(generators, task_queue, worker_count), name='_boss')
-    else:
-        main = factory(_boss, args=(seeds, task_queue, worker_count), name='_boss')
-    for process_id in range(0, worker_count):
-        name='worker_%s'%(process_id)
-        if seeds is None:
-            p= factory(_worker, args=(task_queue, result_queue), name=name)
-        else:
-            p = factory(_worker, args=(task_queue, result_queue, lambda task: generators(task)), name=name)
-        processors.append(p)
-    processors.append(main)
-    for r in processors:
-        r.start()
-    count=0
-    while True:
-        data=result_queue.get()
-        if data is Empty:
-            count+=1
-            if count==worker_count:
-                return
-            continue
-        else:
-            yield data
 
 
 
@@ -437,12 +385,14 @@ def first_or_default(generator):
         return r
     return None
 
-def query(data, key):
+def query(data, key,default=None):
     if data is None:
         return key
     if isinstance(data,dict):
         if is_str(key) and key.startswith('[') and key.endswith(']'):
             key = key[1:-1]
+            if key=='_':
+                key=default
             if key in data:
                 return data[key]
             else:
@@ -592,7 +542,6 @@ def get_range(range,env=None):
     buf = [r for r in range.split(':')]
     start=0
     end=interval=1
-
     if len(buf)>2:
         interval = get_num(get(buf[2]))
     if len(buf)>1:
@@ -623,7 +572,6 @@ def dict_copy_poco(obj,dic):
             value =dic[key]
             if isinstance(value, (int,float)) or is_str(value):
                 setattr(obj,key,value)
-
 
 
 
