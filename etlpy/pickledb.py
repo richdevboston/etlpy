@@ -19,7 +19,12 @@ class pickledb(object):
         self.loco = location
         self.fsave = option
         if os.path.exists(location):
-            self._loaddb()
+            try:
+                self._loaddb()
+            except Exception as e:
+                print(e)
+                self.db={}
+
         else:
             self.db = {}
         return True

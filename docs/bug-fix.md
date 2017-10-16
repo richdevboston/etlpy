@@ -61,7 +61,7 @@ IP来源？买。。。 传一个数组进去
 
 
 
-## 环境传递
+## 环境传递 
 
 链式操作，但实际上分为明显的编译时和运行时。编译时的参数如何传递给运行时呢
 
@@ -113,7 +113,7 @@ IP来源？买。。。 传一个数组进去
 format体验不好，一定要{} 算了
 ```
 
-## 去掉不必要的库依赖
+## 去掉不必要的库依赖 ok
 
 只在必要的时候再去安装相应的库s
 flask
@@ -153,3 +153,7 @@ pandas:
     httpd = BaseHTTPServer.HTTPServer(server_address, LoggingProxyHTTPHandler)
     
     httpd.serve_forever()
+    
+    
+    
+# 避免频繁地生成生成器 ok

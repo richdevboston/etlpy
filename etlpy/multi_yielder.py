@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 # coding=utf-8
-import os, time
-import multiprocessing
 import codecs
-from etlpy.extends import Queue,Empty
-import subprocess
-
 import logging
-import random
-normal_mode= "normal"
-thread_mode = 'thread'
-process_mode = 'process'
-async_mode = 'async'
-network_mode = 'machine'
+import multiprocessing
+import os
+
+from etlpy.extends import Queue,Empty
+
+NORMAL_MODE= 0
+THREAD_MODE = 1
+PROCESS_MODE =2
+ASYNC_MODE = 'async'
+NETWORK_MODE =3
+DEFAULT_WORKER_NUM=3
 
 open = codecs.open
-import traceback
+
 
 class Stop(Exception):
     "Exception raised by Queue.get(block=0)/get_nowait()."
@@ -55,13 +55,13 @@ def safe_queue_put(queue, item, is_stop_func=None, timeout=2):
             continue
 
 
-def multi_yield(customer_func, mode=thread_mode, worker_count=1, generator=None, queue_size=10):
+def multi_yield(customer_func, mode=THREAD_MODE, worker_count=1, generator=None, queue_size=10):
     workers = []
 
     def is_alive(process):
-        if mode == process_mode:
+        if mode == PROCESS_MODE:
             return process.is_alive()
-        elif mode == thread_mode:
+        elif mode == THREAD_MODE:
             return process.isAlive()
         return True
 
@@ -92,43 +92,45 @@ def multi_yield(customer_func, mode=thread_mode, worker_count=1, generator=None,
     def _worker(task_queue, result_queue, gene_func):
         import time
         try:
-            while not stop_wrapper.is_stop():
-                if task_queue.empty():
-                    time.sleep(0.01)
-                    continue
-                task = safe_queue_get(task_queue, stop_wrapper.is_stop)
-                if task == Empty:
-                    result_queue.put(Empty)
-                    break
-                if task == Stop:
-                    break
-                for item in gene_func(task):
-                    item = safe_queue_put(result_queue, item, stop_wrapper.is_stop)
-                    if item == Stop:
+            def generator():
+                while not stop_wrapper.is_stop():
+                    if task_queue.empty():
+                        time.sleep(0.01)
+                        continue
+                    task = safe_queue_get(task_queue, stop_wrapper.is_stop)
+                    if task == Empty:
+                        result_queue.put(Empty)
                         break
+                    if task == Stop:
+                        break
+                    yield task
+            for item in gene_func(generator()):
+                item = safe_queue_put(result_queue, item, stop_wrapper.is_stop)
+                if item == Stop:
+                    break
         except Exception as e:
             logging.exception(e)
 
     def factory(func, args=None, name='task'):
         if args is None:
             args = ()
-        if mode == process_mode:
+        if mode == PROCESS_MODE:
             return multiprocessing.Process(name=name, target=func, args=args)
-        if mode == thread_mode:
+        if mode == THREAD_MODE:
             import threading
             t = threading.Thread(name=name, target=func, args=args)
             t.daemon = True
             return t
-        if mode == async_mode:
+        if mode == ASYNC_MODE:
             import gevent
             return gevent.spawn(func, *args)
 
     def queue_factory(size):
-        if mode == process_mode:
+        if mode == PROCESS_MODE:
             return multiprocessing.Queue(size)
-        elif mode == thread_mode:
+        elif mode == THREAD_MODE:
             return Queue(size)
-        elif mode == async_mode:
+        elif mode == ASYNC_MODE:
             from gevent import queue
             return queue.Queue(size)
 
@@ -137,12 +139,10 @@ def multi_yield(customer_func, mode=thread_mode, worker_count=1, generator=None,
             return True
         return stop_wrapper.is_stop()
 
-    if mode is None or mode == normal_mode:
-        for item in generator:
-            for value in customer_func(item):
-                yield value
+    if mode is None or mode == NORMAL_MODE:
+        for item in customer_func(generator):
+                yield item
         return
-
     with Yielder(stop_wrapper.stop):
         result_queue = queue_factory(queue_size)
         task_queue = queue_factory(queue_size)

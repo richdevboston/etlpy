@@ -1,12 +1,10 @@
 # coding=utf-8
-from etlpy.extends import is_str, para_to_dict, concat, to_list
-import os
-from etlpy.tools import ETLTool, Transformer, Executor, Generator, SubBase, WebTF, Filter, Project, MongoDBConnector, \
-    ETLTask
-from etlpy import tools, extends
 import inspect
 
-
+from etlpy import tools, extends
+from etlpy.extends import is_str, concat, to_list
+from etlpy.tools import ETLTool, Transformer, Executor, Generator, SubBase, WebTF, Filter, Project, MongoDBConnector, \
+    ETLTask
 
 __base_type = [ETLTool, Filter, WebTF, SubBase, Generator, Executor, Transformer]
 __ignore_paras = ['one_input', 'multi', 'column', 'p']

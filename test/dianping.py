@@ -1,15 +1,19 @@
 # coding=utf-8
-import sys,os
-import sys,os
-parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0,parentdir)
+import os
+import sys
 
+from etlpy.extends import para_to_dict
+from etlpy.multi_yielder import PROCESS_MODE,NORMAL_MODE, THREAD_MODE
+
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parentdir)
 
 from etlpy.etlpy import *
-from etlpy.params import RandomParam as r, ExpParam as exp,  Param, request_param
+from etlpy.params import request_param
+
 url = 'https://www.dianping.com'
 
-cookie='''Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+cookie = '''Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
 Accept-Encoding:gzip, deflate
 Accept-Language:zh-CN,zh;q=0.8,en;q=0.6
 Cache-Control:max-age=0
@@ -18,13 +22,13 @@ Cookie:_hc.v=80a0369c-047c-ebd8-8b24-6b7203fff952.1483109843; __utma=1.669418081
 Host:www.dianping.com
 Upgrade-Insecure-Requests:1
 User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'''
-headers= para_to_dict(cookie,'\n',':')
+headers = para_to_dict(cookie, '\n', ':')
 r = request_param
-r=r.merge('headers',headers)
-t = task().create().url.set(url + '/search/category/3/75/g2878').get(r).pl().pyq('.nc-contain')[0].pyq(
-    'a').list().html().cp('url:a').split('"')[1].get().xpath(
-    '/html/body/div[6]/div[3]/div[1]/div[1]/div[2]/ul/li').list().html().tree() \
-    .cp3('名称').xpath('//div[2]/div[1]/a[1]/h4')[0].text() \
+r = r.merge('headers', headers)
+t = task().create().url.set(url + '/search/category/3/75/g2878').get(r).pyq('.nc-contain')[0].pyq(
+    'a').list().html().pl().cp('url:a').split('"')[1].get(r).pyq(
+    '#shop-all-list > ul > li').list().html().pl().tree() \
+    .cp3('名称').xpath('//div[2]/div[1]/a[1]/h4')[0].text()\
     .cp3('点评').xpath('//div[2]/div[2]/a[1]/b')[0].text() \
     .cp3('平均').xpath('//div[2]/div[2]/a[2]/b')[0].text().num()[0] \
     .cp3('类型').xpath('//div[2]/div[3]/a[1]/span')[0].text() \
@@ -33,12 +37,10 @@ t = task().create().url.set(url + '/search/category/3/75/g2878').get(r).pl().pyq
     .cp3('效果').xpath('//div[2]/span/span[1]/b')[0].text() \
     .cp3('师资').xpath('//div[2]/span/span[2]/b')[0].text() \
     .cp3('环境').xpath('//div[2]/span/span[3]/b')[0].text() \
-    .cp3('id').xpath('//@href')[0].cp('id:id0').split('/')[2].cp('id:html').let('html').get(r)\
-    .cp3('phone').pyq('.phone')[0].text().let('html') .cp('_:详细').pyq(' .con li').text().rm('a id0 html').let('id 点评').num()[0].mv('点评:点评数').phone.split(' ')[1]
+    .cp3('id').xpath('//@href')[0].cp('id:id0').split('/')[2].cp('id:html').let('html').get(r) \
+    .cp3('phone').pyq('.phone')[0].text().let('html').cp('_:详细'). \
+    pyq(' .con li').text().rm('a id0 html').let('id 点评').num()[0]. \
+    mv('点评:点评数').phone.split(' ')[1].take(20)
 
-
-
-for r in t.take(3):
-    print(r['名称'])
-    print(r['详细'])
-
+for r in t.query(mode=[PROCESS_MODE]):
+    print(r.keys())

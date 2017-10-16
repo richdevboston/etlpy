@@ -5,11 +5,8 @@ import re
 import requests
 from lxml import etree
 from itertools import groupby
-
-from etlpy.extends import EObject, to_str, PY2, variance, is_str
-
+from etlpy.extends import EObject, to_str, PY2, get_variance, is_str
 box_regex = re.compile(r"\[\d{1,3}\]");
-
 agent_list = []
 
 
@@ -285,7 +282,7 @@ def __search_table_root(tree, nodes, path_dict, has_child, strict=True):
     child_counts = [];
     for n in target_node:
         child_counts.append(len(list(r for r in n.iterchildren())));
-    variance = variance(child_counts);
+    variance = get_variance(child_counts);
     if variance > variance_max: return;
     leaf_count = get_node_leaf_count(target_node[0]);
     if leaf_count < 2:

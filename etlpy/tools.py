@@ -2,15 +2,16 @@
 import json
 import os
 import urllib
-from pyquery import PyQuery
 
-from etlpy.concurrence import Master
+CACHE_DB_NAME = '_etlpy_cache.db'
+ALLOW_CACHE = False
+
 from etlpy.extends import *
 from etlpy.params import request_param, ExpParam
 from etlpy.pickledb import pickledb
 from etlpy.spider import get_sub_xpath, get_diff_nodes, _get_etree, search_xpath, search_properties, get_datas, \
     get_node_html, get_main, get_node_text
-from etlpy.multi_yielder import multi_yield, normal_mode
+from etlpy.multi_yielder import multi_yield, NORMAL_MODE, NETWORK_MODE, DEFAULT_WORKER_NUM
 
 if PY2:
     pass
@@ -714,6 +715,7 @@ class HtmlTF(Transformer):
         self.one_input = True
 
     def transform(self, data):
+        from pyquery import PyQuery
         if isinstance(data, PyQuery):
             return data.html()
         res = get_node_html(data)
@@ -730,7 +732,8 @@ class TextTF(Transformer):
         self.one_input = True
 
     def transform(self, data):
-        if isinstance(data,PyQuery):
+        from pyquery import PyQuery
+        if isinstance(data, PyQuery):
             return '\n'.join(get_node_text(r) for r in data)
         res = get_node_text(data)
         if res == '':
@@ -992,7 +995,7 @@ class Create(Generator):
         elif inspect.isfunction(p):
             result = p()
 
-        #elif isinstance(p, DataFrame):
+        # elif isinstance(p, DataFrame):
         #    result = (row.to_dict() for l, row in p.iterrows())
         else:
             result = p
@@ -1106,34 +1109,33 @@ class WebTF(Transformer):
     def transform(self, data, col, ncol):
         import requests
         from etlpy.spider import get_encoding
-        if self.p  in [None,'']:
-            req= request_param.copy()
+        if self.p in [None, '']:
+            req = request_param.copy()
             key = 'data' if self._mode == 'post' else 'url'
             req[key] = ExpParam('[_]')
         else:
-            req= self.p
-
+            req = self.p
 
         result = None
-        real_req= req.get(data,col)
+        real_req = req.get(data, col)
         if 'url' in real_req:
-            real_req['url']= str(real_req['url'])
+            real_req['url'] = str(real_req['url'])
 
         cache = self._proj.cache
         if cache is not None:
-            key = real_req.get('url','') + real_req.get('data','')
-            result= cache.get(key,None)
-        if result is  None:
+            key = real_req.get('url', '') + real_req.get('data', '')
+            result = cache.get(key, None)
+        if result is None:
             try:
                 if self._mode == 'get':
                     r = requests.get(**real_req)
                 else:
                     r = requests.post(**real_req)
                 r.raise_for_status()  # 如果响应状态码不是 200，就主动抛出异常
-                if r is not None and r.status_code==200:
+                if r is not None and r.status_code == 200:
                     result = get_encoding(r.content)
-                    if cache is not None and cache.size()<1000:
-                        cache.set(key,result)
+                    if cache is not None and cache.size() < 1000:
+                        cache.set(key, result)
             except requests.RequestException as e:
                 p_expt(e)
 
@@ -1198,8 +1200,8 @@ class ListTF(Transformer):
                     logging.warn('data empty')
                     continue
             root = data[col]
-            if self.p=='*':
-                p=  list(data.keys())
+            if self.p == '*':
+                p = list(data.keys())
                 p.remove(col)
             else:
                 p = self.get_p(data)
@@ -1235,10 +1237,10 @@ class XPathTF(Transformer):
         data[ncol] = nodes
 
 
-
 class StopTF(Transformer):
     def __init__(self):
         super(Transformer, self).__init__()
+
 
 class PyQTF(XPathTF):
     def __init__(self):
@@ -1279,9 +1281,11 @@ class AtTF(Transformer):
 class ParallelTF(Transformer):
     def __init__(self):
         super(ParallelTF, self).__init__()
-        self.p = 1
-        self.mode = normal_mode
-        self.workers = 1
+        self.p = NORMAL_MODE
+        self.worker_num = 1
+
+    def init(self):
+        self.mode = self.p
 
 
 class DumpTF(Transformer):
@@ -1557,8 +1561,9 @@ class Download(Executor):
         target.close()
         return data
 
-CACHE_DB_NAME= '_etlpy_cache.db'
-ALLOW_CACHE= True
+
+
+
 
 class Project(EObject):
     '''
@@ -1569,9 +1574,10 @@ class Project(EObject):
         self.env = {}
         self.desc = "edit project description here"
         if ALLOW_CACHE:
-            self.cache= pickledb(CACHE_DB_NAME,False)
+            self.cache = pickledb(CACHE_DB_NAME, False)
         else:
-            self.cache= None
+            self.cache = None
+
     def clear(self):
         '''
         clear all tasks in project
@@ -1640,36 +1646,83 @@ class Project(EObject):
 def ex_generate(tools, generator=None, env=None):
     if env is None:
         env = {'column': '', 'execute': False}
-    mapper, reducer, parallel = parallel_map(tools, env)
-    if parallel is None:
-        group, mode, workers = 1, None, 1
+    stop_index = get_index(tools, lambda x: isinstance(x, StopTF))
+    if stop_index != -1:
+        tools = tools[:stop_index]
+    start = 0
+    while True:
+        take_index = get_index(tools[start:], lambda x: isinstance(x, TakeTF))
+        if take_index == -1:
+            break
+        else:
+            generator = _ex_generate(tools[start:start + take_index], generator, env)
+            start +=take_index + 1
+    pos = 0 if start == 0 else start - 1
+    generator = _ex_generate(tools[pos:], generator, env)
+    for item in generator:
+        yield item
+
+
+def _ex_generate(tools, generator=None, env=None):
+    mapper, reducer, pl = parallel_map(tools, env)
+    if pl is None:
+        group, mode, worker_num = 1, None, 1
     else:
-        group, mode, workers = parallel.p, parallel.mode, parallel.workers
+        group, mode, worker_num = pl.p, pl.mode, pl.worker_num
     generator = generate(mapper, generator, env)
     if reducer is None:
-        for r in generator:
-            yield r
-        return
-    groups = group_by_mount(generator, group)
-    if mode == None:
-        generators = (ex_generate(reducer, group, env) for group in groups)
-        for generator in generators:
-            for item in generator:
-                yield item;
-    else:
-        for r in multi_yield(lambda task: ex_generate(reducer, task, env), mode, workers, groups):
-            yield r
+        return generator
+    #group_generator = group_by_mount(generator, group)
+    generator = multi_yield(lambda task: _ex_generate(reducer, task, env), mode, worker_num, generator)
+    return generator
 
-
-def tools_filter(tools, init=True, excluded=None):
+def tools_filter(tools, init=True, excluded=None, mode=NORMAL_MODE):
     buf = []
+    if not isinstance(mode, (list, tuple)):
+        mode = [i for i in range(mode, -1, -1)]
+    else:
+        mode.sort(reverse=False)
+    if mode[-1]!=NORMAL_MODE:
+        mode.append(NORMAL_MODE)
+    index = 0
     for tool in tools:
         if excluded == tool:
             continue
         if init:
             tool.init()
         buf.append(tool)
-    return buf
+
+    buf2 = []
+    total = len(buf)
+    # 若pl设置的级别比全局级别高，要降级
+    # 若pl比全局级别低，则以该级别为准
+    # 级别越往后走越低，没有同级的，最低到0
+
+    for i in range(total):
+        tool = buf[i]
+        allow_insert = False
+        buf2.append(tool)
+        if isinstance(tool, ListTF):
+            j = i + 1
+            while j < total and not isinstance(buf[j], ParallelTF):
+                if isinstance(buf[j], ListTF):
+                    allow_insert = True
+                    break
+                j += 1
+            pl = None
+            if j == total:
+                pass
+            elif allow_insert:
+                pl = ParallelTF()
+                buf2.append(pl)
+            elif isinstance(buf[j], ParallelTF):
+                pl = buf[j]
+            if pl is not None:
+                pl.mode = mode[index]
+                pl.worker_num = DEFAULT_WORKER_NUM if pl.mode < NETWORK_MODE else 1
+                if index < len(mode) - 1:
+                    index += 1
+    return buf2
 
 
 def get_column(tool, env):
@@ -1742,9 +1795,7 @@ def parallel_map(tools, env):
     :param tools:  a list for tool
     :return: mapper, reducer and parallel parameter
     '''
-    stop_index= get_index(tools, lambda x: isinstance(x, StopTF))
-    if stop_index!=-1:
-        tools= tools[:stop_index]
+
     index = get_index(tools, lambda x: isinstance(x, ParallelTF))
     if index == -1:
         return tools, None, None
@@ -1760,7 +1811,6 @@ class ETLTask(EObject):
         self.tools = []
         self._master = None
         self.env = {}
-        self._tool_count = 1000
 
     def __len__(self):
         return len(self.tools)
@@ -1823,6 +1873,7 @@ class ETLTask(EObject):
             print('%s, %s, %s' % (str(i), title, keys))
 
     def distribute(self, port=None, monitor_connector_name=None, table_name=None):
+        from etlpy.concurrence import Master
         self._master = Master(
             self._master.start_project(self._proj, self.name, port, monitor_connector_name, table_name))
 
@@ -1910,11 +1961,11 @@ class ETLTask(EObject):
         list_datas = to_list(self.query())
         return DataFrame(list_datas)
 
-    def query(self, take=999, skip=0):
-        tools = tools_filter(self.init().tools[skip:take])
+    def query(self, take=999, skip=0, mode=NORMAL_MODE):
+        tools = tools_filter(self.init().tools[skip:take], init=False, mode=mode)
         for r in ex_generate(tools):
             yield r
-        cache= self._proj.cache
+        cache = self._proj.cache
         if cache is not None:
             cache.dump()
 
@@ -1926,11 +1977,8 @@ class ETLTask(EObject):
         return self.collect(count=count, format=format)
 
     def debug(self, p):
-        self._tool_count = p
-        return self
+        pass
 
     def collect(self, format='', count=None, paras=None):
-        datas = get_mount(self.init().query(self._tool_count), take=count)
-        if self._tool_count < len(self.tools):
-            print('current position: ' + str(self.tools[self._tool_count]))
+        datas = get_mount(self.init().query(), take=count)
         return collect(datas, format, paras=paras)

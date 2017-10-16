@@ -9,7 +9,7 @@ authkey= "etlpy".encode('utf-8')
 timeout=1;
 rpc_port=28998
 
-from flask import request,jsonify
+
 if PY2:
     from Queue import Queue
 else:
@@ -41,7 +41,7 @@ class JobResult:
         self.id=id;
         self.total_count=total_count;
 
-
+from flask import request,jsonify
 from flask import Flask
 
 finished_job=[]
