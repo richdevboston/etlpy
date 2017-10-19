@@ -1,15 +1,29 @@
 # coding=utf-8
+import json
 
-from etlpy.extends import PY2
-
-if PY2:
-    import StringIO
-    from BaseHTTPServer import BaseHTTPRequestHandler
-else:
-    from http.server import BaseHTTPRequestHandler, HTTPServer
+# if PY2:
+#     import StringIO
+#     from BaseHTTPServer import BaseHTTPRequestHandler
+# else:
+#     from http.server import BaseHTTPRequestHandler, HTTPServer
 import gzip
 import requests
 import time
+
+from etlpy.spider import get_encoding
+
+proxy_url='http://123.207.35.36:5010'
+
+def get_proxy():
+    return requests.get(proxy_url+"/get/").content
+
+def get_proxy_all():
+    url= requests.get(proxy_url+"/get_all/").json()
+    return url
+
+def delete_proxy(proxy):
+    requests.get(proxy_url+"/delete/?proxy={}".format(proxy))
+
 
 
 USER_AGENTS = [
@@ -36,91 +50,96 @@ USER_AGENTS = [
 
 
 
+"""
+usage 'pinhole port host [newport]'
 
+Pinhole forwards the port to the host specified.
+The optional newport parameter may be used to
+redirect to a different port.
 
-class LoggingProxyHTTPHandler(BaseHTTPRequestHandler):
+eg. pinhole 80 webserver
+    Forward all incoming WWW sessions to webserver.
 
-    # send_response pretty similar to BaseHTTPServer send_response
-    # but without Server or Date headers
-    def send_response(self, code, message=None):
-        self.log_request(code)
-        if message is None:
-            if code in self.responses:
-                message = self.responses[code][0]
-            else:
-                message = ''
-        if self.request_version != 'HTTP/0.9':
-            response = "{0} {1} {2}\r\n".format(self.protocol_version,
-                                                code, message)
-            self.wfile.write(response)
+    pinhole 23 localhost 2323
+    Forward all telnet sessions to port 2323 on localhost.
+"""
 
-    def respond(self, response):
-        if response.status_code < 400:
-            self.send_response(response.status_code)
-        else:
-            self.send_error(response.status_code)
-        for k, v in response.headers.items():
-            self.send_header(k, v)
-        self.end_headers()
+import sys
+from socket import *
+from threading import Thread
+import time
 
-        output = response.content
-        # handle gzip
-        # http://stackoverflow.com/questions/8506897/how-do-i-gzip-compress-a-string-in-python
-        if 'content-encoding' in response.headers and \
-                response.headers['content-encoding'].lower() == 'gzip':
-            buffer = StringIO.StringIO()
-            with gzip.GzipFile(fileobj=buffer, mode="w") as f:
-                f.write(output)
-            output = buffer.getvalue()
+LOGGING = 1
 
-        # handle chunking
-        # (thanks to https://gist.github.com/josiahcarlson/3250376)
-        # although we only pretend to chunk and send it all at once!
-        if 'transfer-encoding' in response.headers and \
-                response.headers['transfer-encoding'].lower() == 'chunked':
-            self.wfile.write('%X\r\n%s\r\n' %
-                             (len(output), output))
-            # send the chunked trailer
-            self.wfile.write('0\r\n\r\n')
-        else:
-            self.wfile.write(output)
-        self.log_response(response)
-
-    def do_GET(self):
-        response = requests.get(self.path)
-        self.respond(response)
-
-    def do_POST(self):
-        self.data = self.rfile.read(int(self.headers['Content-Length']))
-        response = requests.post(self.path, headers=headers, data=self.data)
-        self.respond(response)
-
-    def do_PUT(self):
-        self.data = self.rfile.read(int(self.headers['Content-Length']))
-        response = requests.put(self.path, headers=headers, data=self.data)
-        self.respond(response)
-
-    def log_error(format, *args):
-        pass
-
-    def log_request(self, *args):
-        print ("*** REQUEST ***")
-        print(self.command + ' ' + self.path)
-        for (k, v) in rewrite_headers(self.headers).items():
-            print ("{0} = {1}".format(k, v))
+def log(s):
+    if LOGGING:
         print
-        if self.command in ['POST', 'PUT']:
-            print(self.data)
-        print ("*** END REQUEST ***")
+        '%s:%s' % (time.ctime(), s)
+        sys.stdout.flush()
 
-    def log_response(self, response):
-        print("*** RESPONSE ***")
-        if response.status_code in self.responses:
-            shortmessage, longmessage = self.responses[response.status_code]
-        else:
-            shortmessage = longmessage = "Not a code known by requests module!"
-        print ("{0} {1}".format(response.status_code, shortmessage))
-        for (k, v) in rewrite_headers(response.headers).items():
-            print ("{0} = {1}".format(k, v))
-        print(response.content)
-        print ("*** END RESPONSE ***")
+
+class PipeThread(Thread):
+    pipes = []
+
+    def __init__(self, source, sink):
+        Thread.__init__(self)
+        self.source = source
+        self.sink = sink
+        log('Creating new pipe thread  %s ( %s -> %s )' % \
+            (self, source.getpeername(), sink.getpeername()))
+        PipeThread.pipes.append(self)
+        log('%s pipes active' % len(PipeThread.pipes))
+
+    def run(self):
+        while 1:
+            try:
+                data = self.source.recv(1024)
+                if not data: break
+                self.sink.send(data)
+            except:
+                break
+
+        log('%s terminating' % self)
+        PipeThread.pipes.remove(self)
+        log('%s pipes active' % len(PipeThread.pipes))
+
+
+class Pinhole(Thread):
+    def __init__(self, port, newhost, newport):
+        Thread.__init__(self)
+        log('Redirecting: localhost:%s -> %s:%s' % (port, newhost, newport))
+        self.newhost = newhost
+        self.newport = newport
+        self.sock = socket(AF_INET, SOCK_STREAM)
+        self.sock.bind(('', port))
+        self.sock.listen(5)
+
+    def run(self):
+        while 1:
+            newsock, address = self.sock.accept()
+            log('Creating new session for %s %s ' % address)
+            fwd = socket(AF_INET, SOCK_STREAM)
+            fwd.connect((self.newhost, self.newport))
+            PipeThread(newsock, fwd).start()
+            PipeThread(fwd, newsock).start()
+
+
+if __name__ == '__main__':
+
+    print('Starting Pinhole')
+
+    import sys
+
+    sys.stdout = open('pinhole.log', 'w')
+
+    if len(sys.argv) > 1:
+        port = newport = int(sys.argv[1])
+        newhost = sys.argv[2]
+        if len(sys.argv) == 4: newport = int(sys.argv[3])
+        Pinhole(port, newhost, newport).start()
+    else:
+        Pinhole(80, 'hydrogen', 80).start()
+        Pinhole(23, 'hydrogen', 23).start()
+
+
+

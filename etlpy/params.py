@@ -1,5 +1,6 @@
 import inspect
 import random
+import types
 
 from etlpy.extends import EObject, query
 from etlpy.proxy import USER_AGENTS
@@ -31,6 +32,8 @@ class Param(EObject):
                     values[k] = v.get(data,col)
                 if inspect.isfunction(v):
                     values[k] = v(data)
+        elif inspect.isfunction(values) or isinstance(values, types.LambdaType):
+            values= values()
         return values
 
     def merge_all(self, item):
@@ -43,7 +46,10 @@ class Param(EObject):
 
     def merge(self, key, item):
         dic3 = self.value.copy()
-        dic3[key] = dic3[key].merge_all(item)
+        if key in dic3:
+            dic3[key] = dic3[key].merge_all(item)
+        else:
+            dic3[key]= item
         return Param(dic3)
 
     def copy(self):
@@ -63,3 +69,6 @@ class RandomParam(Param):
 
 
 request_param = Param({'url': ExpParam('[_]'), 'headers': Param({'user_agents': USER_AGENTS[-2]})})
+
+if __name__ == '__main__':
+    print(request_param.get({}))

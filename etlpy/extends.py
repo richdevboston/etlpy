@@ -27,7 +27,7 @@ def is_in_ipynb():
     try:
         from IPython import get_ipython
         cfg = get_ipython()
-        return True
+        return cfg is not None
     except NameError:
         return False
 
@@ -41,28 +41,7 @@ def set_level(level):
 is_ipynb = is_in_ipynb()
 
 
-def _worker(task_queue, result_queue, gene_func):
-    import time
-    try:
-        while True:
-            if task_queue.empty():
-                time.sleep(0.01)
-                continue
-            task = task_queue.get()
-            if task == Empty:
-                result_queue.put(Empty)
-                return
-            for item in gene_func(task):
-                result_queue.put(item)
-    except Exception as e:
-        p_expt(e)
 
-
-def _boss(task_generator, task_queue, worker_count):
-    for task in task_generator:
-        task_queue.put(task)
-    for i in range(worker_count):
-        task_queue.put(Empty)
 
 
 def is_str(s):
@@ -250,7 +229,7 @@ def collect(generator, format='print', paras=None):
             count += 1
         print('total count is ' + str(count))
     list_datas = to_list(progress_indicator(generator))
-    if is_ipynb or format == 'df':
+    if is_in_ipynb() or format == 'df':
         from  pandas import DataFrame
         return DataFrame(list_datas)
     else:
@@ -490,13 +469,13 @@ def get_indexs(iter, filter):
     return res
 
 
-def cross(a, gene_func, column):
+def cross(a, gene_func, env):
     for r1 in a:
         r1 = dict.copy(r1)
-        for r2 in gene_func(r1, column):
+        for r2 in gene_func(r1, env):
             for key in r2:
                 r1[key] = r2[key]
-                yield dict.copy(r1)
+            yield dict.copy(r1)
 
 
 def mix(g1, g2):
@@ -548,6 +527,7 @@ def get_type_name(obj):
         s = str(obj.__class__)
     p = s.find('.')
     r = s[p + 1:].split('\'')[0]
+    r= r.replace('tools.','')
     return r
 
 
@@ -566,8 +546,7 @@ class EObject(object):
 
 def get_range(range, env=None):
     def get(key):
-        if isinstance(env, dict):
-            return env.get(key, key)
+        return query(env,key)
 
     buf = [r for r in range.split(':')]
     start = 0
@@ -615,14 +594,17 @@ def convert_dict(obj):
         obj_type = type(obj)
         typename = get_type_name(obj)
         default = obj_type().__dict__
-        for key, value in obj.__dict__.items():
-            if value == default.get(key, None):
-                continue
-            if key.startswith('_'):
-                continue
-            p = convert_dict(value)
-            if p is not None:
-                d[key] = p
+        if typename=='ETLTask':
+            d['tools']= convert_dict(obj.tools)
+        else:
+            for key, value in obj.__dict__.items():
+                if value == default.get(key, None):
+                    continue
+                if key.startswith('_'):
+                    continue
+                p = convert_dict(value)
+                if p is not None:
+                    d[key] = p
         d['Type'] = typename
         return d
 

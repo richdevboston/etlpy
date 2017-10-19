@@ -4,7 +4,7 @@ import os
 import urllib
 
 CACHE_DB_NAME = '_etlpy_cache.db'
-ALLOW_CACHE = False
+ALLOW_CACHE = True
 
 from etlpy.extends import *
 from etlpy.params import request_param, ExpParam
@@ -269,13 +269,14 @@ class Generator(ETLTool):
         self.mode = MERGE_APPEND
         self.pos = 0
 
-    def generate(self, data, column):
+    def generate(self, data, env):
         pass
 
     def process(self, generator, env):
         column = env['column']
         if generator is None:
-            return self.generate(None, column)
+
+            return self.generate(None, env)
         else:
             p = self.mode
             if p == MERGE_APPEND:
@@ -283,7 +284,7 @@ class Generator(ETLTool):
             elif p == MERGE_MERGE:
                 return merge(generator, self.process(None, env))
             elif p == MERGE_CROSS:
-                return cross(generator, self.generate, column)
+                return cross(generator, self.generate, env)
             else:
                 return mix(generator, self.process(None, env))
 
@@ -332,7 +333,8 @@ class DbEX(Executor, DBBase):
     def init(self):
         DBBase.init(self)
 
-    def process(self, datas, column):
+    def process(self, datas, env):
+        column = env['column']
         for data in datas:
             table = self.get_table(data)
             work = {EXECUTE_INSERT: lambda d: table.save(d), EXECUTE_UPDATE: lambda d: table.save(d)}
@@ -348,7 +350,8 @@ class DbGE(Generator, DBBase):
     :param p:  env connector name
     '''
 
-    def generate(self, data, column):
+    def generate(self, data, env):
+        column = env['column']
         table = self.get_table(self.table)
         for data in table.find():
             yield data
@@ -700,7 +703,10 @@ class FormatTF(Transformer):
 
     def transform(self, data, col, ncol=None):
         input = self.p
-        dic = merge({'_': data[col]}, data)
+        if col not in [None, '']:
+            dic = merge({'_': data[col]}, data)
+        else:
+            dic = data
         output = input.format(**dic)
         data[ncol] = output
 
@@ -981,7 +987,9 @@ class Create(Generator):
     def can_dump(self):
         return is_str(self.p)
 
-    def generate(self, data, column):
+    def generate(self, data, env):
+        column = env['column']
+        from pandas import DataFrame
         p = self.get_p(data)
         import inspect
         import copy
@@ -995,8 +1003,8 @@ class Create(Generator):
         elif inspect.isfunction(p):
             result = p()
 
-        # elif isinstance(p, DataFrame):
-        #    result = (row.to_dict() for l, row in p.iterrows())
+        elif isinstance(p, DataFrame):
+            result = (row.to_dict() for l, row in p.iterrows())
         else:
             result = p
         for r in result:
@@ -1070,7 +1078,9 @@ class DetectTF(Transformer):
             if is_first:
                 code = u".xpath('%s').list().html().tree()\\\n.%s" % (root_path, code0)
                 print(code)
-                code2 = '\n'.join(u"#{key} : #{value}".format(key=r.name, value=r.sample.strip()) for r in xpaths)
+                code2 = '\n'.join(
+                    u"#{key} : #{value}".format(key=r.name, value=r.sample.strip() if r.sample is not None else '') for
+                    r in xpaths)
                 print(code2)
                 is_first = False
             result = get_datas(root, xpaths, True, root_path=root_path)
@@ -1284,8 +1294,6 @@ class ParallelTF(Transformer):
         self.p = NORMAL_MODE
         self.worker_num = 1
 
-    def init(self):
-        self.mode = self.p
 
 
 class DumpTF(Transformer):
@@ -1330,7 +1338,8 @@ class Range(Generator):
         super(Range, self).__init__()
         self.p = ':'
 
-    def generate(self, data, column):
+    def generate(self, data, env):
+        column = env['column']
         p = self.get_p(data)
         start = 0
         interval = 1
@@ -1401,12 +1410,12 @@ class SubEx(Executor, SubBase):
                 for r in self._generate(d, env):
                     yield r
             else:
-                yield self.execute(d)
+                yield self.execute(d, env)
 
-    def execute(self, data, column):
+    def execute(self, data, env):
         count = 0
         try:
-            for r in self._generate(data, column):
+            for r in self._generate(data, env):
                 count += 1
         except Exception as e:
             p_expt(e)
@@ -1419,7 +1428,8 @@ class SubTF(Transformer, SubBase):
         super(SubTF, self).__init__()
 
     def transform(self, data, col, ncol):
-        data[ncol] = (r for r in self._generate(data, col))
+        env = {'column': col}
+        data[ncol] = (r for r in self._generate(data, env))
 
 
 class RotateTF(Transformer):
@@ -1491,7 +1501,8 @@ class TakeTF(Transformer):
     def __init__(self):
         super(TakeTF, self).__init__()
 
-    def process(self, data, column):
+    def process(self, data, env):
+        column = env['column']
         p = get_num(self.get_p(data))
         for r in get_mount(data, p):
             yield r
@@ -1562,9 +1573,6 @@ class Download(Executor):
         return data
 
 
-
-
-
 class Project(EObject):
     '''
     project that contains all tasks
@@ -1624,10 +1632,12 @@ class Project(EObject):
         items = dic.get('env', {})
         for key, item in items.items():
             if 'Type' in item:
-                obj_type = item['Type']
+                item['Type'] = item['Type'].replace('tools.', '')
+                obj_type = item['Type'].replace('tools.', '')
                 task = eval('%s()' % obj_type)
                 if obj_type == 'ETLTask':
                     for r in item['tools']:
+                        r['Type'] = r['Type'].replace('tools.', '')
                         etl = eval('%s()' % r['Type'])
                         for attr, value in r.items():
                             if attr in ['Type']:
@@ -1646,9 +1656,6 @@ class Project(EObject):
 def ex_generate(tools, generator=None, env=None):
     if env is None:
         env = {'column': '', 'execute': False}
-    stop_index = get_index(tools, lambda x: isinstance(x, StopTF))
-    if stop_index != -1:
-        tools = tools[:stop_index]
     start = 0
     while True:
         take_index = get_index(tools[start:], lambda x: isinstance(x, TakeTF))
@@ -1656,7 +1663,7 @@ def ex_generate(tools, generator=None, env=None):
             break
         else:
             generator = _ex_generate(tools[start:start + take_index], generator, env)
-            start +=take_index + 1
+            start += take_index + 1
     pos = 0 if start == 0 else start - 1
     generator = _ex_generate(tools[pos:], generator, env)
     for item in generator:
@@ -1668,21 +1675,27 @@ def _ex_generate(tools, generator=None, env=None):
     if pl is None:
         group, mode, worker_num = 1, None, 1
     else:
-        group, mode, worker_num = pl.p, pl.mode, pl.worker_num
+        group, mode, worker_num = 1, pl.p, pl.worker_num
+    #TODO: 对group的考虑
     generator = generate(mapper, generator, env)
     if reducer is None:
         return generator
-    #group_generator = group_by_mount(generator, group)
+    # group_generator = group_by_mount(generator, group)
     generator = multi_yield(lambda task: _ex_generate(reducer, task, env), mode, worker_num, generator)
     return generator
 
+
 def tools_filter(tools, init=True, excluded=None, mode=NORMAL_MODE):
+    stop_index = get_index(tools, lambda x: isinstance(x, StopTF))
+    if stop_index != -1:
+        tools = tools[:stop_index]
+
     buf = []
     if not isinstance(mode, (list, tuple)):
         mode = [i for i in range(mode, -1, -1)]
     else:
         mode.sort(reverse=False)
-    if mode[-1]!=NORMAL_MODE:
+    if mode[-1] != NORMAL_MODE:
         mode.append(NORMAL_MODE)
     index = 0
     for tool in tools:
@@ -1719,7 +1732,7 @@ def tools_filter(tools, init=True, excluded=None, mode=NORMAL_MODE):
                 pl = buf[j]
             if pl is not None:
                 pl.mode = mode[index]
-                pl.worker_num = DEFAULT_WORKER_NUM if pl.mode < NETWORK_MODE else 1
+                pl.worker_num = DEFAULT_WORKER_NUM if pl.p < NETWORK_MODE else 1
                 if index < len(mode) - 1:
                     index += 1
     return buf2
@@ -1789,14 +1802,14 @@ def generate(tools, generator=None, env=None):
     return generator
 
 
-def parallel_map(tools, env):
+def parallel_map(tools, env, certain_mode=None):
     '''
     split tool into mapper and reducer
     :param tools:  a list for tool
     :return: mapper, reducer and parallel parameter
     '''
 
-    index = get_index(tools, lambda x: isinstance(x, ParallelTF))
+    index = get_index(tools, lambda x: isinstance(x, ParallelTF) and (certain_mode is None or x.p == certain_mode))
     if index == -1:
         return tools, None, None
 
@@ -1810,7 +1823,6 @@ class ETLTask(EObject):
     def __init__(self):
         self.tools = []
         self._master = None
-        self.env = {}
 
     def __len__(self):
         return len(self.tools)
@@ -1831,8 +1843,11 @@ class ETLTask(EObject):
         return self
 
     def __add__(self, task):
-        tool = self.__tool_factory(SubGE, task)
-        tool.mode = MERGE_APPEND
+        if isinstance(task, ETLTask):
+            for item in task.tools:
+                item._proj = self._proj
+                self.tools.append(item)
+        # TODO: other kind of op?
         return self
 
     def __mul__(self, task):
@@ -1888,6 +1903,29 @@ class ETLTask(EObject):
         self._get_related_tasks(tasks)
         return tasks
 
+    def pl_generator(self):
+        related_tasks = self.get_related_tasks()
+        new_proj = convert_dict(self._proj)
+        # filter all task
+        for k, v in new_proj.items():
+            if isinstance(v, dict) and v.get('Type', None) == 'ETLTask' and v['name'] not in related_tasks:
+                del new_proj[k]
+
+        def generator():
+            env = {'column': '', 'execute': False}
+            mapper, reducer, parallel = parallel_map(self.tools, NETWORK_MODE)
+            if parallel is None:
+                print('this script do not support pl...')
+                return
+            for jobs in group_by_mount(generate(mapper, None, env), parallel.worker_num):
+                yield jobs, env
+
+        id = 0
+        for jobs, env in progress_indicator(generator()):
+            job = {'proj': new_proj, 'name': self.name, 'tasks': jobs, 'id': id, 'env': env}
+            yield job
+            id += 1
+
     def rpc(self, method='finished', server='127.0.0.1', port=60007):
         import requests
         if method in ['finished', 'dispatched', 'clean']:
@@ -1903,12 +1941,15 @@ class ETLTask(EObject):
                 if isinstance(v, dict) and v.get('Type', None) == 'ETLTask' and v['name'] not in tasks:
                     del n_proj[k]
             id = 0
-            for task in progress_indicator(self._pl_generator()):
-                job = {'proj': n_proj, 'name': self.name, 'tasks': task, 'id': id}
-                id += 1
+            count=0
+            for job in self.pl_generator():
                 res = requests.post(url, json=job)
-                print('task insert %s' % (id))
-            print('total push tasks: %s' % (id))
+                js= res.json()
+                print('task insert %s, %s' % (id,js))
+                if js['status']=='success':
+                    count+=1
+                id += 1
+            print('total push tasks: %s' % (count))
 
     def stop_server(self):
         if self._master is None:
