@@ -41,9 +41,6 @@ def set_level(level):
 is_ipynb = is_in_ipynb()
 
 
-
-
-
 def is_str(s):
     if PY2:
         if isinstance(s, (str, unicode)):
@@ -329,7 +326,7 @@ def split(string, char):
 
 
 def get_num(x, method=int, default=None):
-    if x in [None,'']:
+    if x in [None, '']:
         return None
     try:
         return method(x)
@@ -527,7 +524,7 @@ def get_type_name(obj):
         s = str(obj.__class__)
     p = s.find('.')
     r = s[p + 1:].split('\'')[0]
-    r= r.replace('tools.','')
+    r = r.replace('tools.', '')
     return r
 
 
@@ -541,12 +538,24 @@ class EObject(object):
     '''
         empty class, which mark a class to be a dict.
     '''
-    pass
+    def __getstate__(self):
+        """Return state values to be pickled."""
+        dic = {}
+        for k, v in self.__dict__.items():
+            if k.startswith('__'):
+                continue
+            dic[k] = v
+        return dic
+
+    def __setstate__(self, state):
+        """Restore state from the unpickled state values."""
+        for k, v in state.items():
+            self.__setattr__(k, v)
 
 
 def get_range(range, env=None):
     def get(key):
-        return query(env,key)
+        return query(env, key)
 
     buf = [r for r in range.split(':')]
     start = 0
@@ -594,8 +603,8 @@ def convert_dict(obj):
         obj_type = type(obj)
         typename = get_type_name(obj)
         default = obj_type().__dict__
-        if typename=='ETLTask':
-            d['tools']= convert_dict(obj.tools)
+        if typename == 'ETLTask':
+            d['tools'] = convert_dict(obj.tools)
         else:
             for key, value in obj.__dict__.items():
                 if value == default.get(key, None):

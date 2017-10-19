@@ -1,4 +1,5 @@
 # coding=utf-8
+import codecs
 import time, os, sys
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,7 +11,7 @@ from etlpy.extends import PY2, is_in_ipynb, convert_dict, group_by_mount
 from etlpy.multi_yielder import NETWORK_MODE
 from etlpy.tools import Project, parallel_map, ex_generate
 import json
-
+import pickle,dill
 authkey = "etlpy".encode('utf-8')
 timeout = 1
 rpc_port = 28998
@@ -99,15 +100,15 @@ def query_task(method):
 
 @app.route('/task/insert', methods=['POST'])
 def insert_task():
-    job = request.json  # have no the json data ?
+    job = request.json  # have no the json data?
     dispatched_job_queue = manager.get_dispatched_job_queue()
-    result = {"status": "success", "remain": manager.get_finished_job_queue().qsize()}
-    for r in dispatched_job:
-        if r['id'] == job['id'] and r['name'] == job['name']:
-            result['status']='failed'
-            result['status'] = 'repeat,ignore'
-            print('task %s, id %s finished, so skip...'%(r['name'],r['id']))
-            return jsonify(**result)
+    result = {"status": "success", "remain": dispatched_job_queue.qsize()}
+    # for r in manager.get_finished_job_queue():
+    #     if r['id'] == job['id'] and r['name'] == job['name']:
+    #         result['status']='failed'
+    #         result['status'] = 'repeat,ignore'
+    #         print('task %s, id %s finished, so skip...'%(r['name'],r['id']))
+    #         return jsonify(**result)
     dispatched_job_queue.put(job)
     dispatched_job.append(job)
     result = jsonify(**result)
@@ -144,8 +145,8 @@ class Slave:
             job = dispatched_jobs.get(timeout=timeout)
             project, name, tasks, job_id, env = job['proj'], job['name'], job['tasks'], job['id'], job['env']
             print('Run job: %s ' % job_id)
-            proj = Project()
-            proj.load_dict(project)
+
+            proj = dill.loads(codecs.decode(project.encode(), "base64"))
             etl_task = proj.env[name]
             total_count = 0
             task_result = dict(name=name, job_id=job_id)

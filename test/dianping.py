@@ -1,8 +1,7 @@
 # coding=utf-8
 import os
 import sys
-from random import choice
-
+import random
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parentdir)
 
@@ -30,7 +29,7 @@ Upgrade-Insecure-Requests:1
 User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'''
 headers = para_to_dict(cookie, '\n', ':')
 r = request_param
-r = r.merge('headers', headers).merge('proxies',Param({'http': lambda x:"http://{}".format(choice(proxy)) }))
+r = r.merge('headers', headers)#.merge('proxies',Param({'http': lambda x:"http://{}".format(proxy) }))
 t = task().create().url.set(url + '/search/category/3/75/g2878').get(r).pyq('.nc-contain')[0].pyq(
     'a').list().html().pl().cp('url:a').split('"')[1].get(r).pyq(
     '#shop-all-list > ul > li').list().html().pl().tree() \
@@ -49,6 +48,7 @@ t = task().create().url.set(url + '/search/category/3/75/g2878').get(r).pyq('.nc
     mv('点评:点评数').phone.split(' ')
 
 
+print(t.rpc('clean',port=6067))
 t.rpc('insert',port=6067)
 #for r in t.take(20).query(mode=[PROCESS_MODE]):
 #    print(r.keys())

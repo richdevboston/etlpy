@@ -3,6 +3,8 @@ import json
 import os
 import urllib
 
+from dill import dill
+import codecs
 CACHE_DB_NAME = '_etlpy_cache.db'
 ALLOW_CACHE = True
 
@@ -1783,7 +1785,6 @@ def generate(tools, generator=None, env=None):
     :param tools: [ETLTool]
     :param generator: seed generator for generator
     :param init: bool, if initiate every tool
-    :param execute: bool, if enable executors
     :param env:
     :return: a generator
     '''
@@ -1904,12 +1905,11 @@ class ETLTask(EObject):
         return tasks
 
     def pl_generator(self):
-        related_tasks = self.get_related_tasks()
-        new_proj = convert_dict(self._proj)
-        # filter all task
-        for k, v in new_proj.items():
-            if isinstance(v, dict) and v.get('Type', None) == 'ETLTask' and v['name'] not in related_tasks:
-                del new_proj[k]
+        new_proj = dill.dumps(self._proj)
+        new_proj= codecs.encode(new_proj,'base64').decode()
+        # for k, v in new_proj.items():
+        #     if isinstance(v, dict) and v.get('Type', None) == 'ETLTask' and v['name'] not in related_tasks:
+        #         del new_proj[k]
 
         def generator():
             env = {'column': '', 'execute': False}
@@ -1930,16 +1930,11 @@ class ETLTask(EObject):
         import requests
         if method in ['finished', 'dispatched', 'clean']:
             url = "http://%s:%s/task/query/%s" % (server, port, method)
-            data = json.loads(requests.get(url).content)
+            data = requests.get(url).json()
             print('remain: %s' % (data['remain']))
-            return collect(data[method], count=1000000)
+            #return collect(data[method], count=1000000)
         elif method == 'insert':
             url = "http://%s:%s/task/%s" % (server, port, method)
-            tasks = self.get_related_tasks()
-            n_proj = convert_dict(self._proj)
-            for k, v in n_proj.items():
-                if isinstance(v, dict) and v.get('Type', None) == 'ETLTask' and v['name'] not in tasks:
-                    del n_proj[k]
             id = 0
             count=0
             for job in self.pl_generator():
