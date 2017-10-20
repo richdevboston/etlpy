@@ -10,3 +10,5 @@ EGG-INFO
 .vscode
 .ipynb_checkpoints
 etlpy.egg-info
+data
+.DS_Store
