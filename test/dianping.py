@@ -48,7 +48,7 @@ t = task().create().url.set(url + '/search/category/3/75/g2878').get(r).pyq('.nc
     mv('点评:点评数').phone.split(' ')
 
 
-print(t.rpc('clean',port=6067))
-t.rpc('insert',port=6067)
-#for r in t.take(20).query(mode=[PROCESS_MODE]):
-#    print(r.keys())
+#print(t.rpc('clean',port=6067))
+#t.rpc('insert',port=6067)
+for r in t.take(20).query(mode=[PROCESS_MODE]):
+    print(r.keys())
