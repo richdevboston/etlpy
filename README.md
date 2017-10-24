@@ -9,13 +9,18 @@ etlpy是纯Python开发的函数库，实现流式DSL(领域特定语言)，能�
 
 下面一行代码实现了获取博客园第1到10页的所有html:
 ```
-from etlpy import *
-t= task().p.create(range(1,10)).cp('p:html').format('www.cnblogs.com/p{}').get()
+from etlpy.etlpy import *
+t= task().p.create(range(1,10)).cp('p:html').format('http://www.cnblogs.com/p{_}').get()
 #t.to_df()  生成DataFrame
 for data in t:
     print data
 
 ```
+把上面的t改成下面的语句，自动监测算法就能自动分析网页结构，生成解析脚本：
+
+`t=task().create().url.set('http://www.cnblogs.com').get().tree().detect()`
+
+
 在p列生成从1到10的数，拷贝p列到html列，将html列合并为url,并发送web请求，最后的html正文保存在html列。
 
 etlpy的特性有：

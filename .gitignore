@@ -10,3 +10,8 @@ EGG-INFO
 .vscode
 .ipynb_checkpoints
 etlpy.egg-info
+__pycache__/
+etlpy/__pycache__/
+etlpy/pinhole.log
+insurance.json
+pinhole.log
