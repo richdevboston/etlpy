@@ -80,7 +80,7 @@ def task(name='etl'):
     _task = ETLTask()
     _task._proj = proj
     if name in proj.env:
-        name +='_'+len(proj.env.keys())
+        name +='_'+str(len(proj.env.keys()))
     _task.name = name
     proj.env[name] = _task
 

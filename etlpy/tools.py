@@ -1051,6 +1051,7 @@ class DetectTF(Transformer):
         self._m_process = True
 
     def m_process(self, datas, column):
+        from lxml import etree
         is_first = True
         for data in datas:
             p = self.get_p(data)
@@ -1058,7 +1059,6 @@ class DetectTF(Transformer):
             if root is None:
                 return
             if is_str(root):
-                from lxml import etree
                 root = _get_etree(root)
             tree = etree.ElementTree(root)
             if p != '':
@@ -1131,14 +1131,17 @@ class WebTF(Transformer):
         result = None
         real_req = req.get(data, col)
         if 'url' in real_req:
-            real_req['url'] = str(real_req['url'])
-
+            url =str(real_req['url'])
+            if not url.startswith('http'):
+                url = 'http://'+url
+            real_req['url'] = url
         cache = self._proj.cache
         if cache is not None:
             key = real_req.get('url', '') + real_req.get('data', '')
             result = cache.get(key, None)
         if result is None:
             try:
+
                 if self._mode == 'get':
                     r = requests.get(**real_req)
                 else:
@@ -1384,7 +1387,7 @@ class SubBase(ETLTool):
     def _get_tools(self, data):
         sub_etl = self._get_task(data)
         start, end, interval = get_range(self.range)
-        tools = tools_filter(sub_etl.tools[start:end:interval], excluded=self)
+        tools = tools_filter(sub_etl.tools[start:end:interval], excluded=self, mode=NORMAL_MODE)
         return tools
 
     def _generate(self, data, env):

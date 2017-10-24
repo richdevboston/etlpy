@@ -15,8 +15,17 @@ from etlpy.proxy import get_proxy_all
 from etlpy.etlpy import *
 from etlpy.params import request_param, Param
 
+
+
+
+
+
+
 url = 'https://www.dianping.com'
 proxy =get_proxy_all()
+
+
+
 
 cookie = '''Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
 Accept-Encoding:gzip, deflate
