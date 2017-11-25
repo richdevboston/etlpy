@@ -564,7 +564,7 @@ def get_range(range, env=None):
         interval = get_num(get(buf[2]))
     if len(buf) > 1:
         end = get_num(get(buf[1]))
-    else:
+    if len(buf)>0:
         start = get_num(get(buf[0]))
     return start, end, interval
 
