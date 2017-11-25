@@ -2,13 +2,13 @@
 import os
 import sys
 
-from etlpy.multi_yielder import THREAD_MODE
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parentdir)
 
 from etlpy.etlpy import *
 import pandas as pd
+from etlpy.multi_yielder import THREAD_MODE
 
 df = pd.read_excel('/Users/zhaoyiming/Documents/datasets/汽车/汽车大系.xlsx')
 df=df.drop_duplicates(['id'])
