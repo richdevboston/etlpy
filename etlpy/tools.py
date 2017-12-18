@@ -1364,7 +1364,11 @@ class Range(Generator):
             yield {column: start}
 
             return
-        values = range(start, end, interval)
+        values=[]
+        try:
+            values = range(start, end, interval)
+        except Exception as e:
+            pass
         for i in values:
             item = {column: i}
             yield item
