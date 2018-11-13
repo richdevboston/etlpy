@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>4.日志和调试 - etlpy doc</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "4.\u65e5\u5fd7\u548c\u8c03\u8bd5";
+    var mkdocs_page_input_path = "4.\u65e5\u5fd7\u548c\u8c03\u8bd5.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> etlpy doc</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">1.综述</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.1快速入门/">1.1快速入门</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.2核心概念/">1.2核心概念</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.3几种表达式/">1.3几种表达式</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.0算子/">2.0算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.1生成器/">2.1生成器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.2转换器/">2.2转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.3爬虫转换器/">2.3爬虫转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.4过滤和排序器/">2.4过滤和排序器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.5执行器和数据库/">2.5执行器和数据库</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.6自定义算子/">2.6自定义算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.7子任务/">2.7子任务</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.8 参数系统/">2.8 参数系统</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../3.并行化/">3.并行化</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">4.日志和调试</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#_1">日志和调试</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#_2">日志系统</a></li>
+        
+            <li><a class="toctree-l3" href="#_3">单步调试</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../5.pandas集成/">5.pandas集成</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../6.代码说明和原理/">6.代码说明和原理</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../7.补充说明/">7.补充说明</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">etlpy doc</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>4.日志和调试</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="_1">日志和调试</h1>
+<h2 id="_2">日志系统</h2>
+<p>etlpy使用了python标准的logging模块作为日志输出，因此可以按照需求将其重定向到任意位置和格式，并设定输出等级。</p>
+<p>合理的日志很重要。你可以设置不同的日志等级:</p>
+<ul>
+<li>
+<blockquote>
+<p>4: 对异常打印完整的信息堆栈</p>
+</blockquote>
+</li>
+<li>
+<blockquote>
+<p>5: 对每条数据的处理过程给出完整信息</p>
+</blockquote>
+</li>
+<li>
+<blockquote>
+<p>2：</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="_3">单步调试</h2>
+<p>函数式编程风格较难使用单步调试，etlpy提供了一系列方法解决这个问题。</p>
+<h3 id="_4">在流中间插入调试算子</h3>
+<p>在流的任何位置，都可以插入如下算子，输出中间结果：</p>
+<p>插入count算子，查看输出的位置。</p>
+<p>可插入tag算子，用于解释该位置的设计思路</p>
+<p>插入<code>map(print)</code>或 <code>map(your_defined_function)</code>把中间结果打印或存储起来。</p>
+<h3 id="_5">将一部分算子屏蔽</h3>
+<p>任何算子都接受enabled的可选参数，为true</p>
+<h3 id="_6">按步骤单步调试</h3>
+<p>由于etlpy形成了一个调用链，因此常见的需求，是将后面的算子全部屏蔽，只执行部分</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../5.pandas集成/" class="btn btn-neutral float-right" title="5.pandas集成">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../3.并行化/" class="btn btn-neutral" title="3.并行化"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../3.并行化/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../5.pandas集成/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>

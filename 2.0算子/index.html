@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>2.0算子 - etlpy doc</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "2.0\u7b97\u5b50";
+    var mkdocs_page_input_path = "2.0\u7b97\u5b50.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> etlpy doc</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">1.综述</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.1快速入门/">1.1快速入门</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.2核心概念/">1.2核心概念</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.3几种表达式/">1.3几种表达式</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">2.0算子</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#_1">算子</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#1">1. 分类</a></li>
+        
+            <li><a class="toctree-l3" href="#2">2. 功能表</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.1生成器/">2.1生成器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.2转换器/">2.2转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.3爬虫转换器/">2.3爬虫转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.4过滤和排序器/">2.4过滤和排序器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.5执行器和数据库/">2.5执行器和数据库</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.6自定义算子/">2.6自定义算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.7子任务/">2.7子任务</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.8 参数系统/">2.8 参数系统</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../3.并行化/">3.并行化</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../4.日志和调试/">4.日志和调试</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../5.pandas集成/">5.pandas集成</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../6.代码说明和原理/">6.代码说明和原理</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../7.补充说明/">7.补充说明</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">etlpy doc</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>2.0算子</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="_1">算子</h1>
+<h2 id="1">1. 分类</h2>
+<p>算子会对属性做处理，按照其作用域，算子能够分为三种：</p>
+<ul>
+<li>col:作用于特定的属性: 如清除特定属性的空白符 </li>
+<li>data:作用于整个字典： 例如清除所有以a开头的属性</li>
+<li>stream:作用于数据流： 只获取数据流的前三个数据，或跳过2个数据。</li>
+</ul>
+<h2 id="2">2. 功能表</h2>
+<p>下面的表，整理了算子的使用方法：</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>参数</th>
+<th>功能</th>
+<th>执行后结果</th>
+<th>例子</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>设定目标列</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>let</td>
+<td>'new'</td>
+<td>设置目标列为new</td>
+<td>new</td>
+<td>let('new')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>mv</td>
+<td>'old:new'</td>
+<td>从原始列移动到新列</td>
+<td>new</td>
+<td>mv('a:b')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>cp</td>
+<td>'old:new'</td>
+<td>从原始列复制到新列</td>
+<td> new</td>
+<td>cp('a:b')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>cp2</td>
+<td>'old:new'</td>
+<td>从原始列复制到新列</td>
+<td>old</td>
+<td>cp('a:b')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>rm</td>
+<td>'a'</td>
+<td>删除a列</td>
+<td>不变</td>
+<td>rm('a b')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>keep</td>
+<td>'a'</td>
+<td>保留a列</td>
+<td>a</td>
+<td>keep('a')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>转换器</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>incr</td>
+<td>无</td>
+<td>增加自增主键</td>
+<td>不变</td>
+<td>incr()</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>split</td>
+<td>分隔符</td>
+<td>对目标列分割</td>
+<td>[]</td>
+<td>split(',')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>into</td>
+<td>'a b'</td>
+<td>将数组分配到不同列</td>
+<td>无</td>
+<td>into('a b')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>at</td>
+<td>索引</td>
+<td>提取数组/字典的项</td>
+<td>无</td>
+<td>at('a')</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>escape</td>
+<td>html/url</td>
+<td>进行html/url转义</td>
+<td>str</td>
+<td>escape('html')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>clean</td>
+<td>html/url</td>
+<td>进行html/url反转义</td>
+<td>str</td>
+<td>clean('url')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>format</td>
+<td>合并表达式</td>
+<td>合并多个列</td>
+<td>str</td>
+<td>format('{0}-{col}')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>regex</td>
+<td>正则表达式</td>
+<td>获取节点的text或str</td>
+<td>regex('\d+')</td>
+<td>[str]</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>replace</td>
+<td>正则表达式</td>
+<td>替换匹配的值</td>
+<td>replace('\d+',value='new')</td>
+<td>str</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>num</td>
+<td>无</td>
+<td>提取数字</td>
+<td>num()</td>
+<td>[float]</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>strip</td>
+<td>char</td>
+<td>清除首尾符号</td>
+<td>strip()</td>
+<td>str</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>extract</td>
+<td>起始字符串</td>
+<td>首尾夹逼提取</td>
+<td>extract('start',end='end')</td>
+<td>str</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>map</td>
+<td>func/lambda</td>
+<td>对每个元素操作</td>
+<td>map(print)</td>
+<td>?</td>
+<td>TF-col/data</td>
+</tr>
+<tr>
+<td>dump</td>
+<td>'json/yaml/xml'</td>
+<td>将目标列导出</td>
+<td>dump('json')</td>
+<td>str</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>load</td>
+<td>'json/yaml/xml'</td>
+<td>从文本导入</td>
+<td>load('json')</td>
+<td>obj</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>todict</td>
+<td>'a b'</td>
+<td>将a,b列合并到字典</td>
+<td>todict('a b')</td>
+<td>obj</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>drill</td>
+<td>'a:b'</td>
+<td>将目标列字典提到外部</td>
+<td>drill('a:b')</td>
+<td>无</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>爬虫工具</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>html</td>
+<td>无</td>
+<td>获取节点的html</td>
+<td>html()</td>
+<td>str</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>text</td>
+<td>无</td>
+<td>获取节点的text或str</td>
+<td>text()</td>
+<td>str</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>xpath</td>
+<td>xpath-str</td>
+<td>通过xpath提取html</td>
+<td>[node]</td>
+<td>xpath('//div')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>pyq</td>
+<td>jquery-str</td>
+<td>通过jquery提取html</td>
+<td>[node]</td>
+<td>pyq('.a')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>detect</td>
+<td>int</td>
+<td>自动嗅探网页列表</td>
+<td>表格+xpath</td>
+<td>detect(0)</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>cache</td>
+<td>空数组</td>
+<td>缓存之前结果</td>
+<td>无</td>
+<td>cache([])</td>
+<td>TF-data</td>
+</tr>
+<tr>
+<td>get</td>
+<td>发送的数据</td>
+<td>http-get请求</td>
+<td>无</td>
+<td>get('[p]')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>post</td>
+<td>发送的数据</td>
+<td>http-post请求</td>
+<td>无</td>
+<td>post('[p]')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>tree</td>
+<td>html</td>
+<td>对html建立etree</td>
+<td>无</td>
+<td>tree()</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>search</td>
+<td>关键字</td>
+<td>对html搜索xpath</td>
+<td>打印xpath</td>
+<td>search('aa')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td>dl</td>
+<td>目标路径</td>
+<td>将目标列链接下载到某路径</td>
+<td>无</td>
+<td>dl('abc.zip')</td>
+<td>TF-col</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>流处理</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>take</td>
+<td>数量p</td>
+<td>获取前p个元素</td>
+<td>无</td>
+<td>take(5)</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>list</td>
+<td>要提取的列</td>
+<td>将某列数组数据上钻</td>
+<td>新列表</td>
+<td>list('a b c')</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>skip</td>
+<td>数量p</td>
+<td>跳过前p个元素</td>
+<td>无</td>
+<td>skip(5)</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>last</td>
+<td>无参数</td>
+<td>获取最后的元素</td>
+<td>无</td>
+<td>last()</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>count</td>
+<td>数量p</td>
+<td>每p个元素打印index</td>
+<td>不变</td>
+<td>count(5)</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>tag</td>
+<td>注释</td>
+<td>仅需注释</td>
+<td>不变</td>
+<td>tag('注释')</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>agg</td>
+<td>函数/lambda</td>
+<td>对相邻数据聚合</td>
+<td>不变</td>
+<td>agg(lambda a,b: a+b)</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>delay</td>
+<td>数量p</td>
+<td>延迟p毫秒</td>
+<td>不变</td>
+<td>delay(100)</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td>pl</td>
+<td>并行模式</td>
+<td>插入并行算子</td>
+<td>无</td>
+<td>pl(5)</td>
+<td>TF-stream</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>生成器</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>create</td>
+<td>生成器/数组</td>
+<td>生成数据</td>
+<td>不变</td>
+<td>create([{}])</td>
+<td>GE-data/col</td>
+</tr>
+<tr>
+<td>range</td>
+<td>区间表达式字符串</td>
+<td>生成固定区间数</td>
+<td>不变</td>
+<td>range('1:100:2')</td>
+<td>GE-col</td>
+</tr>
+<tr>
+<td>read</td>
+<td>文件路径</td>
+<td>按文件行读取</td>
+<td>不变</td>
+<td>read('a.txt')</td>
+<td>GE-col</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>过滤器</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>where</td>
+<td>函数/lambda</td>
+<td>对数据做过滤</td>
+<td>不变</td>
+<td>where(lambda x:x!=None)</td>
+<td>FT-col</td>
+</tr>
+<tr>
+<td>null</td>
+<td>无参数</td>
+<td>过滤空对象</td>
+<td>不变</td>
+<td>null()</td>
+<td>FT-col</td>
+</tr>
+<tr>
+<td>repeat</td>
+<td>无参数</td>
+<td>过滤重复数据</td>
+<td>不变</td>
+<td>repeat()</td>
+<td>FT-col</td>
+</tr>
+<tr>
+<td>match</td>
+<td>正则</td>
+<td>过滤非匹配数据</td>
+<td>不变</td>
+<td>match('\d')</td>
+<td>FT-col</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>执行器</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>dbex</td>
+<td>连接器名称</td>
+<td>将数据写入连接器</td>
+<td>不变</td>
+<td>dbex('connector')</td>
+<td>EX-data</td>
+</tr>
+<tr>
+<td>write</td>
+<td>文件路径</td>
+<td>将数据按行写入文件</td>
+<td>不变</td>
+<td>write('abc.txt')</td>
+<td>EX-col</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>排序器</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>ascend</td>
+<td>函数/lambda</td>
+<td>升序排列</td>
+<td>不变</td>
+<td>ascend(lambda x:x[0])</td>
+<td>ST-data</td>
+</tr>
+<tr>
+<td>descend</td>
+<td>函数/lambda</td>
+<td>降序排列</td>
+<td>不变</td>
+<td>同上</td>
+<td>ST-col</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>子任务</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>subge</td>
+<td>子任务名称或实例</td>
+<td>以生成器方式调用</td>
+<td>不变</td>
+<td>subge(task().create()..)</td>
+<td>GE-stream</td>
+</tr>
+<tr>
+<td>subex</td>
+<td>子任务名称或实例</td>
+<td>以执行器方式调用</td>
+<td>不变</td>
+<td>subex('task_name')</td>
+<td>EX-stream</td>
+</tr>
+<tr>
+<td>sub</td>
+<td>子任务名称或实例</td>
+<td>以转换器方式调用</td>
+<td>不变</td>
+<td>sub('task_name')</td>
+<td>TF-stream</td>
+</tr>
+</tbody>
+</table>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../2.1生成器/" class="btn btn-neutral float-right" title="2.1生成器">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../1.3几种表达式/" class="btn btn-neutral" title="1.3几种表达式"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../1.3几种表达式/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../2.1生成器/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>
