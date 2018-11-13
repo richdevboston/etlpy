@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>2.1生成器 - etlpy doc</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "2.1\u751f\u6210\u5668";
+    var mkdocs_page_input_path = "2.1\u751f\u6210\u5668.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> etlpy doc</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">1.综述</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.1快速入门/">1.1快速入门</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.2核心概念/">1.2核心概念</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.3几种表达式/">1.3几种表达式</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.0算子/">2.0算子</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">2.1生成器</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#_1">生成器</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#create">create</a></li>
+        
+            <li><a class="toctree-l3" href="#range">range</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.2转换器/">2.2转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.3爬虫转换器/">2.3爬虫转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.4过滤和排序器/">2.4过滤和排序器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.5执行器和数据库/">2.5执行器和数据库</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.6自定义算子/">2.6自定义算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.7子任务/">2.7子任务</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.8 参数系统/">2.8 参数系统</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../3.并行化/">3.并行化</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../4.日志和调试/">4.日志和调试</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../5.pandas集成/">5.pandas集成</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../6.代码说明和原理/">6.代码说明和原理</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../7.补充说明/">7.补充说明</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">etlpy doc</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>2.1生成器</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="_1">生成器</h1>
+<p>生成器用于生成数据，流的开头一定是个生成器。如果生成器插在流的中间，就需要与已有的数据流做融合。控制融合的方式是默认的mode参数：</p>
+<ul>
+<li>cross(*) :  笛卡尔积</li>
+<li>append(+):  纵向拼接 (默认)</li>
+<li>merge(|) :  横向拼接</li>
+<li>mix (mix):  类似ABABAB，依次交错</li>
+</ul>
+<p>下面介绍需要集几种常见的生成器：</p>
+<h2 id="create">create</h2>
+<h3 id="_2">不指定目标列</h3>
+<p>参数需要为字典数组或字典生成器，例如:</p>
+<pre><code>task().create(('a':i for i in range(10)))
+{'a':1}
+{'a':2}
+{'a':3}
+...
+</code></pre>
+
+<p>参数也可以为pandas的DataFrame,生成对应的字典</p>
+<h3 id="_3">指定目标列</h3>
+<p>若指定目标列，参数为数组或生成器，元素可以为任意类型，上面的代码等价于:
+<code>task().a.create(range(10))</code></p>
+<p>读取文件，并放置于l列中：
+<code>task().l.create(open('file').readlines())</code></p>
+<p>参数还可以为数字，为生成空字典的个数：</p>
+<p><code>task().create(5).p.set(10)</code></p>
+<ul>
+<li>输出10个字典，值皆为 {'p':10}</li>
+</ul>
+<h2 id="range">range</h2>
+<p>range用于创建区间数，其参数可以有三种形式：</p>
+<ul>
+<li>元组或列表(元素数量1到3个),如 range((1,10,2))</li>
+<li>字符串如'1:10', '10',  '1:10:1'， 上面的代码也等价于: <code>task().a.range('1:10:2')</code></li>
+<li>单个参数，如range(10)
+为何要支持字符串形式呢？ 因为最大值或间隔可能来自其他列：</li>
+</ul>
+<p><code>task().create().p.create([20]).a.range('1:[p]',mode='*')</code></p>
+<p>上面的代码为：先创建列p，值为20，再在a列上创建区间数，范围从1到20(p列的值)， 组合模式为* (cross).</p>
+<blockquote>
+<p>为何range((1,10))不直接写成range(1,10)? 这样岂不是更符合python的规范？原因是range还有可选参数，如果range定义成：</p>
+</blockquote>
+<p><code>def range(start=0,end=1,interval=2,mode='*')</code>
+是无法判断range(10)中的10到底是start还是end的。</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../2.2转换器/" class="btn btn-neutral float-right" title="2.2转换器">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../2.0算子/" class="btn btn-neutral" title="2.0算子"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../2.0算子/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../2.2转换器/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Bug fix - etlpy doc</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Bug fix";
+    var mkdocs_page_input_path = "bug-fix.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> etlpy doc</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">1.综述</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.1快速入门/">1.1快速入门</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.2核心概念/">1.2核心概念</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.3几种表达式/">1.3几种表达式</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.0算子/">2.0算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.1生成器/">2.1生成器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.2转换器/">2.2转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.3爬虫转换器/">2.3爬虫转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.4过滤和排序器/">2.4过滤和排序器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.5执行器和数据库/">2.5执行器和数据库</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.6自定义算子/">2.6自定义算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.7子任务/">2.7子任务</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.8 参数系统/">2.8 参数系统</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../3.并行化/">3.并行化</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../4.日志和调试/">4.日志和调试</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../5.pandas集成/">5.pandas集成</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../6.代码说明和原理/">6.代码说明和原理</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../7.补充说明/">7.补充说明</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">etlpy doc</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Bug fix</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h2 id="ok">ok</h2>
+<p>生成器，range(1,1,1),返回默认值 ok</p>
+<p>增加mix方法 ok</p>
+<p>def cross(a, gene_func):
+    for r1 in a:
+        r1=dict.copy(r1);
+        for r2 in gene_func(r1):
+            for key in r2:
+                r1[key] = r2[key]
+                yield dict.copy(r1);</p>
+<p>因为改了一下缩进，让yield往前退了一步，调试超过半个小时。。。</p>
+<h2 id="20161008">2016年10月08日</h2>
+<p>增加RotateTF ok,</p>
+<p>新建链家爬虫</p>
+<h3 id="_1">需要解决</h3>
+<p>并行执行器在子流层面的问题？ 子流内部不做任何并行化 OK</p>
+<h3 id="_2"></h3>
+<p>判断是否是字符串,这个东西花了多长的时间才暴露出来!!!  merge_query!!!</p>
+<h2 id="ok_1">生成器 ok</h2>
+<p>如果生成器返回的是字典数组，后期的每个操作都会改变这个字典的值，导致无法重复执行，显然要copy一下</p>
+<p>一旦引擎发生改变，要修改的代码就很多。。。所以一定要稳定</p>
+<h2 id="ok_2">多线程问题 ok!</h2>
+<p>如何多线程，多机，并行，多进程等等。如果一次设计，多次运行的话，是不可能提前知道这些信息的。需要在运行时动态判定</p>
+<p>支持动态判定，同时也支持在代码中实现，可以通过外部配置强制实现。</p>
+<p>动态判定可能会有bug,之后考虑删除</p>
+<p>因此，pl还是叫pl. query, 还有执行方式和线程数。 但这样参数就比较多了。 只包含是否回流数据回来的逻辑。</p>
+<p>多线程，多进程可以一体化。产生多少个线程可以配置。传一个配置环境进去。</p>
+<p>多进程无法传递生成器，但可以传递种子</p>
+<h2 id="ok_3">多机分布式 ok!</h2>
+<h2 id="_3">反爬虫机制</h2>
+<p>代理+ 延时。此时不能支持并行。提供代理池，之后每次访问，向前推一个。 </p>
+<p>全局访问器。 延时管理。</p>
+<p>IP来源？买。。。 传一个数组进去  ok</p>
+<h2 id="ok_4">环境传递 ok</h2>
+<p>链式操作，但实际上分为明显的编译时和运行时。编译时的参数如何传递给运行时呢</p>
+<p>加入一个环境，只有当编译时才知道参数，比如column。 类似的，还能加入enabled,execute这些变量。当然都是隐含的。</p>
+<p>最后一个问题，环境是self.env么？最好可以。否则会很麻烦。</p>
+<p>缺点呢？ 不太会有同时编译，但会有同时执行。那时已经编译完了</p>
+<p>结论，不用self.env，而是用临时变量env</p>
+<h2 id="ok_5">要不要做下去 ？ ok</h2>
+<p>做！沉没成本，但是已经花了这么多精力，放弃太过可惜。
+极端的linq... 一定要全部链路都这么设计么？</p>
+<h2 id="ok_6">增加缓存  ok!</h2>
+<p>否则每次执行的速度特别慢。 </p>
+<ul>
+<li>要么增加全局缓存</li>
+<li>要么就是爬虫的缓存 爬虫缓存比较简单合理</li>
+</ul>
+<p>考虑写文件，把url和参数对应的值存起来，除了web，其他也没什么太过耗费的。如果需要可以加</p>
+<h2 id="ui">UI设计</h2>
+<ul>
+<li>自己开发
+自动代码提示，参数提示，功能帮助，语法高亮，web化，所见即所得</li>
+<li>anaconda
+需增加缓存，体验不佳，但大家都比较清楚。 
+先用anaconda吧</li>
+</ul>
+<h2 id="enable">enable的问题</h2>
+<p>不要做的那么反人类，不需要就删掉，没那么多废话。</p>
+<p>需要把流拆开，然后组装，没必要把流程搞的那么长，流式语言也有设计模式。</p>
+<p>可以在任意位置插入调试，之后的流被截断，这样就不用反复地注释了  ok</p>
+<h2 id="_4">反爬虫逻辑</h2>
+<p>需要一个合适的机制，设置一个爬虫所需的环境 基本ok</p>
+<p>另外，流式语言一定要面向爬虫么？</p>
+<p>format体验不好，一定要{} 算了
+```</p>
+<h2 id="ok_7">去掉不必要的库依赖 ok</h2>
+<p>只在必要的时候再去安装相应的库s
+flask
+ipy_notebook
+ipython
+pyquery
+simplejson : 如果只是dump的话，为何不用原生的json?
+pandas: </p>
+<pre><code>def process_req(self, args):
+    if self.delay != 0:
+        time.sleep(self.delay)
+    headers = self.headers
+    if headers not in ({}, ''):
+        if is_str(headers):
+            headers = para_to_dict(headers, '\n', ',')
+        if self.agent:
+            headers['User-Agent'] = random.choice(USER_AGENTS)
+        args['headers'] = headers
+    if self.proxy is not None and len(self.proxy) &gt; 0:
+        l = len(self.proxy) - 1
+        if self.allow_local == True:
+            l += 1
+        index = random.randint(0, l)
+        if index &lt; len(self.proxy):
+            proxy = self.proxy[index]
+            args['proxies'] = {'http': proxy}
+
+    ```
+
+
+    def proxy(port=8000):
+from http_proxy import LoggingProxyHTTPHandler
+import BaseHTTPServer
+server_address = ('', port)
+print('start proxy')
+httpd = BaseHTTPServer.HTTPServer(server_address, LoggingProxyHTTPHandler)
+
+httpd.serve_forever()
+</code></pre>
+<h1 id="ok_8">避免频繁地生成生成器 ok</h1>
+<h1 id="20171017">2017年10月17日</h1>
+<p>改进子流 ok
+需要提供本地的并行存取方案</p>
+<h2 id="_5">错误重试</h2>
+<p>目前还没有错误重试功能，应当记录</p>
+<p>对执行的理解</p>
+<h1 id="20171031">2017年10月31日</h1>
+<p>list().html().tree()特别繁琐，有可能简化掉吗？</p>
+<p>not作为where的前缀，实现求反。</p>
+<h2 id="etlpy">etlpy的推广规划</h2>
+<ol>
+<li>hawk的github上，启动页面。xxx</li>
+<li>博客园</li>
+<li>ATA</li>
+<li>微信公众号 </li>
+</ol>
+<p>两篇： 纯技术向，设计思路向。  </p>
+<p>优先级： 低，收集反馈， 12月份完成即可
+估计github star量； 500,使用人数10K
+文档： 目前完成度80%，中英文同时提供（笑帮忙翻译）</p>
+<p>将etlpy翻译为pandas文法，速度会大幅度提升
+用where语句解决逻辑问题</p>
+<p>extend 可以通过脚本，将所需的脚本添加到后面去，相当于流的流</p>
+<p>针对特征处理的算子，onehot,交叉组合，优选逻辑</p>
+<p>生成sql</p>
+<p>tensor_provider, 发ATA上，会有很多人看</p>
+<p>对join的优化</p>
+<p>到处设计异常，看看程序能否正常运行，好的程序必须对异常做出处理</p>
+<p>设计查看任务进展的webui</p>
+<p>rangetf... cross的，其实在后面叠加一个list就行了，若是字典再加drill。不过缺点是更难理解了。另外生成器后面默认也是能跟PL的</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>

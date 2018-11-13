@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>2.2转换器 - etlpy doc</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "2.2\u8f6c\u6362\u5668";
+    var mkdocs_page_input_path = "2.2\u8f6c\u6362\u5668.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> etlpy doc</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">1.综述</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.1快速入门/">1.1快速入门</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.2核心概念/">1.2核心概念</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../1.3几种表达式/">1.3几种表达式</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.0算子/">2.0算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.1生成器/">2.1生成器</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">2.2转换器</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#_1">转换器</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#letset">let和set</a></li>
+        
+            <li><a class="toctree-l3" href="#_2">目标列转换器</a></li>
+        
+            <li><a class="toctree-l3" href="#at">at</a></li>
+        
+            <li><a class="toctree-l3" href="#_3">字符串分割</a></li>
+        
+            <li><a class="toctree-l3" href="#_4">字符串转义,加载</a></li>
+        
+            <li><a class="toctree-l3" href="#_5">正则表达式</a></li>
+        
+            <li><a class="toctree-l3" href="#_6">上钻下探</a></li>
+        
+            <li><a class="toctree-l3" href="#_7">字符串处理</a></li>
+        
+            <li><a class="toctree-l3" href="#_8">流处理</a></li>
+        
+            <li><a class="toctree-l3" href="#_9">调试和输出</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.3爬虫转换器/">2.3爬虫转换器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.4过滤和排序器/">2.4过滤和排序器</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.5执行器和数据库/">2.5执行器和数据库</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.6自定义算子/">2.6自定义算子</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.7子任务/">2.7子任务</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../2.8 参数系统/">2.8 参数系统</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../3.并行化/">3.并行化</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../4.日志和调试/">4.日志和调试</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../5.pandas集成/">5.pandas集成</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../6.代码说明和原理/">6.代码说明和原理</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../7.补充说明/">7.补充说明</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">etlpy doc</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>2.2转换器</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="_1">转换器</h1>
+<p>由于转换器非常多，因此仅对部分需要重点讲解的部分进行说明。</p>
+<h2 id="letset">let和set</h2>
+<p>let不修改列，但负责指定目标列，通过let算子，可指定要处理的列,例如:</p>
+<p><code>task().create(datas).let('a').strip().format('{}{}')</code></p>
+<p>让a属性的值，去除空白符，并将其值重复两次。对多个列可批量处理，中间用空格分割。如<code>a b c</code></p>
+<ul>
+<li>let('*') 表示对所有的列做处理</li>
+<li>参数可以写正则表达式，能成功匹配的列都能做处理。</li>
+</ul>
+<p>如果只有一个列，且列名符合python命名规则，则let函数可以省略，上面的代码能简化为:</p>
+<p><code>task().create(datas).a.strip().format('{}{}').b....</code></p>
+<p>set算子可以对固定列设置值，例如：</p>
+<p><code>p.set('value')</code></p>
+<p>set算子还能将别的列的值填充到目标列，上面的等价为：</p>
+<p><code>a.set('value').p.set('[value]')</code></p>
+<h2 id="_2">目标列转换器</h2>
+<p>cp,cp2,mv,rm,keep 的功能可参考算子表，此处从略。<code>keep('a')</code>会删除除了a列以外的所有列。</p>
+<p>如果需要对多个列进行批量处理，列名可以用空格分割：<code>mv('a b c')</code></p>
+<p>cp,cp2需要接受多个键值对，例如从a列拷贝到b列，c列拷贝到d列，则可以写作:
+<code>cp('a:b c:d')</code></p>
+<p>对a列保留，并将c列移动到d列，有两种写法:
+<code>keep('a c').mv('c:d')</code> 或:
+<code>keep('a c:d)</code></p>
+<blockquote>
+<p>注意cp和cp2的区别，cp拷贝后做滑动，cp2不做滑动。cp2等价于cp('a:b').let('a'), mv,cp,rm的命名都参考了linux的风格</p>
+</blockquote>
+<h2 id="at">at</h2>
+<p>对目标列数据取索引值，并放置在本列位置。使用方法和python的字典和数组的索引使用方法一致。at可以省略，例如：</p>
+<p><code>create(datas).p.at(0).at('hello')</code></p>
+<p>等价于：</p>
+<p><code>create(datas).p[0]['hello]</code></p>
+<p>at还支持输入slice:</p>
+<p><code>create(datas).p[2:10]</code></p>
+<p>很多算子的结果都是数组，字典或生成器，都可以用at算子将其数据提出。对生成器，则输出第n个元素。</p>
+<blockquote>
+<p>对生成器，慎用类似<code>-1</code>的倒序索引，这可能会导致实例化生成器，从而导致性能问题。</p>
+</blockquote>
+<h2 id="_3">字符串分割</h2>
+<p>由于etl中会出现大量字符串分割的需求，因此提供了split和into算子，以及at算子</p>
+<p>split会将字符串分割为数组，如a列值为'1 2 3'，若想放置到a,b,c三列，则:</p>
+<p><code>a.split(' ').cp('a:b')[1].cp('a:c)[2].a[0]</code></p>
+<p>上面的代码也等价于:</p>
+<p><code>a.split(' ').into('a b c')</code></p>
+<h2 id="_4">字符串转义,加载</h2>
+<p>escape代表对字符串转义，clean则代表反转义。从网页中常见nbsp等，其实是空格，则可以：</p>
+<p><code>a.clean('html')</code></p>
+<p>带代表使用html反转义功能，若想对url编码，则可以:</p>
+<p><code>a.escape('url')</code></p>
+<p>类似的还有load和dump，如加载a列中文本形式的json文件，并将其转换为xml</p>
+<p><code>a.load('json').dump('xml)</code></p>
+<p>目前load/dump支持 xml,json,yaml这几种类型</p>
+<h2 id="_5">正则表达式</h2>
+<p>正则可以方便地提取文本的内容，etlpy支持对流进行匹配和过滤。涉及的算子有re,num </p>
+<p>re可将内部的匹配结果以数组输出，例如 a='123 345 678',需要将内部的字符串提取出来:</p>
+<p><code>a.re('\d+')[0]  #a列放置123</code></p>
+<p>num是re的特例，用于提取浮点数和整数。</p>
+<h2 id="_6">上钻下探</h2>
+<h3 id="list">list</h3>
+<p>当目标列中放置着一个字典数组/字典生成器)时，一个可能的需求是将其提取并代替外部的流。list可以作为一转多的算子实现该功能， 例如:</p>
+<p><code>task().p.create(('a':i for i in range(10))).list()</code></p>
+<p>其等价于：
+<code>task().a.create(range(1,10))</code></p>
+<p>注意，在一转多之后，原始流的列会被丢弃，如果不想丢弃，可以在list的参数中传递列表达式, 如<code>list('p:p1 p2')</code>会将p列保存在新流的p1列，p2列保存在新流的p2列。语法与cp,keep一致。</p>
+<h3 id="drilltodict">drill和todict</h3>
+<p>类似地，目标列如果是字典（注意，不是字典的数组），需要将其合并到外部，需要用drill算子。</p>
+<p><code>p.set({'a':1,'b':2}).drill()</code> 等价于:</p>
+<p><code>p.a.set(1).b.set('2')</code></p>
+<p>若drill没有参数，则默认转换所有的列。drill也支持参数，语法和list一致。</p>
+<p>如果希望把多个列的数据合并到目标列，并保存到字典中，则使用todict,例如:</p>
+<p><code>a.set(1).b.set(2).p.todict('a b')</code> </p>
+<p>todict经常用于向网站post字典数据等。</p>
+<h2 id="_7">字符串处理</h2>
+<p>strip和python标准的strip用法类似。</p>
+<p>extract可以通过首位字符提取字符串，特别适合用于在复杂文本中抽取数据。例如p列保存为：'abc 123 def',要提取123，则</p>
+<p><code>a.extract('abc',end='def')</code></p>
+<p>默认参数为start字符串, end填写要结尾的字符串，提取的内容为两个字符串中间的部分。</p>
+<p>format可以将多个列合并到一列，用法与python标准的format一致，例如将p列改造为url:</p>
+<p><code>p.set(1).format('www.abc.com/p{}')</code>  #输出 www.abc.com/p1</p>
+<p>也可以合并多个列:</p>
+<p><code>p.set(1).q.set(2).format('{[p]}:{[q]}')</code>  #输出 1-2</p>
+<h2 id="_8">流处理</h2>
+<p>take,skip能对流做裁剪，例如:</p>
+<p><code>p.create(range(1,10)).skip(3).take(2)</code></p>
+<p>输出: {'p':3}, {'p':4}</p>
+<p>last能获取流的最后一个元素</p>
+<p><code>p.create(range(1,10)).last()</code></p>
+<p>输出: {'p':9}</p>
+<h2 id="_9">调试和输出</h2>
+<p>具体用法可参考调试和输出章节，以下标签都可以在流代码的任何位置插入：</p>
+<p>tag标签，其功能仅仅用于显示代码功能：</p>
+<p><code>p.tag('这里输出注释').list()...</code></p>
+<p>count标签，用于每输出p个元素，就会输出一次位置</p>
+<p><code>p.range(100).count(20)</code></p>
+<p>输出： 20,40,60....</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../2.3爬虫转换器/" class="btn btn-neutral float-right" title="2.3爬虫转换器">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../2.1生成器/" class="btn btn-neutral" title="2.1生成器"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../2.1生成器/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../2.3爬虫转换器/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>
